@@ -1158,16 +1158,19 @@ export default function Inventario() {
                       <TableCell>
                         <Chip
                           label={
-                            p.tipoProducto === 'PRODUCTO_TERMINADO'
-                              ? 'Prod. Terminado'
-                              : p.tipoProducto === 'INSUMO'
-                              ? 'Insumo'
-                              : 'Mat. Prima'
+                            (() => {
+                              const found = tiposProducto.find((t: any) => t.nombre === p.tipoProducto);
+                              if (found) return found.descripcion;
+                              if (p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT') return 'Prod. Terminado';
+                              if (p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS') return 'Insumo';
+                              if (p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'MP') return 'Mat. Prima';
+                              return p.tipoProducto;
+                            })()
                           }
                           color={
-                            p.tipoProducto === 'PRODUCTO_TERMINADO'
+                            p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT'
                               ? 'primary'
-                              : p.tipoProducto === 'INSUMO'
+                              : p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS'
                               ? 'secondary'
                               : 'warning'
                           }
@@ -1987,11 +1990,9 @@ export default function Inventario() {
               label="Categoría"
               onChange={(e) => {
                 const catName = e.target.value;
-                const matchedCat = categorias.find((c: any) => c.nombre === catName);
                 setEditarProductoForm({
                   ...editarProductoForm,
                   categoria: catName,
-                  tipoProducto: matchedCat ? matchedCat.tipoProducto : 'PRODUCTO_TERMINADO'
                 });
               }}
             >
@@ -2012,6 +2013,7 @@ export default function Inventario() {
             <Select
               value={editarProductoForm.tipoProducto}
               label="Tipo de Producto"
+              disabled
               onChange={(e) => setEditarProductoForm({ ...editarProductoForm, tipoProducto: e.target.value })}
             >
               {tiposProducto.length === 0 ? (

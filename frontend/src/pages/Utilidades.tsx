@@ -114,6 +114,7 @@ export default function Utilidades() {
     try {
       if (activeTab === 0) {
         await cargarCategorias();
+        await cargarTiposProducto();
       } else if (activeTab === 1) {
         await cargarUnidadesMedida();
       } else if (activeTab === 2) {
@@ -582,7 +583,8 @@ export default function Utilidades() {
               color="primary"
               startIcon={<Add />}
               onClick={() => {
-                setCategoriaForm({ nombre: '', tipoProducto: 'PRODUCTO_TERMINADO' });
+                const defaultType = tiposProducto.find((t: any) => t.nombre === 'PT' || t.nombre === 'PRODUCTO_TERMINADO')?.nombre || (tiposProducto[0]?.nombre || 'PT');
+                setCategoriaForm({ nombre: '', tipoProducto: defaultType });
                 setOpenCrearCategoria(true);
               }}
             >
@@ -616,15 +618,28 @@ export default function Utilidades() {
                         <Chip label={cat.nombre} color="primary" variant="outlined" size="small" />
                       </TableCell>
                       <TableCell>
-                        {cat.tipoProducto === 'PRODUCTO_TERMINADO' && (
-                          <Chip label="Prod. Terminado" color="primary" variant="outlined" size="small" />
-                        )}
-                        {cat.tipoProducto === 'INSUMO' && (
-                          <Chip label="Insumo" color="secondary" variant="outlined" size="small" />
-                        )}
-                        {cat.tipoProducto === 'MATERIA_PRIMA' && (
-                          <Chip label="Materia Prima" color="warning" variant="outlined" size="small" />
-                        )}
+                        {(() => {
+                          const found = tiposProducto.find((t: any) => t.nombre === cat.tipoProducto);
+                          if (found) {
+                            const color =
+                              cat.tipoProducto === 'PRODUCTO_TERMINADO' || cat.tipoProducto === 'PT'
+                                ? 'primary'
+                                : cat.tipoProducto === 'INSUMO' || cat.tipoProducto === 'INS'
+                                ? 'secondary'
+                                : 'warning';
+                            return <Chip label={found.descripcion} color={color} variant="outlined" size="small" />;
+                          }
+                          if (cat.tipoProducto === 'PRODUCTO_TERMINADO' || cat.tipoProducto === 'PT') {
+                            return <Chip label="Prod. Terminado" color="primary" variant="outlined" size="small" />;
+                          }
+                          if (cat.tipoProducto === 'INSUMO' || cat.tipoProducto === 'INS') {
+                            return <Chip label="Insumo" color="secondary" variant="outlined" size="small" />;
+                          }
+                          if (cat.tipoProducto === 'MATERIA_PRIMA' || cat.tipoProducto === 'MP') {
+                            return <Chip label="Materia Prima" color="warning" variant="outlined" size="small" />;
+                          }
+                          return cat.tipoProducto;
+                        })()}
                       </TableCell>
                       <TableCell>{new Date(cat.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
                       <TableCell align="right">
@@ -636,7 +651,7 @@ export default function Utilidades() {
                             startIcon={<Edit />}
                             onClick={() => {
                               setSelectedCategoria(cat);
-                              setCategoriaForm({ nombre: cat.nombre, tipoProducto: cat.tipoProducto || 'PRODUCTO_TERMINADO' });
+                              setCategoriaForm({ nombre: cat.nombre, tipoProducto: cat.tipoProducto || 'PT' });
                               setOpenEditarCategoria(true);
                             }}
                           >
@@ -1560,9 +1575,19 @@ export default function Utilidades() {
               label="Tipo de Producto"
               onChange={(e) => setCategoriaForm({ ...categoriaForm, tipoProducto: e.target.value })}
             >
-              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
-              <MenuItem value="INSUMO">Insumo</MenuItem>
-              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+              {tiposProducto.length === 0 ? (
+                [
+                  { nombre: 'PT', descripcion: 'Producto Terminado' },
+                  { nombre: 'INS', descripcion: 'Insumo' },
+                  { nombre: 'MP', descripcion: 'Materia Prima' },
+                ].map((t) => (
+                  <MenuItem key={t.nombre} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              ) : (
+                tiposProducto.map((t) => (
+                  <MenuItem key={t.id} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
         </DialogContent>
@@ -1590,9 +1615,19 @@ export default function Utilidades() {
               label="Tipo de Producto"
               onChange={(e) => setCategoriaForm({ ...categoriaForm, tipoProducto: e.target.value })}
             >
-              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
-              <MenuItem value="INSUMO">Insumo</MenuItem>
-              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+              {tiposProducto.length === 0 ? (
+                [
+                  { nombre: 'PT', descripcion: 'Producto Terminado' },
+                  { nombre: 'INS', descripcion: 'Insumo' },
+                  { nombre: 'MP', descripcion: 'Materia Prima' },
+                ].map((t) => (
+                  <MenuItem key={t.nombre} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              ) : (
+                tiposProducto.map((t) => (
+                  <MenuItem key={t.id} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
         </DialogContent>

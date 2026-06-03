@@ -96,7 +96,7 @@ export default function POS() {
       const activeProducts = prodData.filter(
         (p: any) =>
           p.estado === 'ACTIVO' &&
-          p.tipoProducto === 'PRODUCTO_TERMINADO'
+          (p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT')
       );
       setProductos(activeProducts);
 

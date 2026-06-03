@@ -112,7 +112,6 @@ export class ProductosController {
       data: {
         descripcion,
         categoria,
-        tipoProducto,
         marca,
         unidadMedida,
         costo: costo != null ? parseFloat(costo) : undefined,
