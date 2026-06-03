@@ -17,4 +17,6 @@ RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 RUN npx prisma generate
 EXPOSE 3000
-CMD ["npm", "run", "start:prod"]
+
+# Run prisma db push before starting the server to ensure tables exist
+CMD ["sh", "-c", "npx prisma db push && npm run start:prod"]
