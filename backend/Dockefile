@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --no-audit --no-fund --loglevel=info
+RUN npm ci --no-audit --no-fund
 COPY . .
 RUN sed -i 's/provider = "sqlite"/provider = "postgresql"/g' prisma/schema.prisma
 RUN npx prisma generate
@@ -15,7 +15,7 @@ FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
 COPY --from=builder /app/prisma ./prisma
-RUN npm ci --omit=dev --no-audit --no-fund --loglevel=info
+RUN npm ci --omit=dev --no-audit --no-fund
 COPY --from=builder /app/dist ./dist
 RUN npx prisma generate
 EXPOSE 3000
