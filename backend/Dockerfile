@@ -5,6 +5,7 @@ COPY package*.json ./
 COPY prisma ./prisma/
 RUN npm ci
 COPY . .
+RUN sed -i 's/provider = "sqlite"/provider = "postgresql"/g' prisma/schema.prisma
 RUN npx prisma generate
 RUN npx tsc prisma/seed.ts --module commonjs --target es2020 --esModuleInterop --skipLibCheck
 RUN npm run build
@@ -13,10 +14,9 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-COPY prisma ./prisma/
+COPY --from=builder /app/prisma ./prisma
 RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma/seed.js ./prisma/seed.js
 RUN npx prisma generate
 EXPOSE 3000
 
