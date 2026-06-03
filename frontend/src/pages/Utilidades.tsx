@@ -1111,7 +1111,7 @@ export default function Utilidades() {
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <Box sx={{ mb: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
-              Guía y Manual de Operaciones - Lácteos MRP
+              Guía y Manual de Operaciones - Lácteos ERP
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Esta sección detalla el funcionamiento de cada módulo del sistema, incluyendo trazabilidad de lotes, cadena de frío, ciclos de compra y finanzas operativas.
@@ -1173,7 +1173,7 @@ export default function Utilidades() {
                 📁 Categorías
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Definición y clasificación de familias de productos del catálogo de Lácteos MRP (Leche, Yogurt, Quesos, Mantequilla, Helados, etc.).
+                Definición y clasificación de familias de productos del catálogo de Lácteos ERP (Leche, Yogurt, Quesos, Mantequilla, Helados, etc.).
               </Typography>
             </Paper>
 
@@ -1527,7 +1527,7 @@ export default function Utilidades() {
                   💡 ¿Cómo funciona el Asistente?
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }} color="text.secondary">
-                  El Asistente de IA de <strong>Lácteos MRP</strong> utiliza tecnología de <strong>OpenAI</strong> y técnicas de <i>Tool Calling</i> para conectarse dinámicamente con nuestra base de datos.
+                  El Asistente de IA de <strong>Lácteos ERP</strong> utiliza tecnología de <strong>OpenAI</strong> y técnicas de <i>Tool Calling</i> para conectarse dinámicamente con nuestra base de datos.
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }} color="text.secondary">
                   Cuando le preguntas algo como <i>"¿Cuáles son los productos con stock crítico hoy?"</i>, el modelo decide llamar a la base de datos de manera controlada y resume el resultado en tablas de alta legibilidad.

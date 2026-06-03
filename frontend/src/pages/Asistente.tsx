@@ -29,7 +29,7 @@ export default function Asistente() {
   const [historial, setHistorial] = useState<Mensaje[]>([
     {
       role: 'assistant',
-      content: `¡Hola **${usuario?.nombre || 'Usuario'}**! Soy **MRP AI**, tu asistente inteligente para la gestión de "Lácteos MRP". 
+      content: `¡Hola **${usuario?.nombre || 'Usuario'}**! Soy **ERP AI**, tu asistente inteligente para la gestión de "Lácteos ERP". 
       
 Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verificar alertas de cadena de frío en tiempo real. 
 
@@ -313,7 +313,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           Asistente Operativo IA
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Resuelve dudas sobre stock, ventas, alertas de temperatura o mermas conversando con el asistente de Lácteos MRP.
+          Resuelve dudas sobre stock, ventas, alertas de temperatura o mermas conversando con el asistente de Lácteos ERP.
         </Typography>
       </Box>
 

@@ -1,6 +1,6 @@
-# Diseño de Arquitectura y Flujos - Lácteos MRP
+# Diseño de Arquitectura y Flujos - Lácteos ERP
 
-Este documento detalla la arquitectura, el modelo de datos y los flujos operativos clave del ERP **Lácteos MRP**, un sistema diseñado específicamente para la producción, trazabilidad y control de calidad en la industria alimentaria láctea.
+Este documento detalla la arquitectura, el modelo de datos y los flujos operativos clave del ERP **Lácteos ERP**, un sistema diseñado específicamente para la producción, trazabilidad y control de calidad en la industria alimentaria láctea.
 
 ---
 

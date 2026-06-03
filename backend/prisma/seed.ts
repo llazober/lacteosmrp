@@ -4,7 +4,7 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Iniciando proceso de semilla (seed) para Lácteos MRP...');
+  console.log('Iniciando proceso de semilla (seed) para Lácteos ERP...');
 
   // Limpiar base de datos en orden inverso de dependencias
   await prisma.noConformidad.deleteMany({});
@@ -47,7 +47,7 @@ async function main() {
       nombre: 'Planta de Producción Principal',
       direccion: 'Av. Industrial 1240, Santiago',
       telefono: '+56 2 2345 6789',
-      correo: 'planta@lacteosmrp.cl',
+      correo: 'planta@lacteoserp.cl',
       estado: 'ACTIVO',
     },
   });
@@ -58,7 +58,7 @@ async function main() {
       nombre: 'Distribuidora Express - Providencia',
       direccion: 'Av. Providencia 1920, Santiago',
       telefono: '+56 2 2345 6790',
-      correo: 'express@lacteosmrp.cl',
+      correo: 'express@lacteoserp.cl',
       estado: 'ACTIVO',
     },
   });
@@ -72,7 +72,7 @@ async function main() {
   // 2. Crear Usuarios
   const uAdmin = await prisma.usuario.create({
     data: {
-      email: 'admin@lacteosmrp.cl',
+      email: 'admin@lacteoserp.cl',
       password: passwordHash,
       nombre: 'Carlos Mendoza (Admin)',
       rol: 'ADMINISTRADOR',
@@ -82,7 +82,7 @@ async function main() {
 
   const uSuper = await prisma.usuario.create({
     data: {
-      email: 'supervisor@lacteosmrp.cl',
+      email: 'supervisor@lacteoserp.cl',
       password: passwordHash,
       nombre: 'María José Rojas',
       rol: 'SUPERVISOR',
@@ -92,7 +92,7 @@ async function main() {
 
   const uGerente = await prisma.usuario.create({
     data: {
-      email: 'gerente@lacteosmrp.cl',
+      email: 'gerente@lacteoserp.cl',
       password: passwordHash,
       nombre: 'Roberto Gómez',
       rol: 'GERENTE_TIENDA',
@@ -102,7 +102,7 @@ async function main() {
 
   const uCajero = await prisma.usuario.create({
     data: {
-      email: 'cajero@lacteosmrp.cl',
+      email: 'cajero@lacteoserp.cl',
       password: passwordHash,
       nombre: 'Ana Laura Silva',
       rol: 'CAJERO',
@@ -112,7 +112,7 @@ async function main() {
 
   const uAlmacen = await prisma.usuario.create({
     data: {
-      email: 'almacen@lacteosmrp.cl',
+      email: 'almacen@lacteoserp.cl',
       password: passwordHash,
       nombre: 'Juan Perez',
       rol: 'ALMACEN',
@@ -122,7 +122,7 @@ async function main() {
 
   const uCalidad = await prisma.usuario.create({
     data: {
-      email: 'calidad@lacteosmrp.cl',
+      email: 'calidad@lacteoserp.cl',
       password: passwordHash,
       nombre: 'Dra. Elena Vázquez',
       rol: 'CALIDAD',
@@ -144,10 +144,10 @@ async function main() {
   const provInterno = await prisma.proveedor.create({
     data: {
       codigo: 'INTERNO',
-      nombre: 'Producción Interna Lácteos MRP',
+      nombre: 'Producción Interna Lácteos ERP',
       contacto: 'Departamento de Producción',
       telefono: '+56 2 2345 6700',
-      correo: 'produccion@lacteosmrp.cl',
+      correo: 'produccion@lacteoserp.cl',
       certificaciones: JSON.stringify(['HACCP Planta', 'ISO 22000']),
       estado: 'ACTIVO',
       terminoPagoId: tp1.id,
@@ -307,7 +307,7 @@ async function main() {
       descripcion: 'Leche Entera UHT 1L',
       categoria: 'LECHE',
       tipoProducto: 'PRODUCTO_TERMINADO',
-      marca: 'Lácteos MRP',
+      marca: 'Lácteos ERP',
       unidadMedida: 'LITRO',
       costo: 650.0,
       precioVenta: 990.0,
@@ -325,7 +325,7 @@ async function main() {
       descripcion: 'Yogurt Batido de Fresa 1L',
       categoria: 'YOGURT',
       tipoProducto: 'PRODUCTO_TERMINADO',
-      marca: 'Lácteos MRP',
+      marca: 'Lácteos ERP',
       unidadMedida: 'UNIDAD',
       costo: 1100.0,
       precioVenta: 1890.0,
@@ -340,10 +340,10 @@ async function main() {
     data: {
       sku: 'PROD-QUE-FRESCO-500G',
       codigoBarras: '7801234000036',
-      descripcion: 'Queso Fresco MRP 500g',
+      descripcion: 'Queso Fresco ERP 500g',
       categoria: 'QUESOS',
       tipoProducto: 'PRODUCTO_TERMINADO',
-      marca: 'Lácteos MRP',
+      marca: 'Lácteos ERP',
       unidadMedida: 'UNIDAD',
       costo: 2100.0,
       precioVenta: 3490.0,
@@ -361,7 +361,7 @@ async function main() {
       descripcion: 'Mantequilla con Sal Artesanal 250g',
       categoria: 'MANTEQUILLA',
       tipoProducto: 'PRODUCTO_TERMINADO',
-      marca: 'Lácteos MRP',
+      marca: 'Lácteos ERP',
       unidadMedida: 'UNIDAD',
       costo: 1300.0,
       precioVenta: 2190.0,
@@ -548,7 +548,7 @@ async function main() {
     ]
   });
 
-  // Receta 2: Queso Fresco MRP 500g
+  // Receta 2: Queso Fresco ERP 500g
   const recQueso = await prisma.receta.create({
     data: {
       nombre: 'Queso Fresco 500g',
@@ -770,7 +770,7 @@ async function main() {
     ],
   });
 
-  console.log('--- PROCESO DE SEMILLA LÁCTEOS MRP FINALIZADO CON ÉXITO ---');
+  console.log('--- PROCESO DE SEMILLA LÁCTEOS ERP FINALIZADO CON ÉXITO ---');
 }
 
 main()

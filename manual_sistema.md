@@ -1,6 +1,6 @@
-# Manual del Sistema - Lácteos MRP
+# Manual del Sistema - Lácteos ERP
 
-Este manual documenta el funcionamiento general y operativo del sistema de gestión comercial e inventarios **Lácteos MRP**. El sistema integra la venta en caja (POS), control de stock físico, trazabilidad térmica (IoT), el ciclo completo de compras y pagos a proveedores (Procure-to-Pay), y los nuevos módulos de Producción y Control de Calidad alimentaria.
+Este manual documenta el funcionamiento general y operativo del sistema de gestión comercial e inventarios **Lácteos ERP**. El sistema integra la venta en caja (POS), control de stock físico, trazabilidad térmica (IoT), el ciclo completo de compras y pagos a proveedores (Procure-to-Pay), y los nuevos módulos de Producción y Control de Calidad alimentaria.
 
 ---
 
@@ -12,7 +12,7 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 5. [Gestión de Compras (Órdenes de Compra)](#5-gestión-de-compras-órdenes-de-compra)
 6. [Ciclo de Cuentas por Pagar (Procure-to-Pay)](#6-ciclo-de-cuentas-por-pagar-procure-to-pay)
 7. [Historial y Reporte de Ventas](#7-historial-y-reporte-de-ventas)
-8. [Asistente Inteligente MRP AI](#8-asistente-inteligente-mrp-ai)
+8. [Asistente Inteligente ERP AI](#8-asistente-inteligente-erp-ai)
 9. [Módulo de Producción Láctea](#9-módulo-de-producción-láctea)
 10. [Módulo de Control de Calidad y Cumplimiento](#10-módulo-de-control-de-calidad-y-cumplimiento)
 
@@ -106,9 +106,9 @@ El sistema permite visualizar, auditar y filtrar todo el registro histórico de 
 
 ---
 
-## 8. Asistente Inteligente MRP AI
+## 8. Asistente Inteligente ERP AI
 
-El sistema incluye a **MRP AI**, un agente conversacional inteligente disponible para administradores y supervisores:
+El sistema incluye a **ERP AI**, un agente conversacional inteligente disponible para administradores y supervisores:
 
 *   **Consultas Naturales**: Puede preguntarle directamente sobre inventario, ventas, mermas u órdenes de compra (ej. *"¿Qué productos están con stock crítico hoy?"*).
 *   **Análisis Predictivo de Stock**: Le permite consultar inventarios mínimos recomendados según las ventas históricas de las últimas semanas.

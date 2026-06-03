@@ -24,9 +24,9 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => {
   // Inicializar desde localStorage
-  const savedToken = localStorage.getItem('lacteosmrp_token');
-  const savedUsuario = localStorage.getItem('lacteosmrp_usuario');
-  const savedTimezone = localStorage.getItem('lacteosmrp_timezone') || 'America/El_Salvador';
+  const savedToken = localStorage.getItem('lacteoserp_token');
+  const savedUsuario = localStorage.getItem('lacteoserp_usuario');
+  const savedTimezone = localStorage.getItem('lacteoserp_timezone') || 'America/El_Salvador';
 
   return {
     token: savedToken,
@@ -34,14 +34,14 @@ export const useAuthStore = create<AuthState>((set) => {
     unreadChannels: {},
     systemTimezone: savedTimezone,
     login: (token, usuario) => {
-      localStorage.setItem('lacteosmrp_token', token);
-      localStorage.setItem('lacteosmrp_usuario', JSON.stringify(usuario));
+      localStorage.setItem('lacteoserp_token', token);
+      localStorage.setItem('lacteoserp_usuario', JSON.stringify(usuario));
       set({ token, usuario });
     },
     logout: () => {
-      localStorage.removeItem('lacteosmrp_token');
-      localStorage.removeItem('lacteosmrp_usuario');
-      localStorage.removeItem('lacteosmrp_timezone');
+      localStorage.removeItem('lacteoserp_token');
+      localStorage.removeItem('lacteoserp_usuario');
+      localStorage.removeItem('lacteoserp_timezone');
       set({ token: null, usuario: null, unreadChannels: {}, systemTimezone: 'America/El_Salvador' });
     },
     addUnreadChannel: (channelId) => {
@@ -64,7 +64,7 @@ export const useAuthStore = create<AuthState>((set) => {
       set({ unreadChannels: {} });
     },
     setSystemTimezone: (timezone) => {
-      localStorage.setItem('lacteosmrp_timezone', timezone);
+      localStorage.setItem('lacteoserp_timezone', timezone);
       set({ systemTimezone: timezone });
     },
   };

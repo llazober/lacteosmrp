@@ -211,7 +211,7 @@ function MainLayout() {
           <Storefront sx={{ fontSize: 28 }} />
         </Box>
         <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Lácteos MRP
+          Lácteos ERP
         </Typography>
       </Box>
 
@@ -374,7 +374,7 @@ function MainLayout() {
           <MenuIcon />
         </IconButton>
         <Typography variant="h6" sx={{ fontWeight: 800, flexGrow: 1, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Lácteos MRP
+          Lácteos ERP
         </Typography>
         {usuario && (
           <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32, fontSize: '0.85rem', fontWeight: 700 }}>
