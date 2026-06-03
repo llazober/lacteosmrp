@@ -931,7 +931,7 @@ export default function Utilidades() {
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <Box sx={{ mb: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
-              Guía y Manual de Operaciones - La Vaquita
+              Guía y Manual de Operaciones - Lácteos MRP
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Esta sección detalla el funcionamiento de cada módulo del sistema, incluyendo trazabilidad de lotes, cadena de frío, ciclos de compra y finanzas operativas.
@@ -993,7 +993,7 @@ export default function Utilidades() {
                 📁 Categorías
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Definición y clasificación de familias de productos del catálogo de La Vaquita (Leche, Yogurt, Quesos, Mantequilla, Helados, etc.).
+                Definición y clasificación de familias de productos del catálogo de Lácteos MRP (Leche, Yogurt, Quesos, Mantequilla, Helados, etc.).
               </Typography>
             </Paper>
 
@@ -1012,6 +1012,24 @@ export default function Utilidades() {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Reportes y auditoría del Punto de Venta (POS). Permite conciliar transacciones mediante filtros de fecha y desglose de tickets por productos y lotes específicos.
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2.5, height: '100%', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'secondary.main', mb: 1 }}>
+                🏗️ Producción Láctea
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Permite la creación de recetas, cálculo de costos de insumos, y la planificación e inicio de órdenes de producción hasta el registro final de mermas y rendimientos.
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2.5, height: '100%', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'secondary.main', mb: 1 }}>
+                🔬 Control de Calidad
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Audita insumos y lotes finales con parámetros físico-químicos (antibióticos, pH, grasa, etc.), captura de firma de aprobación/rechazo y control de no conformidades.
               </Typography>
             </Paper>
           </Box>
@@ -1112,7 +1130,7 @@ export default function Utilidades() {
             5. Control e Historial de Ventas
           </Typography>
 
-          <Paper sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.1)' }}>
+          <Paper sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.1)', mb: 4 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'success.light' }}>
               📈 Monitoreo Operativo y Auditoría de Caja
             </Typography>
@@ -1128,6 +1146,54 @@ export default function Utilidades() {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 • <strong>Trazabilidad de Ticket:</strong> Abra el detalle de la venta para revisar productos, costos de IVA, cajero que facturó y el número de lote despachado.
+              </Typography>
+            </Box>
+          </Paper>
+
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, mt: 4 }}>
+            6. Módulo de Producción Láctea
+          </Typography>
+
+          <Paper sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.1)', mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'primary.light' }}>
+              🏗️ Ciclo de Manufactura y Recetas
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }}>
+              Permite formular productos terminados y programar su elaboración en base a ingredientes en stock.
+            </Typography>
+            <Box sx={{ pl: 2, borderLeft: '3px solid #0284c7' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                • <strong>Recetario Maestro:</strong> Creación de fórmulas estándar de productos terminados indicando materias primas, mermas de insumos y costos estimados en USD ($).
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                • <strong>Órdenes de Producción:</strong> Planificación de lotes, consumo real de materias primas al iniciar preparación y registro final del rendimiento del lote obtenido.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                • <strong>Control de Mermas de Proceso:</strong> Declaración exacta de desechos surgidos durante la producción (evaporación de suero, etc.).
+              </Typography>
+            </Box>
+          </Paper>
+
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
+            7. Control de Calidad y Cumplimiento
+          </Typography>
+
+          <Paper sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.1)' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: 'success.light' }}>
+              🔬 Aseguramiento Sanitario y Liberación
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }}>
+              Garantiza que la mercadería producida o recibida cumpla con los estándares obligatorios de calidad.
+            </Typography>
+            <Box sx={{ pl: 2, borderLeft: '3px solid #10b981' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                • <strong>Recepción de Leche:</strong> Control de acidez (pH), temperatura, porcentaje de grasa/proteína y presencia crítica de antibióticos con captura de firma digital del inspector.
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                • <strong>Auditorías en Proceso:</strong> Inspección y liberación formal de lotes terminados en inventario antes de estar disponibles para el POS.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                • <strong>No Conformidades (NC):</strong> Registro de desviaciones críticas con evidencia fotográfica digital y definición de acciones correctivas previas al cierre.
               </Typography>
             </Box>
           </Paper>
@@ -1281,7 +1347,7 @@ export default function Utilidades() {
                   💡 ¿Cómo funciona el Asistente?
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }} color="text.secondary">
-                  El Asistente de IA de <strong>La Vaquita</strong> utiliza tecnología de <strong>OpenAI</strong> y técnicas de <i>Tool Calling</i> para conectarse dinámicamente con nuestra base de datos.
+                  El Asistente de IA de <strong>Lácteos MRP</strong> utiliza tecnología de <strong>OpenAI</strong> y técnicas de <i>Tool Calling</i> para conectarse dinámicamente con nuestra base de datos.
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }} color="text.secondary">
                   Cuando le preguntas algo como <i>"¿Cuáles son los productos con stock crítico hoy?"</i>, el modelo decide llamar a la base de datos de manera controlada y resume el resultado en tablas de alta legibilidad.
