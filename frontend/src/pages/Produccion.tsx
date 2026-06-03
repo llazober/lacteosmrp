@@ -761,7 +761,7 @@ export default function Produccion() {
                     onChange={(e) => setRecetaForm({ ...recetaForm, productoFinalId: e.target.value })}
                   >
                     {productos
-                      .filter((p) => p.categoria !== 'MATERIA_PRIMA' && p.categoria !== 'INSUMOS')
+                      .filter((p) => p.tipoProducto === 'PRODUCTO_TERMINADO')
                       .map((p) => (
                         <MenuItem key={p.id} value={p.id}>
                           {p.descripcion} ({p.sku})
@@ -821,7 +821,7 @@ export default function Produccion() {
                       onChange={(e) => handleIngredienteChange(index, 'productoId', e.target.value)}
                     >
                       {productos
-                        .filter((p) => p.categoria === 'MATERIA_PRIMA' || p.categoria === 'INSUMOS')
+                        .filter((p) => p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'INSUMO')
                         .map((p) => (
                           <MenuItem key={p.id} value={p.id}>
                             {p.descripcion} ({p.sku})

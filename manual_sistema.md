@@ -49,6 +49,10 @@ El Punto de Venta permite realizar ventas presenciales de forma ágil y registra
 Permite controlar las existencias de productos lácteos y perecederos respetando la metodología FEFO (*First Expired, First Out*):
 
 *   **Gestión de Productos**: Registro de SKU, código de barra, descripción, categoría, unidad de medida, costo base y precio de venta.
+*   **Clasificación de Tipo de Producto**: Todos los productos están clasificados en una de tres categorías estructurales para separar los activos de producción de los listos para la venta:
+    *   **Producto Terminado**: Productos listos para consumo final (ej. Queso Fresco, Leche UHT). Son los únicos artículos visibles y disponibles para la venta en el módulo de Punto de Venta (POS).
+    *   **Insumo**: Materiales y aditivos auxiliares para el proceso productivo (ej. azúcar, cultivos lácticos, preparado de fruta, envases).
+    *   **Materia Prima**: Ingredientes base críticos para la elaboración (ej. leche cruda).
 *   **Control de Lotes**:
     *   Cada ingreso de mercancía crea un lote con su respectiva **fecha de producción** y **fecha de vencimiento**.
     *   El POS descuenta automáticamente del lote más próximo a vencer para reducir pérdidas.

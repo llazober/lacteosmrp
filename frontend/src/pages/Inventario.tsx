@@ -125,6 +125,7 @@ export default function Inventario() {
     codigoBarras: '',
     descripcion: '',
     categoria: 'LECHE',
+    tipoProducto: 'PRODUCTO_TERMINADO',
     marca: '',
     unidadMedida: 'UNIDAD',
     costo: '0',
@@ -140,6 +141,7 @@ export default function Inventario() {
   const [editarProductoForm, setEditarProductoForm] = useState({
     descripcion: '',
     categoria: 'LECHE',
+    tipoProducto: 'PRODUCTO_TERMINADO',
     marca: '',
     unidadMedida: 'UNIDAD',
     costo: '0',
@@ -713,6 +715,7 @@ export default function Inventario() {
                   codigoBarras: '',
                   descripcion: '',
                   categoria: 'LECHE',
+                  tipoProducto: 'PRODUCTO_TERMINADO',
                   marca: '',
                   unidadMedida: 'UNIDAD',
                   costo: '0',
@@ -1116,6 +1119,7 @@ export default function Inventario() {
                   <TableCell>Código de Barras</TableCell>
                   <TableCell>Descripción</TableCell>
                   <TableCell>Categoría</TableCell>
+                  <TableCell>Tipo</TableCell>
                   <TableCell>Marca</TableCell>
                   <TableCell>Medida</TableCell>
                   <TableCell>Costo</TableCell>
@@ -1138,6 +1142,25 @@ export default function Inventario() {
                       <TableCell>{p.codigoBarras}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{p.descripcion}</TableCell>
                       <TableCell>{p.categoria}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={
+                            p.tipoProducto === 'PRODUCTO_TERMINADO'
+                              ? 'Prod. Terminado'
+                              : p.tipoProducto === 'INSUMO'
+                              ? 'Insumo'
+                              : 'Mat. Prima'
+                          }
+                          color={
+                            p.tipoProducto === 'PRODUCTO_TERMINADO'
+                              ? 'primary'
+                              : p.tipoProducto === 'INSUMO'
+                              ? 'secondary'
+                              : 'warning'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
                       <TableCell>{p.marca}</TableCell>
                       <TableCell>{p.unidadMedida}</TableCell>
                       <TableCell>{formatCurrency(p.costo)}</TableCell>
@@ -1160,6 +1183,7 @@ export default function Inventario() {
                               onClick={() => {
                                 setSelectedProducto(p);
                                 setEditarProductoForm({
+                                  tipoProducto: p.tipoProducto || 'PRODUCTO_TERMINADO',
                                   descripcion: p.descripcion,
                                   categoria: p.categoria,
                                   marca: p.marca,
@@ -1805,6 +1829,19 @@ export default function Inventario() {
             </Select>
           </FormControl>
 
+          <FormControl fullWidth size="small">
+            <InputLabel>Tipo de Producto</InputLabel>
+            <Select
+              value={productoForm.tipoProducto}
+              label="Tipo de Producto"
+              onChange={(e) => setProductoForm({ ...productoForm, tipoProducto: e.target.value })}
+            >
+              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
+              <MenuItem value="INSUMO">Insumo</MenuItem>
+              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+            </Select>
+          </FormControl>
+
           <TextField
             fullWidth
             label="Marca"
@@ -1928,6 +1965,19 @@ export default function Inventario() {
                   <MenuItem key={cat.id} value={cat.nombre}>{cat.nombre}</MenuItem>
                 ))
               )}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Tipo de Producto</InputLabel>
+            <Select
+              value={editarProductoForm.tipoProducto}
+              label="Tipo de Producto"
+              onChange={(e) => setEditarProductoForm({ ...editarProductoForm, tipoProducto: e.target.value })}
+            >
+              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
+              <MenuItem value="INSUMO">Insumo</MenuItem>
+              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
             </Select>
           </FormControl>
 

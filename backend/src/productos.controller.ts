@@ -32,6 +32,7 @@ export class ProductosController {
       codigoBarras,
       descripcion,
       categoria,
+      tipoProducto,
       marca,
       unidadMedida,
       costo,
@@ -62,6 +63,7 @@ export class ProductosController {
         codigoBarras,
         descripcion,
         categoria,
+        tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
         marca: marca || '',
         unidadMedida: unidadMedida || 'UNIDAD',
         costo: parseFloat(costo),
@@ -93,6 +95,7 @@ export class ProductosController {
     const {
       descripcion,
       categoria,
+      tipoProducto,
       marca,
       unidadMedida,
       costo,
@@ -109,6 +112,7 @@ export class ProductosController {
       data: {
         descripcion,
         categoria,
+        tipoProducto,
         marca,
         unidadMedida,
         costo: costo != null ? parseFloat(costo) : undefined,

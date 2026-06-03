@@ -93,25 +93,20 @@ export default function POS() {
   const cargarCatalogos = async () => {
     try {
       const prodData = await apiFetch('/productos');
-      setProductos(
-        prodData.filter(
-          (p: any) =>
-            p.estado === 'ACTIVO' &&
-            p.categoria?.toUpperCase() !== 'MATERIA_PRIMA' &&
-            p.categoria?.toUpperCase() !== 'INSUMOS'
-        )
+      const activeProducts = prodData.filter(
+        (p: any) =>
+          p.estado === 'ACTIVO' &&
+          p.tipoProducto === 'PRODUCTO_TERMINADO'
       );
+      setProductos(activeProducts);
 
       const loteData = await apiFetch('/lotes');
       setLotes(loteData.filter((l: any) => l.estado === 'APROBADO' && l.cantidadActual > 0));
 
       const catData = await apiFetch('/categorias');
+      const activeCatNames = new Set(activeProducts.map((p: any) => p.categoria?.toUpperCase()));
       setCategoriasList(
-        catData.filter(
-          (c: any) =>
-            c.nombre?.toUpperCase() !== 'MATERIA_PRIMA' &&
-            c.nombre?.toUpperCase() !== 'INSUMOS'
-        )
+        catData.filter((c: any) => activeCatNames.has(c.nombre?.toUpperCase()))
       );
     } catch (e) {
       console.error(e);
