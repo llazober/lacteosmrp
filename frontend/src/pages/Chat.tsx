@@ -79,7 +79,7 @@ export default function Chat() {
     // Dynamic WebSocket URL resolution (replace /api with empty string)
     const socketUrl = import.meta.env.VITE_API_URL
       ? import.meta.env.VITE_API_URL.replace('/api', '')
-      : 'http://localhost:3000';
+      : `${window.location.protocol}//${window.location.hostname}:3000`;
 
     const socket = io(socketUrl);
     socketRef.current = socket;

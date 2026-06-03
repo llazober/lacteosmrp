@@ -70,7 +70,7 @@ export const useAuthStore = create<AuthState>((set) => {
   };
 });
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000/api`;
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const token = useAuthStore.getState().token;
