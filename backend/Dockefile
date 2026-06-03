@@ -6,6 +6,7 @@ COPY prisma ./prisma/
 RUN npm ci
 COPY . .
 RUN npx prisma generate
+RUN npx tsc prisma/seed.ts --module commonjs --target es2020 --esModuleInterop --skipLibCheck
 RUN npm run build
 
 # --- STAGE 2: Run ---
@@ -15,6 +16,7 @@ COPY package*.json ./
 COPY prisma ./prisma/
 RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma/seed.js ./prisma/seed.js
 RUN npx prisma generate
 EXPOSE 3000
 
