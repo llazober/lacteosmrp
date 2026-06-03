@@ -1,6 +1,6 @@
-# Manual del Sistema - La Vaquita
+# Manual del Sistema - Lácteos MRP
 
-Este manual documenta el funcionamiento general y operativo del sistema de gestión comercial e inventarios **La Vaquita**. El sistema integra la venta en caja (POS), control de stock físico, trazabilidad térmica (IoT), y el ciclo completo de compras y pagos a proveedores (Procure-to-Pay).
+Este manual documenta el funcionamiento general y operativo del sistema de gestión comercial e inventarios **Lácteos MRP**. El sistema integra la venta en caja (POS), control de stock físico, trazabilidad térmica (IoT), el ciclo completo de compras y pagos a proveedores (Procure-to-Pay), y los nuevos módulos de Producción y Control de Calidad alimentaria.
 
 ---
 
@@ -12,7 +12,9 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 5. [Gestión de Compras (Órdenes de Compra)](#5-gestión-de-compras-órdenes-de-compra)
 6. [Ciclo de Cuentas por Pagar (Procure-to-Pay)](#6-ciclo-de-cuentas-por-pagar-procure-to-pay)
 7. [Historial y Reporte de Ventas](#7-historial-y-reporte-de-ventas)
-8. [Asistente Inteligente Vaquita AI](#8-asistente-inteligente-vaquita-ai)
+8. [Asistente Inteligente MRP AI](#8-asistente-inteligente-mrp-ai)
+9. [Módulo de Producción Láctea](#9-módulo-de-producción-láctea)
+10. [Módulo de Control de Calidad y Cumplimiento](#10-módulo-de-control-de-calidad-y-cumplimiento)
 
 ---
 
@@ -20,12 +22,13 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 
 El acceso a los distintos módulos del sistema está restringido según el rol del usuario asignado:
 
-| Rol | POS | Inventario | Cadena de Frío | Compras | Cuentas por Pagar | Utilidades / Config |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **ADMINISTRADOR** | Sí | Sí | Sí | Sí | Sí | Sí (Completo) |
-| **SUPERVISOR** | Sí | Sí | Sí | Sí | Sí | Sí (Solo Lectura) |
-| **ALMACEN** | No | Sí | Sí | Sí (Crear/Recibir) | No | No |
-| **VENDEDOR** | Sí | No | No | No | No | No |
+| Rol | POS | Inventario | Cadena de Frío | Compras | Cuentas por Pagar | Producción / Calidad | Utilidades / Config |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **ADMINISTRADOR** | Sí | Sí | Sí | Sí | Sí | Sí | Sí (Completo) |
+| **SUPERVISOR** | Sí | Sí | Sí | Sí | Sí | Sí | Sí (Solo Lectura) |
+| **CALIDAD** | No | Sí (Lectura) | Sí | No | No | Sí (Registro/Auditoría) | No |
+| **ALMACEN** | No | Sí | Sí | Sí (Crear/Recibir) | No | Sí (Registro/Mermas) | No |
+| **VENDEDOR** | Sí | No | No | No | No | No | No |
 
 ---
 
@@ -80,33 +83,11 @@ Centraliza el requerimiento de insumos y mercadería a los proveedores externos:
 
 Este módulo cierra el ciclo administrativo desde que se recibe la mercadería hasta que se concilia el pago al proveedor.
 
-### Paso 1: Configurar Términos de Pago y Proveedores
-Antes de registrar facturas, es necesario configurar las condiciones de crédito en **Utilidades**:
-1.  **Términos de Pago**: Define la cantidad de días de plazo para pagar (ej. *Contado*, *Crédito 30 días*, *Crédito 60 días*).
-2.  **Ficha del Proveedor**:
-    *   Asocia un término de pago por defecto al proveedor.
-    *   Registra sus **Datos Bancarios de Transferencia** (Banco, Tipo de Cuenta, Nro de Cuenta, RUT y Nombre del Titular).
-
-### Paso 2: Registrar Factura de Compra
-Al recibir la factura física o electrónica del proveedor, regístrela en **Cuentas por Pagar > Registrar Factura**:
-*   **Factura asociada a OC**: Seleccione la Orden de Compra en estado `RECIBIDA` o `PARCIAL`. Esto auto-completará el proveedor y los ítems con sus costos.
-*   **Facturación Directa**: Si no hay una OC, seleccione el proveedor e ingrese manualmente las líneas de la factura.
-*   *Cálculo de Vencimiento*: El sistema calculará automáticamente la **Fecha de Vencimiento** sumando los días del término de pago a la fecha de emisión.
-
-### Paso 3: Monitoreo de Deuda (KPIs y Antigüedad)
-El sistema ofrece un panel financiero con tres indicadores clave:
-*   **Deuda Total Pendiente**: Suma de los saldos de todas las facturas en estado `PENDIENTE` o `PAGADA_PARCIAL`.
-*   **Deuda Vencida**: Monto de facturas no pagadas cuya fecha de vencimiento es menor a la fecha actual. Éstas se marcan con un icono de advertencia rojo ⚠️ en la tabla.
-*   **Pagos Realizados**: Historial acumulado de abonos.
-
-### Paso 4: Conciliación de Pagos (Egresos)
-Para registrar un pago, presione el botón **Pagar** en la fila de la factura:
-1.  **Datos de Transferencia**: El modal mostrará automáticamente los datos bancarios del proveedor para facilitar la operación en su portal bancario.
-2.  **Método de Pago**:
-    *   **Transferencia o Depósito**: Requiere ingresar el código de referencia u operación.
-    *   **Cheque**: Permite registrar el número de cheque, el banco emisor y su fecha de cobro/vencimiento.
-    *   **Efectivo**: Registra el egreso directamente de la caja chica del local.
-3.  **Abono Parcial o Pago Total**: Puede ingresar un monto menor al saldo (la factura quedará como `PAGADA_PARCIAL`) o el monto total (la factura pasará a `PAGADA`).
+*   **Términos de Pago**: Define la cantidad de días de plazo para pagar (ej. *Contado*, *Crédito 30 días*, *Crédito 60 días*).
+*   **Ficha del Proveedor**: Asocia términos de pago por defecto y sus **Datos Bancarios de Transferencia** (Banco, Tipo de Cuenta, Nro de Cuenta, etc.).
+*   **Registrar Factura de Compra**: Permite cargar facturas vinculadas a una Orden de Compra (`RECIBIDA` o `PARCIAL`) o mediante facturación directa, calculando el vencimiento en base a las condiciones acordadas.
+*   **Monitoreo y Antigüedad**: Gráficos y listas con saldo pendiente, facturas vencidas y reportes de antigüedad de deuda.
+*   **Conciliación de Pagos**: Registra abonos parciales o pagos totales usando transferencia (con ID de transacción), cheque físico o efectivo de caja chica.
 
 ---
 
@@ -121,10 +102,68 @@ El sistema permite visualizar, auditar y filtrar todo el registro histórico de 
 
 ---
 
-## 8. Asistente Inteligente Vaquita AI
+## 8. Asistente Inteligente MRP AI
 
-El sistema incluye a **Vaquita AI**, un agente conversacional inteligente disponible para administradores y supervisores:
+El sistema incluye a **MRP AI**, un agente conversacional inteligente disponible para administradores y supervisores:
 
 *   **Consultas Naturales**: Puede preguntarle directamente sobre inventario, ventas, mermas u órdenes de compra (ej. *"¿Qué productos están con stock crítico hoy?"*).
 *   **Análisis Predictivo de Stock**: Le permite consultar inventarios mínimos recomendados según las ventas históricas de las últimas semanas.
 *   **Seguridad**: El asistente filtra y restringe automáticamente la información mostrada según el rol y sucursal del usuario logueado.
+
+---
+
+## 9. Módulo de Producción Láctea
+
+El módulo de **Producción Láctea** permite digitalizar el ciclo de manufactura del negocio, desde la formulación y costeo de recetas base hasta el control físico de rendimientos y desperdicios.
+
+### Pestaña 1: Recetario Maestro
+*   **Propósito**: Actúa como base de datos de fórmulas para todos los productos finales elaborados en planta (ej. Queso Chanco, Queso Mozzarella, Leche en Botella, Mantequilla).
+*   **Funcionalidades**:
+    *   **Crear y Editar Receta**: Permite definir un producto terminado, su rendimiento estándar esperado y el costo unitario estimado.
+    *   **Ingredientes e Insumos**: Permite desglosar de manera exacta la lista de materias primas e insumos requeridos (ej. leche cruda, cuajo, sal, envases) con sus respectivas cantidades y unidades de medida.
+    *   **Cálculo de Costo**: Estima automáticamente el costo de producción acumulando los costos base de los insumos seleccionados.
+
+### Pestaña 2: Órdenes de Producción (OP)
+*   **Propósito**: Planificar y monitorear la ejecución en piso de cada lote de manufactura.
+*   **Flujo de Trabajo y Estados**:
+    1.  **Planificada**: Se registra la receta a elaborar, la sucursal de destino, la cantidad planificada y el operario responsable. El sistema bloquea preventivamente los ingredientes requeridos del stock.
+    2.  **En Proceso**: El operario inicia la preparación. La orden cambia a este estado y las materias primas se consumen formalmente en inventario.
+    3.  **Completada**: Al finalizar el proceso, se abre un modal de registro donde se ingresa:
+        *   **Cantidad Real Producida**: Total de producto terminado obtenido.
+        *   **Número de Lote**: Un código identificador único para la trazabilidad.
+        *   **Mermas Declaradas**: Desechos generados específicamente en el proceso (ej. evaporación de suero, pérdidas por derrame).
+    4.  **Rendimiento (%)**: El sistema calcula y muestra un indicador de eficiencia porcentual de la orden comparando la producción planificada con la real.
+
+### Pestaña 3: Control de Mermas (Desechos)
+*   **Propósito**: Registrar y auditar todas las pérdidas de stock de insumos o producto final que ocurran fuera de las ventas.
+*   **Funcionalidades**:
+    *   **Historial de Mermas**: Tabla de auditoría con la fecha, el producto afectado, el tipo de merma, la cantidad, el motivo y el usuario responsable.
+    *   **Registro Manual**: Permite declarar mermas puntuales seleccionando un producto, el motivo (ej. *EVAPORACION*, *DERRAME*, *MALA_CALIDAD*) y la cantidad a dar de baja directamente de una sucursal.
+
+---
+
+## 10. Módulo de Control de Calidad y Cumplimiento
+
+Este módulo asegura que la materia prima recibida y los lotes producidos cumplan con los estándares sanitarios y físico-químicos antes de su liberación al cliente.
+
+### Pestaña 1: Recepción e Insumos Lácteos
+*   **Propósito**: Auditar la calidad de la leche cruda y demás insumos críticos al ingresar a la planta.
+*   **Parámetros Analizados**:
+    *   **Temperatura (°C)**: Control esencial para evitar la proliferación de bacterias en la recepción.
+    *   **Grasa (%) y Proteína (%)**: Parámetros de calidad láctea estructural.
+    *   **Acidez (pH)**: Nivel físico-químico del insumo.
+    *   **Presencia de Antibióticos (Sí/No)**: Control de seguridad alimentaria crítico; la leche con trazas de antibióticos es rechazada de inmediato.
+*   **Firma Digital**: Exige al inspector realizar una firma manual digitalizada en pantalla (canvas de firma) antes de aprobar o rechazar el lote de insumo, asegurando la responsabilidad y el no repudio.
+
+### Pestaña 2: Auditorías en Proceso y Lotes
+*   **Propósito**: Control de calidad físico-químico a mitad del proceso de producción o en el producto ya terminado antes de despacharse al POS.
+*   **Funcionalidades**:
+    *   **Inspección del Lote**: Registro del pH final del lote de queso/leche, su temperatura de empaque y el cumplimiento de parámetros críticos específicos de la receta.
+    *   **Liberación de Lotes**: Si el lote es APROBADO, se marca como liberado en inventario y queda disponible para su venta en el POS. Si es RECHAZADO, se bloquea y se inicia un reporte de no conformidad.
+
+### Pestaña 3: Incidencias y No Conformidades (NC)
+*   **Propósito**: Centralizar, reportar y hacer seguimiento a las fallas de calidad o desviaciones sanitarias en la cadena de valor.
+*   **Flujo de Trabajo**:
+    1.  **Reportar NC**: Permite registrar desviaciones de tipo producción o almacenamiento, asociando la incidencia a una orden de producción o un lote específico.
+    2.  **Registro de Evidencia**: El inspector puede simular y subir una captura fotográfica digital como evidencia del defecto físico detectado.
+    3.  **Resolución y Acciones Correctivas**: La no conformidad permanece como *ABIERTA* hasta que un supervisor analice la falla, registre las **Acciones Correctivas** aplicadas en la planta (ej. descarte de lote, recalibración de pasteurizadora) y cierre formalmente el ticket como *RESUELTA*.
