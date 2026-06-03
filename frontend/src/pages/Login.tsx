@@ -115,7 +115,7 @@ export default function Login() {
               <Storefront sx={{ fontSize: 40 }} />
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.03em' }}>
-              La Vaquita
+              Lácteos MRP
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Sistema Integral de Gestión y Cadena de Frío

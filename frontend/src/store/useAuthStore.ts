@@ -24,9 +24,9 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => {
   // Inicializar desde localStorage
-  const savedToken = localStorage.getItem('lavaquita_token');
-  const savedUsuario = localStorage.getItem('lavaquita_usuario');
-  const savedTimezone = localStorage.getItem('lavaquita_timezone') || 'America/El_Salvador';
+  const savedToken = localStorage.getItem('lacteosmrp_token');
+  const savedUsuario = localStorage.getItem('lacteosmrp_usuario');
+  const savedTimezone = localStorage.getItem('lacteosmrp_timezone') || 'America/El_Salvador';
 
   return {
     token: savedToken,
@@ -34,14 +34,14 @@ export const useAuthStore = create<AuthState>((set) => {
     unreadChannels: {},
     systemTimezone: savedTimezone,
     login: (token, usuario) => {
-      localStorage.setItem('lavaquita_token', token);
-      localStorage.setItem('lavaquita_usuario', JSON.stringify(usuario));
+      localStorage.setItem('lacteosmrp_token', token);
+      localStorage.setItem('lacteosmrp_usuario', JSON.stringify(usuario));
       set({ token, usuario });
     },
     logout: () => {
-      localStorage.removeItem('lavaquita_token');
-      localStorage.removeItem('lavaquita_usuario');
-      localStorage.removeItem('lavaquita_timezone');
+      localStorage.removeItem('lacteosmrp_token');
+      localStorage.removeItem('lacteosmrp_usuario');
+      localStorage.removeItem('lacteosmrp_timezone');
       set({ token: null, usuario: null, unreadChannels: {}, systemTimezone: 'America/El_Salvador' });
     },
     addUnreadChannel: (channelId) => {
@@ -64,7 +64,7 @@ export const useAuthStore = create<AuthState>((set) => {
       set({ unreadChannels: {} });
     },
     setSystemTimezone: (timezone) => {
-      localStorage.setItem('lavaquita_timezone', timezone);
+      localStorage.setItem('lacteosmrp_timezone', timezone);
       set({ systemTimezone: timezone });
     },
   };

@@ -40,6 +40,8 @@ import {
   SmartToy as SmartToyIcon,
   Payments as FinanzasIcon,
   Assessment as VentasIcon,
+  Factory as ProduccionIcon,
+  Biotech as CalidadIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -61,6 +63,8 @@ import Consolidado from './pages/Consolidado';
 import Asistente from './pages/Asistente';
 import CuentasPorPagar from './pages/CuentasPorPagar';
 import Ventas from './pages/Ventas';
+import Produccion from './pages/Produccion';
+import Calidad from './pages/Calidad';
 
 const DRAWER_WIDTH = 280;
 const queryClient = new QueryClient();
@@ -174,6 +178,8 @@ function MainLayout() {
     { text: 'Cadena de Frío IoT', icon: <FrioIcon />, path: '/frio', roles: [] },
     { text: 'Trazabilidad de Lotes', icon: <TrazabilidadIcon />, path: '/trazabilidad', roles: [] },
     { text: 'Inventarios', icon: <InventarioIcon />, path: '/inventario', roles: [] },
+    { text: 'Producción', icon: <ProduccionIcon />, path: '/produccion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'] },
+    { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'] },
     { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [] },
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'] },
     { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'] },
@@ -205,7 +211,7 @@ function MainLayout() {
           <Storefront sx={{ fontSize: 28 }} />
         </Box>
         <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          La Vaquita
+          Lácteos MRP
         </Typography>
       </Box>
 
@@ -368,7 +374,7 @@ function MainLayout() {
           <MenuIcon />
         </IconButton>
         <Typography variant="h6" sx={{ fontWeight: 800, flexGrow: 1, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          La Vaquita
+          Lácteos MRP
         </Typography>
         {usuario && (
           <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32, fontSize: '0.85rem', fontWeight: 700 }}>
@@ -426,6 +432,16 @@ function MainLayout() {
           <Route path="/frio" element={<Frio />} />
           <Route path="/trazabilidad" element={<Trazabilidad />} />
           <Route path="/inventario" element={<Inventario />} />
+          {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' ? (
+            <Route path="/produccion" element={<Produccion />} />
+          ) : (
+            <Route path="/produccion" element={<Navigate to="/" />} />
+          )}
+          {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'CALIDAD' ? (
+            <Route path="/calidad" element={<Calidad />} />
+          ) : (
+            <Route path="/calidad" element={<Navigate to="/" />} />
+          )}
           <Route path="/compras" element={<Compras />} />
           {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? (
             <Route path="/finanzas" element={<CuentasPorPagar />} />

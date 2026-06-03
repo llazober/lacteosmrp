@@ -1808,7 +1808,7 @@ export default function Inventario() {
           <TextField
             fullWidth
             label="Marca"
-            placeholder="La Vaquita"
+            placeholder="Lácteos MRP"
             size="small"
             value={productoForm.marca}
             onChange={(e) => setProductoForm({ ...productoForm, marca: e.target.value })}

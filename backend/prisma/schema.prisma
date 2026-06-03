@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -28,6 +28,7 @@ model Sucursal {
   ordenCompras OrdenCompra[]
   alertas      Alerta[]
   cajas        CajaControl[]
+  ordenesProduccion OrdenProduccion[]
 
   transferenciasOrigen  Transferencia[] @relation("OrigenRelation")
   transferenciasDestino Transferencia[] @relation("DestinoRelation")
@@ -59,6 +60,12 @@ model Usuario {
   chatMensajes       ChatMensaje[]
   recepcionesCompra  RecepcionCompra[]
   pagosCompra        PagoCompra[]
+  ordenesCreadas     OrdenProduccion[]    @relation("CreadorOP")
+  ordenesResponsable OrdenProduccion[]    @relation("ResponsableOP")
+  mermasReportadas   Merma[]
+  controlesLeche     ControlLeche[]
+  controlesCalidad   ControlCalidad[]
+  noConformidades    NoConformidad[]
 }
 
 model Producto {
@@ -87,6 +94,10 @@ model Producto {
   movimientos  MovimientoInventario[]
   recepcionesDetalle RecepcionCompraDetalle[]
   facturasDetalle FacturaCompraDetalle[]
+  recetasFinales  Receta[]
+  recetaDetalles  RecetaDetalle[]
+  ordenProduccionDetalles OrdenProduccionDetalle[]
+  mermas          Merma[]
 }
 
 model Proveedor {
@@ -130,6 +141,9 @@ model Lote {
   estado         String   @default("APROBADO") // APROBADO, CUARENTENA, RECHAZADO, VENCIDO
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  ordenProduccionId    String?
+  ordenProduccion      OrdenProduccion?       @relation(fields: [ordenProduccionId], references: [id])
 
   producto             Producto               @relation(fields: [productoId], references: [id])
   proveedor            Proveedor              @relation(fields: [proveedorId], references: [id])
@@ -473,4 +487,131 @@ model PagoCompra {
 
   facturaCompra   FacturaCompra @relation(fields: [facturaCompraId], references: [id])
   usuario         Usuario       @relation(fields: [usuarioId], references: [id])
+}
+
+model Receta {
+  id              String         @id @default(uuid())
+  nombre          String         @unique
+  descripcion     String?
+  productoFinalId String
+  cantidadEsperada Float         @default(1.0)
+  costoEstimado   Float          @default(0.0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  productoFinal   Producto       @relation(fields: [productoFinalId], references: [id])
+  detalles        RecetaDetalle[]
+  ordenes         OrdenProduccion[]
+}
+
+model RecetaDetalle {
+  id              String   @id @default(uuid())
+  recetaId        String
+  productoId      String
+  cantidadRequerida Float
+
+  receta          Receta   @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+  producto        Producto @relation(fields: [productoId], references: [id])
+}
+
+model OrdenProduccion {
+  id                 String                  @id @default(uuid())
+  numeroOrden        String                  @unique
+  recetaId           String
+  sucursalId         String
+  cantidadPlanificada Float
+  cantidadProducida  Float                   @default(0.0)
+  rendimientoEsperado Float                  @default(100.0)
+  rendimientoReal    Float                   @default(0.0)
+  variacion          Float                   @default(0.0)
+  estado             String                  @default("BORRADOR") // BORRADOR, PLANIFICADA, EN_PROCESO, COMPLETADA, CANCELADA
+  fechaInicio        DateTime?
+  fechaFin           DateTime?
+  creadoPorId        String
+  responsableId      String
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  receta             Receta                  @relation(fields: [recetaId], references: [id])
+  sucursal           Sucursal                @relation(fields: [sucursalId], references: [id])
+  creadoPor          Usuario                 @relation("CreadorOP", fields: [creadoPorId], references: [id])
+  responsable        Usuario                 @relation("ResponsableOP", fields: [responsableId], references: [id])
+  detalles           OrdenProduccionDetalle[]
+  mermas             Merma[]
+  inspecciones       ControlCalidad[]
+  lotesProducidos    Lote[]
+}
+
+model OrdenProduccionDetalle {
+  id                String          @id @default(uuid())
+  ordenProduccionId String
+  productoId        String
+  loteId            String?
+  cantidadConsumida Float
+
+  ordenProduccion   OrdenProduccion @relation(fields: [ordenProduccionId], references: [id], onDelete: Cascade)
+  producto          Producto        @relation(fields: [productoId], references: [id])
+}
+
+model Merma {
+  id                String          @id @default(uuid())
+  ordenProduccionId String?
+  productoId        String
+  loteId            String?
+  cantidad          Float
+  motivo            String          // EVAPORACION, DERRAME, DEFECTO_EMPAQUE, VENCIMIENTO, OTRO
+  responsableId     String
+  fecha             DateTime        @default(now())
+
+  ordenProduccion   OrdenProduccion? @relation(fields: [ordenProduccionId], references: [id])
+  producto          Producto        @relation(fields: [productoId], references: [id])
+  responsable       Usuario         @relation(fields: [responsableId], references: [id])
+}
+
+model ControlLeche {
+  id               String   @id @default(uuid())
+  recepcionId      String?  
+  loteId           String?  
+  temperatura      Float
+  grasa            Float    // %
+  proteina         Float    // %
+  acidez           Float    // Dornic o pH
+  antibioticos     Boolean  // false = libre, true = detectado
+  resultado        String   @default("APROBADO") // APROBADO, RECHAZADO, CUARENTENA
+  inspectorId      String
+  observaciones    String?
+  fecha            DateTime @default(now())
+
+  inspector        Usuario  @relation(fields: [inspectorId], references: [id])
+}
+
+model ControlCalidad {
+  id                String           @id @default(uuid())
+  tipo              String           // PROCESO, PRODUCTO_TERMINADO
+  ordenProduccionId String?
+  loteId            String?
+  temperatura       Float?
+  ph                Float?
+  parametrosCriticos String          // JSON string o texto descriptivo
+  resultado         String           @default("APROBADO") // APROBADO, RECHAZADO, CUARENTENA
+  inspectorId       String
+  observaciones     String?
+  fecha             DateTime         @default(now())
+
+  ordenProduccion   OrdenProduccion? @relation(fields: [ordenProduccionId], references: [id])
+  inspector         Usuario          @relation(fields: [inspectorId], references: [id])
+}
+
+model NoConformidad {
+  id                String   @id @default(uuid())
+  tipo              String   // RECEPCION, PRODUCCION, PRODUCTO_TERMINADO, CADENA_FRIO
+  referenciaId      String?  
+  descripcion       String
+  evidenciaUrl      String?  
+  responsableId     String
+  estado            String   @default("REGISTRADA") // REGISTRADA, EN_SEGUIMIENTO, RESUELTA
+  accionesCorrectivas String?
+  fecha             DateTime @default(now())
+
+  responsable       Usuario  @relation(fields: [responsableId], references: [id])
 }

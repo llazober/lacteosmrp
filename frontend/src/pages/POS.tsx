@@ -647,7 +647,7 @@ export default function POS() {
       <Dialog open={openTicket} onClose={() => setOpenTicket(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center', fontWeight: 800, pb: 0 }}>
           <Storefront color="primary" sx={{ fontSize: 40, mb: 1 }} /><br />
-          LA VAQUITA S.A.S
+          LÁCTEOS MRP S.A.S
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ borderBottom: '1px dashed rgba(255,255,255,0.2)', pb: 1, mb: 2, textAlign: 'center' }}>

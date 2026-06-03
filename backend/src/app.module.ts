@@ -22,6 +22,8 @@ import { ChatController } from './chat.controller';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { FinanzasController } from './finanzas.controller';
+import { ProduccionController } from './produccion.controller';
+import { CalidadController } from './calidad.controller';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { FinanzasController } from './finanzas.controller';
     ChatController,
     AiController,
     FinanzasController,
+    ProduccionController,
+    CalidadController,
   ],
   providers: [
     AppService,
