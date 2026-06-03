@@ -1,0 +1,476 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sucursal {
+  id        String   @id @default(uuid())
+  codigo    String   @unique
+  nombre    String
+  direccion String
+  telefono  String
+  correo    String
+  estado    String   @default("ACTIVO") // ACTIVO, INACTIVO
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usuarios     Usuario[]
+  inventarios  Inventario[]
+  freezers     Freezer[]
+  ventas       Venta[]
+  ordenCompras OrdenCompra[]
+  alertas      Alerta[]
+  cajas        CajaControl[]
+
+  transferenciasOrigen  Transferencia[] @relation("OrigenRelation")
+  transferenciasDestino Transferencia[] @relation("DestinoRelation")
+  movimientosOrigen     MovimientoInventario[] @relation("OrigenRelationMov")
+  movimientosDestino    MovimientoInventario[] @relation("DestinoRelationMov")
+  chatMensajes          ChatMensaje[]
+}
+
+model Usuario {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  nombre     String
+  rol        String   // ADMINISTRADOR, SUPERVISOR, GERENTE_TIENDA, CAJERO, ALMACEN, CALIDAD
+  estado     String   @default("ACTIVO") // ACTIVO, INACTIVO
+  sucursalId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sucursal           Sucursal?            @relation(fields: [sucursalId], references: [id])
+  ventas             Venta[]
+  cajas              CajaControl[]
+  ordenCompras       OrdenCompra[]        @relation("CreadorOC")
+  alertasAtendidas   Alerta[]             @relation("AlertaAtendida")
+  transferenciasCrea Transferencia[]      @relation("CreadoPorRelation")
+  transferenciasReci Transferencia[]      @relation("RecibidoPorRelation")
+  auditorias         Auditoria[]
+  movimientos        MovimientoInventario[]
+  chatMensajes       ChatMensaje[]
+  recepcionesCompra  RecepcionCompra[]
+  pagosCompra        PagoCompra[]
+}
+
+model Producto {
+  id             String   @id @default(uuid())
+  sku            String   @unique
+  codigoBarras   String   @unique
+  descripcion    String
+  categoria      String   // LECHE, YOGURT, QUESOS, MANTEQUILLA, HELADOS, POSTRES, OTROS
+  marca          String
+  unidadMedida   String   // LITRO, KILO, UNIDAD, GRAMOS
+  costo          Float
+  precioVenta    Float
+  iva            Float    @default(0.19) // 0%, 5%, 19% etc
+  temperaturaMin Float
+  temperaturaMax Float
+  vidaUtilDias   Int
+  estado         String   @default("ACTIVO") // ACTIVO, INACTIVO
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  inventarios  Inventario[]
+  lotes        Lote[]
+  ventaDetalles VentaDetalle[]
+  ordenCompraDetalles OrdenCompraDetalle[]
+  transferenciaDetalles TransferenciaDetalle[]
+  movimientos  MovimientoInventario[]
+  recepcionesDetalle RecepcionCompraDetalle[]
+  facturasDetalle FacturaCompraDetalle[]
+}
+
+model Proveedor {
+  id              String   @id @default(uuid())
+  codigo          String   @unique
+  nombre          String
+  contacto        String
+  telefono        String
+  correo          String
+  certificaciones String   @default("[]") // JSON array stringified
+  estado          String   @default("ACTIVO") // ACTIVO, INACTIVO
+  terminoPagoId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Datos Bancarios del Proveedor
+  bancoNombre     String?
+  bancoTipoCuenta String?
+  bancoNroCuenta  String?
+  bancoRutTitular String?
+  bancoNomTitular String?
+
+  terminoPago  TerminoPago?  @relation(fields: [terminoPagoId], references: [id])
+  lotes        Lote[]
+  ordenCompras OrdenCompra[]
+  facturas     FacturaCompra[]
+}
+
+model Lote {
+  id             String   @id @default(uuid())
+  numeroLote     String   @unique
+  productoId     String
+  fechaProduccion DateTime
+  fechaVencimiento DateTime
+  proveedorId    String
+  certificadoUrl String?
+  temperaturaRequeridaMin Float
+  temperaturaRequeridaMax Float
+  cantidadInicial Float
+  cantidadActual Float
+  estado         String   @default("APROBADO") // APROBADO, CUARENTENA, RECHAZADO, VENCIDO
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  producto             Producto               @relation(fields: [productoId], references: [id])
+  proveedor            Proveedor              @relation(fields: [proveedorId], references: [id])
+  ventaDetalles        VentaDetalle[]
+  transferenciaDetalles TransferenciaDetalle[]
+  movimientos          MovimientoInventario[]
+}
+
+model Inventario {
+  id           String   @id @default(uuid())
+  productoId   String
+  sucursalId   String
+  existencia   Float    @default(0)
+  existMin     Float    @default(0)
+  existMax     Float    @default(0)
+  comprometido Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  producto Producto @relation(fields: [productoId], references: [id])
+  sucursal Sucursal @relation(fields: [sucursalId], references: [id])
+
+  @@unique([productoId, sucursalId])
+}
+
+model MovimientoInventario {
+  id                String   @id @default(uuid())
+  tipo              String   // ENTRADA, SALIDA, AJUSTE, TRANSFERENCIA
+  productoId        String
+  loteId            String?
+  sucursalOrigenId  String?
+  sucursalDestinoId String?
+  cantidad          Float
+  fecha             DateTime @default(now())
+  motivo            String
+  usuarioId         String
+
+  producto       Producto  @relation(fields: [productoId], references: [id])
+  lote           Lote?     @relation(fields: [loteId], references: [id])
+  sucursalOrigen Sucursal? @relation("OrigenRelationMov", fields: [sucursalOrigenId], references: [id])
+  sucursalDestino Sucursal? @relation("DestinoRelationMov", fields: [sucursalDestinoId], references: [id])
+  usuario        Usuario   @relation(fields: [usuarioId], references: [id])
+}
+
+model Transferencia {
+  id             String   @id @default(uuid())
+  codigo         String   @unique
+  origenId       String
+  destinoId      String
+  estado         String   @default("PENDIENTE") // PENDIENTE, EN_TRANSITO, RECIBIDA, RECHAZADA
+  fechaEnvio     DateTime @default(now())
+  fechaRecepcion DateTime?
+  creadoPorId    String
+  recibidoPorId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  origen       Sucursal @relation("OrigenRelation", fields: [origenId], references: [id])
+  destino      Sucursal @relation("DestinoRelation", fields: [destinoId], references: [id])
+  creadoPor    Usuario  @relation("CreadoPorRelation", fields: [creadoPorId], references: [id])
+  recibidoPor  Usuario? @relation("RecibidoPorRelation", fields: [recibidoPorId], references: [id])
+  detalles     TransferenciaDetalle[]
+}
+
+model TransferenciaDetalle {
+  id              String   @id @default(uuid())
+  transferenciaId String
+  productoId      String
+  loteId          String
+  cantidad        Float
+
+  transferencia Transferencia @relation(fields: [transferenciaId], references: [id])
+  producto      Producto      @relation(fields: [productoId], references: [id])
+  lote          Lote          @relation(fields: [loteId], references: [id])
+}
+
+model OrdenCompra {
+  id            String   @id @default(uuid())
+  numeroOrden   String   @unique
+  proveedorId   String
+  sucursalId    String
+  estado        String   @default("BORRADOR") // BORRADOR, PENDIENTE, APROBADA, RECIBIDA, CANCELADA
+  fecha         DateTime @default(now())
+  fechaEntrega  DateTime?
+  total         Float    @default(0)
+  creadoPorId   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  proveedor   Proveedor            @relation(fields: [proveedorId], references: [id])
+  sucursal    Sucursal             @relation(fields: [sucursalId], references: [id])
+  creadoPor   Usuario              @relation("CreadorOC", fields: [creadoPorId], references: [id])
+  detalles    OrdenCompraDetalle[]
+  recepciones RecepcionCompra[]
+  facturas    FacturaCompra[]
+}
+
+model OrdenCompraDetalle {
+  id            String   @id @default(uuid())
+  ordenCompraId String
+  productoId    String
+  cantidad      Float
+  cantidadRecibida Float @default(0)
+  costoUnitario Float
+
+  ordenCompra OrdenCompra @relation(fields: [ordenCompraId], references: [id])
+  producto    Producto    @relation(fields: [productoId], references: [id])
+}
+
+model CajaControl {
+  id            String   @id @default(uuid())
+  sucursalId    String
+  cajeroId      String
+  fechaApertura DateTime @default(now())
+  fechaCierre   DateTime?
+  montoApertura Float
+  montoCierre   Float?
+  montoArqueo   Float?
+  diferencia    Float?
+  estado        String   @default("ABIERTA") // ABIERTA, CERRADA
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sucursal Sucursal @relation(fields: [sucursalId], references: [id])
+  cajero   Usuario  @relation(fields: [cajeroId], references: [id])
+  ventas   Venta[]
+}
+
+model Venta {
+  id               String   @id @default(uuid())
+  ticketNumero     String   @unique
+  sucursalId       String
+  clienteNombre    String?
+  clienteDocumento String?
+  fecha            DateTime @default(now())
+  metodoPago       String   // EFECTIVO, TARJETA, TRANSFERENCIA, MIXTO
+  subtotal         Float
+  iva              Float
+  total            Float
+  cajeroId         String
+  cajaAperturaId   String
+  createdAt        DateTime @default(now())
+  estado           String   @default("COMPLETADA") // COMPLETADA, ANULADA
+
+  sucursal     Sucursal      @relation(fields: [sucursalId], references: [id])
+  cajero       Usuario       @relation(fields: [cajeroId], references: [id])
+  cajaApertura CajaControl   @relation(fields: [cajaAperturaId], references: [id])
+  detalles     VentaDetalle[]
+}
+
+model VentaDetalle {
+  id             String   @id @default(uuid())
+  ventaId        String
+  productoId     String
+  loteId         String
+  cantidad       Float
+  precioUnitario Float
+  subtotal       Float
+  iva            Float
+  total          Float
+
+  venta    Venta    @relation(fields: [ventaId], references: [id])
+  producto Producto @relation(fields: [productoId], references: [id])
+  lote     Lote     @relation(fields: [loteId], references: [id])
+}
+
+model Freezer {
+  id             String   @id @default(uuid())
+  codigo         String   @unique
+  nombre         String
+  sucursalId     String
+  ubicacion      String
+  temperaturaMin Float
+  temperaturaMax Float
+  estado         String   @default("CONECTADO") // CONECTADO, ALERTA, DESCONECTADO
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sucursal Sucursal         @relation(fields: [sucursalId], references: [id])
+  lecturas FreezerLectura[]
+}
+
+model FreezerLectura {
+  id          String   @id @default(uuid())
+  freezerId   String
+  temperatura Float
+  humedad     Float
+  fecha       DateTime @default(now())
+  estado      String   @default("OK") // OK, CRITICO, ADVERTENCIA
+
+  freezer Freezer @relation(fields: [freezerId], references: [id])
+}
+
+model Alerta {
+  id             String   @id @default(uuid())
+  sucursalId     String
+  tipo           String   // TEMPERATURA, VENCIMIENTO, STOCK_BAJO, FREEZER_DESCONECTADO
+  mensaje        String
+  estado         String   @default("ACTIVA") // ACTIVA, RESUELTA
+  fecha          DateTime @default(now())
+  atendidaPorId  String?
+  notasAtencion  String?
+  updatedAt      DateTime @updatedAt
+
+  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+  atendidaPor Usuario? @relation("AlertaAtendida", fields: [atendidaPorId], references: [id])
+}
+
+model Auditoria {
+  id            String   @id @default(uuid())
+  usuarioId     String?
+  usuarioNombre String   @default("Sistema")
+  fecha         DateTime @default(now())
+  accion        String   // CREAR, EDITAR, ELIMINAR, ACCESO, VENTA, etc
+  modulo        String   // AUTH, SUCURSALES, PRODUCTOS, INVENTARIO, POS, TELEMETRIA
+  detalles      String   // JSON stringified details
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+model Categoria {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UnidadMedida {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  abreviacion String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChatMensaje {
+  id          String   @id @default(uuid())
+  contenido   String
+  usuarioId   String
+  sucursalId  String?  // Si es null, representa el canal general #general
+  fecha       DateTime @default(now())
+
+  usuario     Usuario   @relation(fields: [usuarioId], references: [id])
+  sucursal    Sucursal? @relation(fields: [sucursalId], references: [id])
+}
+
+model Configuracion {
+  clave     String   @id
+  valor     String
+  updatedAt DateTime @updatedAt
+}
+
+model TerminoPago {
+  id           String      @id @default(uuid())
+  nombre       String      @unique // e.g., "Contado", "Crédito 30 días"
+  dias         Int         @default(0)
+  estado       String      @default("ACTIVO") // ACTIVO, INACTIVO
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  proveedores  Proveedor[]
+}
+
+model RecepcionCompra {
+  id              String   @id @default(uuid())
+  numeroRecepcion String   @unique
+  ordenCompraId   String
+  fecha           DateTime @default(now())
+  recibidoPorId   String
+  observaciones   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  ordenCompra     OrdenCompra             @relation(fields: [ordenCompraId], references: [id])
+  recibidoPor     Usuario                 @relation(fields: [recibidoPorId], references: [id])
+  detalles        RecepcionCompraDetalle[]
+}
+
+model RecepcionCompraDetalle {
+  id                String   @id @default(uuid())
+  recepcionCompraId String
+  productoId        String
+  loteId            String?
+  cantidad          Float
+
+  recepcionCompra   RecepcionCompra @relation(fields: [recepcionCompraId], references: [id])
+  producto          Producto        @relation(fields: [productoId], references: [id])
+}
+
+model FacturaCompra {
+  id               String   @id @default(uuid())
+  numeroFactura    String
+  proveedorId      String
+  ordenCompraId    String?
+  fechaEmision     DateTime
+  fechaVencimiento DateTime
+  subtotal         Float
+  iva              Float
+  total            Float
+  estado           String   @default("PENDIENTE") // PENDIENTE, PAGADA_PARCIAL, PAGADA, ANULADA
+  observaciones    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  proveedor        Proveedor            @relation(fields: [proveedorId], references: [id])
+  ordenCompra      OrdenCompra?         @relation(fields: [ordenCompraId], references: [id])
+  detalles         FacturaCompraDetalle[]
+  pagos            PagoCompra[]
+
+  @@unique([proveedorId, numeroFactura])
+}
+
+model FacturaCompraDetalle {
+  id              String   @id @default(uuid())
+  facturaCompraId String
+  productoId      String
+  cantidad        Float
+  costoUnitario   Float
+  subtotal        Float
+
+  facturaCompra   FacturaCompra @relation(fields: [facturaCompraId], references: [id], onDelete: Cascade)
+  producto        Producto      @relation(fields: [productoId], references: [id])
+}
+
+model PagoCompra {
+  id              String   @id @default(uuid())
+  facturaCompraId String
+  monto           Float
+  fechaPago       DateTime @default(now())
+  metodoPago      String   // TRANSFERENCIA, CHEQUE, DEPOSITO, EFECTIVO
+  referencia      String?  
+  cajaId          String?  
+  usuarioId       String
+  createdAt       DateTime @default(now())
+
+  // Detalles de control bancario
+  chequeNumero    String?  
+  chequeBanco     String?  
+  chequeVence     DateTime? 
+  transfeCuenta   String?  
+
+  facturaCompra   FacturaCompra @relation(fields: [facturaCompraId], references: [id])
+  usuario         Usuario       @relation(fields: [usuarioId], references: [id])
+}

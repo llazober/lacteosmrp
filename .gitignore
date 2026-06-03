@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Compilaciones
+dist/
+build/
+out/
+
+# Base de datos local (SQLite) y variables de entorno
+*.db
+*.db-journal
+*.sqlite
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

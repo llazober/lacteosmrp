@@ -1,0 +1,365 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Request,
+  BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+import { Roles } from './decorators';
+
+@Controller('compras')
+export class ComprasController {
+  constructor(private prisma: PrismaService) {}
+
+  @Get()
+  async obtenerOrdenesCompra(@Request() req: any) {
+    const user = req.user;
+    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+
+    const filter: any = {};
+    if (sucursalId) {
+      filter.sucursalId = sucursalId;
+    }
+
+    return this.prisma.ordenCompra.findMany({
+      where: filter,
+      include: {
+        proveedor: true,
+        sucursal: true,
+        creadoPor: { select: { nombre: true } },
+        detalles: {
+          include: {
+            producto: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
+  @Post()
+  async crearOrdenCompra(@Request() req: any, @Body() body: any) {
+    const { proveedorId, sucursalId, productos, fechaEntrega } = body; // productos: [{ productoId, cantidad, costoUnitario }]
+
+    if (!proveedorId || !sucursalId || !productos || productos.length === 0) {
+      throw new BadRequestException('El proveedor, la sucursal y la lista de productos son obligatorios.');
+    }
+
+    // Generar número de orden único
+    const count = await this.prisma.ordenCompra.count();
+    const numeroOrden = `OC-${String(count + 1).padStart(5, '0')}`;
+
+    // Calcular total
+    let total = 0;
+    for (const p of productos) {
+      total += parseFloat(p.cantidad) * parseFloat(p.costoUnitario);
+    }
+
+    const oc = await this.prisma.$transaction(async (tx) => {
+      const cabecera = await tx.ordenCompra.create({
+        data: {
+          numeroOrden,
+          proveedorId,
+          sucursalId,
+          estado: 'PENDIENTE',
+          total,
+          creadoPorId: req.user.id,
+          fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null,
+        },
+      });
+
+      for (const p of productos) {
+        await tx.ordenCompraDetalle.create({
+          data: {
+            ordenCompraId: cabecera.id,
+            productoId: p.productoId,
+            cantidad: parseFloat(p.cantidad),
+            costoUnitario: parseFloat(p.costoUnitario),
+          },
+        });
+      }
+
+      return cabecera;
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'CREAR_ORDEN_COMPRA',
+        modulo: 'COMPRAS',
+        detalles: JSON.stringify({ id: oc.id, numeroOrden: oc.numeroOrden }),
+      },
+    });
+
+    return oc;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Put(':id/aprobar')
+  async aprobarOrdenCompra(@Param('id') id: string, @Request() req: any) {
+    const oc = await this.prisma.ordenCompra.findUnique({ where: { id } });
+    if (!oc || oc.estado !== 'PENDIENTE') {
+      throw new BadRequestException('La orden de compra no existe o no se encuentra pendiente de aprobación.');
+    }
+
+    const updated = await this.prisma.ordenCompra.update({
+      where: { id },
+      data: { estado: 'APROBADA' },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'APROBAR_ORDEN_COMPRA',
+        modulo: 'COMPRAS',
+        detalles: JSON.stringify({ id, numeroOrden: oc.numeroOrden }),
+      },
+    });
+
+    return updated;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Put(':id/recepcion')
+  async registrarRecepcion(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+    // body: { lotes: [{ productoId, numeroLote, fechaProduccion, fechaVencimiento, tempMin, tempMax, cantidadRecibida }] }
+    const { lotes } = body;
+
+    const oc = await this.prisma.ordenCompra.findUnique({
+      where: { id },
+      include: { detalles: true },
+    });
+
+    if (!oc || (oc.estado !== 'APROBADA' && oc.estado !== 'PARCIAL')) {
+      throw new BadRequestException('La orden de compra no existe o no se encuentra en un estado válido para recibir mercadería (APROBADA o PARCIAL).');
+    }
+
+    if (!lotes || lotes.length === 0) {
+      throw new BadRequestException('Debe registrar la información de lotes y cantidades recibidas.');
+    }
+
+    // Registrar ingreso e inventario
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Registrar cada lote e incrementar inventario
+      for (const loteInfo of lotes) {
+        const cantidadRecibidaAhora = parseFloat(loteInfo.cantidadRecibida);
+        if (cantidadRecibidaAhora <= 0) continue; // Si se recibe 0 de este item, saltar
+
+        // Validar número lote único
+        const existLote = await tx.lote.findUnique({
+          where: { numeroLote: loteInfo.numeroLote },
+        });
+
+        if (existLote) {
+          throw new BadRequestException(`El número de lote "${loteInfo.numeroLote}" ya existe en el sistema.`);
+        }
+
+        // Buscar el detalle correspondiente de la Orden de Compra para actualizar la cantidad recibida
+        const detalle = oc.detalles.find((d) => d.productoId === loteInfo.productoId);
+        if (!detalle) {
+          throw new BadRequestException(`El producto con ID ${loteInfo.productoId} no pertenece a esta orden de compra.`);
+        }
+
+        // Actualizar la cantidad recibida en el detalle
+        await tx.ordenCompraDetalle.update({
+          where: { id: detalle.id },
+          data: {
+            cantidadRecibida: { increment: cantidadRecibidaAhora },
+          },
+        });
+
+        // Crear lote
+        const nuevoLote = await tx.lote.create({
+          data: {
+            numeroLote: loteInfo.numeroLote,
+            productoId: loteInfo.productoId,
+            fechaProduccion: new Date(loteInfo.fechaProduccion),
+            fechaVencimiento: new Date(loteInfo.fechaVencimiento),
+            proveedorId: oc.proveedorId,
+            temperaturaRequeridaMin: parseFloat(loteInfo.tempMin || 2.0),
+            temperaturaRequeridaMax: parseFloat(loteInfo.tempMax || 6.0),
+            cantidadInicial: cantidadRecibidaAhora,
+            cantidadActual: cantidadRecibidaAhora,
+            estado: 'APROBADO',
+          },
+        });
+
+        // Upsert en inventario
+        await tx.inventario.upsert({
+          where: { productoId_sucursalId: { productoId: loteInfo.productoId, sucursalId: oc.sucursalId } },
+          update: { existencia: { increment: cantidadRecibidaAhora } },
+          create: {
+            productoId: loteInfo.productoId,
+            sucursalId: oc.sucursalId,
+            existencia: cantidadRecibidaAhora,
+            existMin: 10,
+            existMax: 500,
+          },
+        });
+
+        // Registrar movimiento
+        await tx.movimientoInventario.create({
+          data: {
+            tipo: 'ENTRADA',
+            productoId: loteInfo.productoId,
+            loteId: nuevoLote.id,
+            sucursalDestinoId: oc.sucursalId,
+            cantidad: cantidadRecibidaAhora,
+            motivo: `Recepción de mercadería por OC ${oc.numeroOrden}`,
+            usuarioId: req.user.id,
+          },
+        });
+      }
+
+      // 2. Verificar si toda la orden fue recibida
+      const detallesActualizados = await tx.ordenCompraDetalle.findMany({
+        where: { ordenCompraId: id },
+      });
+
+      let totalCompletado = true;
+      for (const det of detallesActualizados) {
+        if (det.cantidadRecibida < det.cantidad) {
+          totalCompletado = false;
+          break;
+        }
+      }
+
+      const nuevoEstado = totalCompletado ? 'RECIBIDA' : 'PARCIAL';
+      await tx.ordenCompra.update({
+        where: { id },
+        data: { estado: nuevoEstado },
+      });
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'RECIBIR_ORDEN_COMPRA',
+        modulo: 'COMPRAS',
+        detalles: JSON.stringify({ id, numeroOrden: oc.numeroOrden }),
+      },
+    });
+
+    return { message: 'Mercadería recibida y lotes registrados en stock exitosamente.' };
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
+  @Put(':id')
+  async editarOrdenCompra(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+    const { proveedorId, sucursalId, productos, fechaEntrega } = body;
+
+    const oc = await this.prisma.ordenCompra.findUnique({
+      where: { id },
+      include: { detalles: true }
+    });
+
+    if (!oc) {
+      throw new BadRequestException('La orden de compra no existe.');
+    }
+
+    if (oc.estado === 'RECIBIDA' || oc.estado === 'PARCIAL') {
+      throw new BadRequestException('No se puede editar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.');
+    }
+
+    let total = oc.total;
+    if (productos && productos.length > 0) {
+      total = 0;
+      for (const p of productos) {
+        total += parseFloat(p.cantidad) * parseFloat(p.costoUnitario);
+      }
+    }
+
+    const updatedOc = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.ordenCompra.update({
+        where: { id },
+        data: {
+          proveedorId: proveedorId !== undefined ? proveedorId : oc.proveedorId,
+          sucursalId: sucursalId !== undefined ? sucursalId : oc.sucursalId,
+          fechaEntrega: fechaEntrega !== undefined ? (fechaEntrega ? new Date(fechaEntrega) : null) : oc.fechaEntrega,
+          total,
+        },
+      });
+
+      if (productos && productos.length > 0) {
+        await tx.ordenCompraDetalle.deleteMany({
+          where: { ordenCompraId: id },
+        });
+
+        for (const p of productos) {
+          await tx.ordenCompraDetalle.create({
+            data: {
+              ordenCompraId: id,
+              productoId: p.productoId,
+              cantidad: parseFloat(p.cantidad),
+              costoUnitario: parseFloat(p.costoUnitario),
+            },
+          });
+        }
+      }
+
+      return updated;
+    });
+
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'EDITAR_ORDEN_COMPRA',
+        modulo: 'COMPRAS',
+        detalles: JSON.stringify({ antes: oc, despues: updatedOc }),
+      },
+    });
+
+    return updatedOc;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Delete(':id')
+  async eliminarOrdenCompra(@Param('id') id: string, @Request() req: any) {
+    const oc = await this.prisma.ordenCompra.findUnique({
+      where: { id },
+    });
+
+    if (!oc) {
+      throw new BadRequestException('La orden de compra no existe.');
+    }
+
+    if (oc.estado === 'RECIBIDA' || oc.estado === 'PARCIAL') {
+      throw new BadRequestException('No se puede eliminar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ordenCompraDetalle.deleteMany({
+        where: { ordenCompraId: id },
+      });
+
+      await tx.ordenCompra.delete({
+        where: { id },
+      });
+    });
+
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'ELIMINAR_ORDEN_COMPRA',
+        modulo: 'COMPRAS',
+        detalles: JSON.stringify(oc),
+      },
+    });
+
+    return { success: true, message: 'Orden de compra eliminada exitosamente.' };
+  }
+}
