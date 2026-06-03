@@ -45,6 +45,15 @@ export default function CuentasPorPagar() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val);
+  };
+
   // Data states
   const [facturas, setFacturas] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -307,7 +316,7 @@ export default function CuentasPorPagar() {
             DEUDA TOTAL PENDIENTE
           </Typography>
           <Typography variant="h3" sx={{ fontWeight: 900, mt: 1, color: 'info.light' }}>
-            ${totalCuentasPorPagar.toLocaleString('es-CL')}
+            {formatCurrency(totalCuentasPorPagar)}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             Facturas pendientes o pagadas parcialmente
@@ -319,7 +328,7 @@ export default function CuentasPorPagar() {
             DEUDA VENCIDA
           </Typography>
           <Typography variant="h3" sx={{ fontWeight: 900, mt: 1, color: 'error.light' }}>
-            ${totalVencido.toLocaleString('es-CL')}
+            {formatCurrency(totalVencido)}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             Requiere atención inmediata (fecha de vencimiento superada)
@@ -331,7 +340,7 @@ export default function CuentasPorPagar() {
             PAGOS REALIZADOS (HISTÓRICO)
           </Typography>
           <Typography variant="h3" sx={{ fontWeight: 900, mt: 1, color: 'success.light' }}>
-            ${totalPagadoHistorico.toLocaleString('es-CL')}
+            {formatCurrency(totalPagadoHistorico)}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             Total abonado a proveedores
@@ -404,9 +413,9 @@ export default function CuentasPorPagar() {
                             {esVencida && <Warning color="error" sx={{ fontSize: 16 }} />}
                           </Typography>
                         </TableCell>
-                        <TableCell>${f.total.toLocaleString('es-CL')}</TableCell>
+                        <TableCell>{formatCurrency(f.total)}</TableCell>
                         <TableCell sx={{ fontWeight: 700, color: saldo > 0 ? 'warning.main' : 'text.secondary' }}>
-                          ${saldo.toLocaleString('es-CL')}
+                          {formatCurrency(saldo)}
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -525,7 +534,7 @@ export default function CuentasPorPagar() {
                           )}
                         </TableCell>
                         <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>
-                          ${p.monto.toLocaleString('es-CL')}
+                          {formatCurrency(p.monto)}
                         </TableCell>
                       </TableRow>
                     ))
@@ -650,7 +659,7 @@ export default function CuentasPorPagar() {
                     />
                   </TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>
-                    ${(row.cantidad * row.costoUnitario).toLocaleString('es-CL')}
+                    {formatCurrency(row.cantidad * row.costoUnitario)}
                   </TableCell>
                   <TableCell align="right">
                     <IconButton size="small" color="error" onClick={() => handleRemoveDetalleRow(idx)}>
@@ -672,17 +681,17 @@ export default function CuentasPorPagar() {
           <Box sx={{ alignSelf: 'flex-end', width: 300, display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" color="text.secondary">Neto/Subtotal:</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>${facturaForm.subtotal.toLocaleString('es-CL')}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(facturaForm.subtotal)}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" color="text.secondary">IVA (19%):</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>${facturaForm.iva.toLocaleString('es-CL')}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(facturaForm.iva)}</Typography>
             </Box>
             <Divider />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Total Factura:</Typography>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                ${facturaForm.total.toLocaleString('es-CL')}
+                {formatCurrency(facturaForm.total)}
               </Typography>
             </Box>
           </Box>
@@ -752,8 +761,8 @@ export default function CuentasPorPagar() {
                     <TableRow key={d.id}>
                       <TableCell>{d.producto?.nombre}</TableCell>
                       <TableCell align="right">{d.cantidad}</TableCell>
-                      <TableCell align="right">${d.costoUnitario.toLocaleString('es-CL')}</TableCell>
-                      <TableCell align="right">${d.subtotal.toLocaleString('es-CL')}</TableCell>
+                      <TableCell align="right">{formatCurrency(d.costoUnitario)}</TableCell>
+                      <TableCell align="right">{formatCurrency(d.subtotal)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -782,7 +791,7 @@ export default function CuentasPorPagar() {
                           <TableCell>{p.metodoPago}</TableCell>
                           <TableCell>{p.chequeNumero ? `Cheque N° ${p.chequeNumero}` : p.referencia || 'Abono'}</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main' }}>
-                            ${p.monto.toLocaleString('es-CL')}
+                            {formatCurrency(p.monto)}
                           </TableCell>
                         </TableRow>
                       ))}

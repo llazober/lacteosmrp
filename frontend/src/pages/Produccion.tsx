@@ -46,6 +46,15 @@ export default function Produccion() {
   const usuario = useAuthStore((state) => state.usuario);
   const [activeTab, setActiveTab] = useState(0);
 
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val);
+  };
+
   // Datos
   const [recetas, setRecetas] = useState<any[]>([]);
   const [ordenes, setOrdenes] = useState<any[]>([]);
@@ -527,7 +536,7 @@ export default function Produccion() {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="body2" color="text.secondary">Costo Estimado Unitario:</Typography>
                       <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'success.main' }}>
-                        ${r.costoEstimado.toLocaleString('es-CO')} COP
+                        {formatCurrency(r.costoEstimado)}
                       </Typography>
                     </Box>
                   </CardContent>
@@ -782,7 +791,7 @@ export default function Produccion() {
               </Box>
               <Box>
                 <TextField
-                  label="Costo Estimado Unitario (COP)"
+                  label="Costo Estimado Unitario (USD)"
                   type="number"
                   fullWidth
                   value={recetaForm.costoEstimado}

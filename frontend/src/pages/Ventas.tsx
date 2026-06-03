@@ -36,11 +36,11 @@ import {
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
-// Utility helper to format values as COP currency with 2 decimals
+// Utility helper to format values as USD currency with 2 decimals
 const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('es-CO', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'COP',
+    currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(val);

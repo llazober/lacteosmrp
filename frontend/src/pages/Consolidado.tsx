@@ -44,9 +44,9 @@ export default function Consolidado() {
   };
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-CO', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'COP',
+      currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(val);
