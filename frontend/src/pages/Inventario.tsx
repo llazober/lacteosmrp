@@ -921,7 +921,7 @@ export default function Inventario() {
                         <TableCell sx={{ fontWeight: 800 }} color={isLow ? 'error.main' : 'inherit'}>
                           {inv.existencia} {inv.producto.unidadMedida}
                         </TableCell>
-                        <TableCell>{inv.existMin} U</TableCell>
+                        <TableCell>{inv.existMin} {inv.producto.unidadMedida}</TableCell>
                         <TableCell>
                           <Chip
                             label={isLow ? 'STOCK CRÍTICO' : 'SEGURO'}
@@ -1015,7 +1015,7 @@ export default function Inventario() {
                       </TableCell>
                       <TableCell>{mov.sucursalOrigen?.nombre || '-'}</TableCell>
                       <TableCell>{mov.sucursalDestino?.nombre || '-'}</TableCell>
-                      <TableCell sx={{ fontWeight: 800 }}>{mov.cantidad} U</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>{mov.cantidad} {mov.producto.unidadMedida}</TableCell>
                       <TableCell>{mov.motivo}</TableCell>
                       <TableCell>{mov.usuario.nombre}</TableCell>
                     </TableRow>
@@ -1057,7 +1057,7 @@ export default function Inventario() {
                       <TableCell>
                         {tr.detalles.map((det: any) => (
                           <div key={det.id}>
-                            {det.producto.descripcion} (L: {det.lote?.numeroLote}) x{det.cantidad}
+                            {det.producto.descripcion} (L: {det.lote?.numeroLote}) - {det.cantidad} {det.producto.unidadMedida}
                           </div>
                         ))}
                       </TableCell>
