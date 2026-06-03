@@ -70,7 +70,19 @@ export const useAuthStore = create<AuthState>((set) => {
   };
 });
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000/api`;
+const getApiBaseUrl = () => {
+  if ((window as any)._env_?.VITE_API_URL) {
+    return (window as any)._env_.VITE_API_URL;
+  }
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname || 'localhost';
+  return `${protocol}//${hostname}:3000/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const token = useAuthStore.getState().token;

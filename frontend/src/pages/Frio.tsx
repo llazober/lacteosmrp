@@ -73,9 +73,16 @@ export default function Frio() {
     cargarSucursales();
 
     // Conectar WebSocket Client
-    const socketUrl = import.meta.env.VITE_API_URL
-      ? import.meta.env.VITE_API_URL.replace('/api', '')
-      : `${window.location.protocol}//${window.location.hostname}:3000`;
+    const getSocketUrl = () => {
+      const apiUrl = (window as any)._env_?.VITE_API_URL || import.meta.env.VITE_API_URL;
+      if (apiUrl) {
+        return apiUrl.replace('/api', '');
+      }
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname || 'localhost';
+      return `${protocol}//${hostname}:3000`;
+    };
+    const socketUrl = getSocketUrl();
     const socket = io(socketUrl);
 
     // Escuchar telemetría general
