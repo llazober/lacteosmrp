@@ -300,7 +300,7 @@ export class ProductosController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post('categorias')
   async crearCategoria(@Request() req: any, @Body() body: any) {
-    const { nombre } = body;
+    const { nombre, tipoProducto } = body;
     if (!nombre) {
       throw new BadRequestException('El nombre de la categoría es obligatorio.');
     }
@@ -312,7 +312,10 @@ export class ProductosController {
     }
 
     const categoria = await this.prisma.categoria.create({
-      data: { nombre: normNombre },
+      data: { 
+        nombre: normNombre,
+        tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
+      },
     });
 
     // Auditoría
@@ -332,7 +335,7 @@ export class ProductosController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('categorias/:id')
   async actualizarCategoria(@Param('id') id: string, @Request() req: any, @Body() body: any) {
-    const { nombre } = body;
+    const { nombre, tipoProducto } = body;
     if (!nombre) {
       throw new BadRequestException('El nombre de la categoría es obligatorio.');
     }
@@ -357,13 +360,19 @@ export class ProductosController {
 
     const categoria = await this.prisma.categoria.update({
       where: { id },
-      data: { nombre: normNombre },
+      data: { 
+        nombre: normNombre,
+        tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
+      },
     });
 
-    // Sincronizar todos los productos con el nuevo nombre de categoría
+    // Sincronizar todos los productos con el nuevo nombre de categoría y el nuevo tipoProducto
     await this.prisma.producto.updateMany({
       where: { categoria: oldCategoria.nombre },
-      data: { categoria: normNombre },
+      data: { 
+        categoria: normNombre,
+        tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
+      },
     });
 
     // Auditoría
@@ -537,5 +546,149 @@ export class ProductosController {
     });
 
     return { message: 'Unidad de medida eliminada con éxito.' };
+  }
+
+  // --- TIPOS DE PRODUCTO ---
+  @Get('productos/tipos')
+  async listarTiposProducto() {
+    return this.prisma.tipoProducto.findMany({
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Post('productos/tipos')
+  async crearTipoProducto(@Request() req: any, @Body() body: any) {
+    const { nombre, descripcion, metadata } = body;
+    if (!nombre || !descripcion) {
+      throw new BadRequestException('El nombre y la descripción son obligatorios.');
+    }
+
+    const normNombre = nombre.trim().toUpperCase().replace(/\s+/g, '_');
+    const exist = await this.prisma.tipoProducto.findUnique({ where: { nombre: normNombre } });
+    if (exist) {
+      throw new BadRequestException('Ya existe un tipo de producto con ese nombre/código.');
+    }
+
+    const tipo = await this.prisma.tipoProducto.create({
+      data: { 
+        nombre: normNombre, 
+        descripcion,
+        metadata: metadata || '',
+      },
+    });
+
+    // Auditoría
+    const userExists = req.user?.id ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } }) : null;
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: userExists ? req.user.id : null,
+        usuarioNombre: req.user.nombre || 'Sistema',
+        accion: 'CREAR_TIPO_PRODUCTO',
+        modulo: 'PRODUCTOS',
+        detalles: JSON.stringify(tipo),
+      },
+    });
+
+    return tipo;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Put('productos/tipos/:id')
+  async actualizarTipoProducto(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+    const { nombre, descripcion, metadata } = body;
+    if (!nombre || !descripcion) {
+      throw new BadRequestException('El nombre y la descripción son obligatorios.');
+    }
+
+    const normNombre = nombre.trim().toUpperCase().replace(/\s+/g, '_');
+    
+    // Verificar unicidad excluyendo el actual
+    const exist = await this.prisma.tipoProducto.findFirst({
+      where: {
+        nombre: normNombre,
+        id: { not: id },
+      },
+    });
+    if (exist) {
+      throw new BadRequestException('Ya existe otro tipo de producto con ese nombre/código.');
+    }
+
+    const oldTipo = await this.prisma.tipoProducto.findUnique({ where: { id } });
+    if (!oldTipo) {
+      throw new BadRequestException('El tipo de producto no existe.');
+    }
+
+    const tipo = await this.prisma.tipoProducto.update({
+      where: { id },
+      data: { 
+        nombre: normNombre, 
+        descripcion,
+        metadata: metadata || '',
+      },
+    });
+
+    // Sincronizar todos los productos con el nuevo nombre del tipo de producto
+    await this.prisma.producto.updateMany({
+      where: { tipoProducto: oldTipo.nombre },
+      data: { tipoProducto: normNombre },
+    });
+
+    // Sincronizar todas las categorías con el nuevo nombre del tipo de producto
+    await this.prisma.categoria.updateMany({
+      where: { tipoProducto: oldTipo.nombre },
+      data: { tipoProducto: normNombre },
+    });
+
+    // Auditoría
+    const userExists = req.user?.id ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } }) : null;
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: userExists ? req.user.id : null,
+        usuarioNombre: req.user.nombre || 'Sistema',
+        accion: 'ACTUALIZAR_TIPO_PRODUCTO',
+        modulo: 'PRODUCTOS',
+        detalles: JSON.stringify(tipo),
+      },
+    });
+
+    return tipo;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Delete('productos/tipos/:id')
+  async eliminarTipoProducto(@Param('id') id: string, @Request() req: any) {
+    const tipo = await this.prisma.tipoProducto.findUnique({ where: { id } });
+    if (!tipo) {
+      throw new BadRequestException('El tipo de producto no existe.');
+    }
+
+    const prodCount = await this.prisma.producto.count({
+      where: { tipoProducto: tipo.nombre },
+    });
+    const catCount = await this.prisma.categoria.count({
+      where: { tipoProducto: tipo.nombre },
+    });
+    if (prodCount > 0 || catCount > 0) {
+      throw new BadRequestException('No se puede eliminar el tipo de producto porque está en uso por productos o categorías.');
+    }
+
+    await this.prisma.tipoProducto.delete({
+      where: { id },
+    });
+
+    // Auditoría
+    const userExists = req.user?.id ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } }) : null;
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: userExists ? req.user.id : null,
+        usuarioNombre: req.user.nombre || 'Sistema',
+        accion: 'ELIMINAR_TIPO_PRODUCTO',
+        modulo: 'PRODUCTOS',
+        detalles: JSON.stringify(tipo),
+      },
+    });
+
+    return { message: 'Tipo de producto eliminado con éxito.' };
   }
 }

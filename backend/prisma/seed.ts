@@ -35,6 +35,7 @@ async function main() {
   await prisma.usuario.deleteMany({});
   await prisma.sucursal.deleteMany({});
   await prisma.categoria.deleteMany({});
+  await prisma.tipoProducto.deleteMany({});
   await prisma.terminoPago.deleteMany({});
 
   console.log('Base de datos limpia.');
@@ -184,17 +185,27 @@ async function main() {
   // 3.5. Crear Categorías
   await prisma.categoria.createMany({
     data: [
-      { nombre: 'LECHE' },
-      { nombre: 'YOGURT' },
-      { nombre: 'QUESOS' },
-      { nombre: 'MANTEQUILLA' },
-      { nombre: 'HELADOS' },
-      { nombre: 'MATERIA_PRIMA' },
-      { nombre: 'INSUMOS' },
-      { nombre: 'OTROS' },
+      { nombre: 'LECHE', tipoProducto: 'PRODUCTO_TERMINADO' },
+      { nombre: 'YOGURT', tipoProducto: 'PRODUCTO_TERMINADO' },
+      { nombre: 'QUESOS', tipoProducto: 'PRODUCTO_TERMINADO' },
+      { nombre: 'MANTEQUILLA', tipoProducto: 'PRODUCTO_TERMINADO' },
+      { nombre: 'HELADOS', tipoProducto: 'PRODUCTO_TERMINADO' },
+      { nombre: 'MATERIA_PRIMA', tipoProducto: 'MATERIA_PRIMA' },
+      { nombre: 'INSUMOS', tipoProducto: 'INSUMO' },
+      { nombre: 'OTROS', tipoProducto: 'PRODUCTO_TERMINADO' },
     ],
   });
   console.log('Categorías creadas.');
+
+  // 3.6. Crear Tipos de Producto
+  await prisma.tipoProducto.createMany({
+    data: [
+      { nombre: 'PRODUCTO_TERMINADO', descripcion: 'Producto Terminado', metadata: 'Productos listos para la venta en el POS' },
+      { nombre: 'INSUMO', descripcion: 'Insumo', metadata: 'Materiales y suministros para empaque, limpieza o aditivos menores' },
+      { nombre: 'MATERIA_PRIMA', descripcion: 'Materia Prima', metadata: 'Ingredientes principales (como leche o fruta) para la elaboración' },
+    ],
+  });
+  console.log('Tipos de producto creados.');
 
   // 4. Crear Productos (Materias primas y Productos Terminados)
   // Materias primas

@@ -40,7 +40,7 @@ export default function Utilidades() {
   const [openCrearCategoria, setOpenCrearCategoria] = useState(false);
   const [openEditarCategoria, setOpenEditarCategoria] = useState(false);
   const [selectedCategoria, setSelectedCategoria] = useState<any>(null);
-  const [categoriaForm, setCategoriaForm] = useState({ nombre: '' });
+  const [categoriaForm, setCategoriaForm] = useState({ nombre: '', tipoProducto: 'PRODUCTO_TERMINADO' });
 
   // States for Unidades de Medida
   const [unidadesMedida, setUnidadesMedida] = useState<any[]>([]);
@@ -48,6 +48,13 @@ export default function Utilidades() {
   const [openEditarUnidad, setOpenEditarUnidad] = useState(false);
   const [selectedUnidad, setSelectedUnidad] = useState<any>(null);
   const [unidadForm, setUnidadForm] = useState({ nombre: '', abreviacion: '' });
+
+  // States for Tipos de Producto
+  const [tiposProducto, setTiposProducto] = useState<any[]>([]);
+  const [openCrearTipo, setOpenCrearTipo] = useState(false);
+  const [openEditarTipo, setOpenEditarTipo] = useState(false);
+  const [selectedTipo, setSelectedTipo] = useState<any>(null);
+  const [tipoForm, setTipoForm] = useState({ nombre: '', descripcion: '', metadata: '' });
 
   // States for Proveedores
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -110,11 +117,13 @@ export default function Utilidades() {
       } else if (activeTab === 1) {
         await cargarUnidadesMedida();
       } else if (activeTab === 2) {
+        await cargarTiposProducto();
+      } else if (activeTab === 3) {
         await cargarProveedores();
         await cargarTerminosPago();
-      } else if (activeTab === 3) {
+      } else if (activeTab === 4) {
         await cargarTerminosPago();
-      } else if (activeTab === 5) {
+      } else if (activeTab === 6) {
         await cargarConfiguracionIA();
       }
     } catch (e) {
@@ -360,7 +369,10 @@ export default function Utilidades() {
       }
       await apiFetch('/categorias', {
         method: 'POST',
-        body: JSON.stringify({ nombre: categoriaForm.nombre }),
+        body: JSON.stringify({ 
+          nombre: categoriaForm.nombre,
+          tipoProducto: categoriaForm.tipoProducto,
+        }),
       });
       setSuccessMsg('Categoría creada con éxito.');
       setOpenCrearCategoria(false);
@@ -378,7 +390,10 @@ export default function Utilidades() {
       }
       await apiFetch(`/categorias/${selectedCategoria.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ nombre: categoriaForm.nombre }),
+        body: JSON.stringify({ 
+          nombre: categoriaForm.nombre,
+          tipoProducto: categoriaForm.tipoProducto,
+        }),
       });
       setSuccessMsg('Categoría actualizada con éxito.');
       setOpenEditarCategoria(false);
@@ -454,6 +469,66 @@ export default function Utilidades() {
     );
   };
 
+  const cargarTiposProducto = async () => {
+    try {
+      const types = await apiFetch('/productos/tipos');
+      setTiposProducto(types);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCrearTipoProducto = async () => {
+    try {
+      setErrorMsg(null);
+      if (!tipoForm.nombre.trim() || !tipoForm.descripcion.trim()) {
+        throw new Error('El nombre y la descripción son obligatorios.');
+      }
+      await apiFetch('/productos/tipos', {
+        method: 'POST',
+        body: JSON.stringify(tipoForm),
+      });
+      setSuccessMsg('Tipo de producto creado con éxito.');
+      setOpenCrearTipo(false);
+      await cargarTiposProducto();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEditarTipoProducto = async () => {
+    try {
+      setErrorMsg(null);
+      if (!tipoForm.nombre.trim() || !tipoForm.descripcion.trim()) {
+        throw new Error('El nombre y la descripción son obligatorios.');
+      }
+      await apiFetch(`/productos/tipos/${selectedTipo.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(tipoForm),
+      });
+      setSuccessMsg('Tipo de producto actualizado con éxito.');
+      setOpenEditarTipo(false);
+      setSelectedTipo(null);
+      await cargarTiposProducto();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEliminarTipoProducto = (id: string) => {
+    triggerConfirm(
+      'Eliminar Tipo de Producto',
+      '¿Está seguro de que desea eliminar este tipo de producto? Esta acción no se puede deshacer.',
+      async () => {
+        await apiFetch(`/productos/tipos/${id}`, {
+          method: 'DELETE',
+        });
+        setSuccessMsg('Tipo de producto eliminado con éxito.');
+        await cargarTiposProducto();
+      }
+    );
+  };
+
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
       <Box sx={{ mb: 4 }}>
@@ -486,6 +561,7 @@ export default function Utilidades() {
       >
         <Tab label="Categorías" />
         <Tab label="Unidades de Medida" />
+        <Tab label="Tipos de Producto" />
         <Tab label="Proveedores" />
         <Tab label="Condiciones de Pago" />
         <Tab label="Manual del Sistema" />
@@ -506,7 +582,7 @@ export default function Utilidades() {
               color="primary"
               startIcon={<Add />}
               onClick={() => {
-                setCategoriaForm({ nombre: '' });
+                setCategoriaForm({ nombre: '', tipoProducto: 'PRODUCTO_TERMINADO' });
                 setOpenCrearCategoria(true);
               }}
             >
@@ -520,6 +596,7 @@ export default function Utilidades() {
                 <TableRow>
                   <TableCell>ID</TableCell>
                   <TableCell>Nombre de Categoría</TableCell>
+                  <TableCell>Tipo de Producto</TableCell>
                   <TableCell>Fecha Creación</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
@@ -527,7 +604,7 @@ export default function Utilidades() {
               <TableBody>
                 {categorias.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={5} align="center">
                       No hay categorías registradas en el sistema.
                     </TableCell>
                   </TableRow>
@@ -537,6 +614,17 @@ export default function Utilidades() {
                       <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{cat.id}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>
                         <Chip label={cat.nombre} color="primary" variant="outlined" size="small" />
+                      </TableCell>
+                      <TableCell>
+                        {cat.tipoProducto === 'PRODUCTO_TERMINADO' && (
+                          <Chip label="Prod. Terminado" color="primary" variant="outlined" size="small" />
+                        )}
+                        {cat.tipoProducto === 'INSUMO' && (
+                          <Chip label="Insumo" color="secondary" variant="outlined" size="small" />
+                        )}
+                        {cat.tipoProducto === 'MATERIA_PRIMA' && (
+                          <Chip label="Materia Prima" color="warning" variant="outlined" size="small" />
+                        )}
                       </TableCell>
                       <TableCell>{new Date(cat.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
                       <TableCell align="right">
@@ -548,7 +636,7 @@ export default function Utilidades() {
                             startIcon={<Edit />}
                             onClick={() => {
                               setSelectedCategoria(cat);
-                              setCategoriaForm({ nombre: cat.nombre });
+                              setCategoriaForm({ nombre: cat.nombre, tipoProducto: cat.tipoProducto || 'PRODUCTO_TERMINADO' });
                               setOpenEditarCategoria(true);
                             }}
                           >
@@ -662,8 +750,100 @@ export default function Utilidades() {
         </Paper>
       )}
 
-      {/* TAB 2: PROVEEDORES */}
+      {/* TAB 2: TIPOS DE PRODUCTO */}
       {activeTab === 2 && (
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Tipos de Producto
+            </Typography>
+            {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Add />}
+                onClick={() => {
+                  setTipoForm({ nombre: '', descripcion: '', metadata: '' });
+                  setOpenCrearTipo(true);
+                }}
+              >
+                Agregar Tipo
+              </Button>
+            )}
+          </Box>
+
+          <Box sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Código / Nombre</TableCell>
+                  <TableCell>Descripción</TableCell>
+                  <TableCell>Detalles / Notas</TableCell>
+                  <TableCell>Fecha Creación</TableCell>
+                  {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                    <TableCell align="right">Acciones</TableCell>
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {tiposProducto.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      No hay tipos de producto registrados en el sistema.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  tiposProducto.map((tipo) => (
+                    <TableRow key={tipo.id}>
+                      <TableCell sx={{ fontWeight: 700 }}>
+                        <Chip label={tipo.nombre} color="info" variant="outlined" size="small" />
+                      </TableCell>
+                      <TableCell>{tipo.descripcion}</TableCell>
+                      <TableCell>{tipo.metadata || '-'}</TableCell>
+                      <TableCell>{new Date(tipo.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                      {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="info"
+                              startIcon={<Edit />}
+                              onClick={() => {
+                                setSelectedTipo(tipo);
+                                setTipoForm({
+                                  nombre: tipo.nombre,
+                                  descripcion: tipo.descripcion,
+                                  metadata: tipo.metadata || '',
+                                });
+                                setOpenEditarTipo(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="error"
+                              startIcon={<Delete />}
+                              onClick={() => handleEliminarTipoProducto(tipo.id)}
+                            >
+                              Eliminar
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* TAB 3: PROVEEDORES */}
+      {activeTab === 3 && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
@@ -838,8 +1018,8 @@ export default function Utilidades() {
         </Paper>
       )}
 
-      {/* TAB 3: CONDICIONES DE PAGO */}
-      {activeTab === 3 && (
+      {/* TAB 4: CONDICIONES DE PAGO */}
+      {activeTab === 4 && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
@@ -926,8 +1106,8 @@ export default function Utilidades() {
         </Paper>
       )}
 
-      {/* TAB 4: MANUAL Y GUÍA DEL SISTEMA */}
-      {activeTab === 4 && (
+      {/* TAB 5: MANUAL Y GUÍA DEL SISTEMA */}
+      {activeTab === 5 && (
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <Box sx={{ mb: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
@@ -1200,8 +1380,8 @@ export default function Utilidades() {
         </Paper>
       )}
 
-      {/* TAB 5: CONFIGURACIÓN DEL SISTEMA */}
-      {activeTab === 5 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+      {/* TAB 6: CONFIGURACIÓN DEL SISTEMA */}
+      {activeTab === 6 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{ 
@@ -1371,8 +1551,20 @@ export default function Utilidades() {
             placeholder="BEBIDAS LÁCTEAS"
             size="small"
             value={categoriaForm.nombre}
-            onChange={(e) => setCategoriaForm({ nombre: e.target.value })}
+            onChange={(e) => setCategoriaForm({ ...categoriaForm, nombre: e.target.value })}
           />
+          <FormControl fullWidth size="small">
+            <InputLabel>Tipo de Producto</InputLabel>
+            <Select
+              value={categoriaForm.tipoProducto}
+              label="Tipo de Producto"
+              onChange={(e) => setCategoriaForm({ ...categoriaForm, tipoProducto: e.target.value })}
+            >
+              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
+              <MenuItem value="INSUMO">Insumo</MenuItem>
+              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenCrearCategoria(false)}>Cancelar</Button>
@@ -1389,12 +1581,95 @@ export default function Utilidades() {
             label="Nombre de Categoría"
             size="small"
             value={categoriaForm.nombre}
-            onChange={(e) => setCategoriaForm({ nombre: e.target.value })}
+            onChange={(e) => setCategoriaForm({ ...categoriaForm, nombre: e.target.value })}
           />
+          <FormControl fullWidth size="small">
+            <InputLabel>Tipo de Producto</InputLabel>
+            <Select
+              value={categoriaForm.tipoProducto}
+              label="Tipo de Producto"
+              onChange={(e) => setCategoriaForm({ ...categoriaForm, tipoProducto: e.target.value })}
+            >
+              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
+              <MenuItem value="INSUMO">Insumo</MenuItem>
+              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenEditarCategoria(false)}>Cancelar</Button>
           <Button variant="contained" color="primary" onClick={handleEditarCategoria}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: CREAR TIPO PRODUCTO */}
+      <Dialog open={openCrearTipo} onClose={() => setOpenCrearTipo(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Agregar Nuevo Tipo de Producto</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Código / Nombre"
+            placeholder="PRODUCTO_TERMINADO"
+            size="small"
+            value={tipoForm.nombre}
+            onChange={(e) => setTipoForm({ ...tipoForm, nombre: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Descripción"
+            placeholder="Producto Terminado"
+            size="small"
+            value={tipoForm.descripcion}
+            onChange={(e) => setTipoForm({ ...tipoForm, descripcion: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Detalles / Notas"
+            placeholder="Productos listos para la venta en el POS..."
+            size="small"
+            multiline
+            rows={2}
+            value={tipoForm.metadata}
+            onChange={(e) => setTipoForm({ ...tipoForm, metadata: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenCrearTipo(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleCrearTipoProducto}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: EDITAR TIPO PRODUCTO */}
+      <Dialog open={openEditarTipo} onClose={() => setOpenEditarTipo(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Tipo de Producto</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Código / Nombre"
+            size="small"
+            value={tipoForm.nombre}
+            onChange={(e) => setTipoForm({ ...tipoForm, nombre: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Descripción"
+            size="small"
+            value={tipoForm.descripcion}
+            onChange={(e) => setTipoForm({ ...tipoForm, descripcion: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Detalles / Notas"
+            size="small"
+            multiline
+            rows={2}
+            value={tipoForm.metadata}
+            onChange={(e) => setTipoForm({ ...tipoForm, metadata: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenEditarTipo(false)}>Cancelar</Button>
+          <Button variant="contained" color="primary" onClick={handleEditarTipoProducto}>Guardar</Button>
         </DialogActions>
       </Dialog>
 

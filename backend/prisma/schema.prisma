@@ -366,10 +366,20 @@ model Auditoria {
 }
 
 model Categoria {
-  id        String   @id @default(uuid())
-  nombre    String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  nombre       String   @unique
+  tipoProducto String   @default("PRODUCTO_TERMINADO") // INSUMO, MATERIA_PRIMA, PRODUCTO_TERMINADO
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model TipoProducto {
+  id          String   @id @default(uuid())
+  nombre      String   @unique // e.g. "PRODUCTO_TERMINADO", "INSUMO", "MATERIA_PRIMA"
+  descripcion String   // e.g. "Producto Terminado"
+  metadata    String?  // Optional description or details
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model UnidadMedida {

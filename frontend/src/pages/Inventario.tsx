@@ -103,6 +103,9 @@ export default function Inventario() {
   // Unidades de Medida
   const [unidadesMedida, setUnidadesMedida] = useState<any[]>([]);
 
+  // Tipos de Producto
+  const [tiposProducto, setTiposProducto] = useState<any[]>([]);
+
   // Mermas y Pérdidas
   const [openMerma, setOpenMerma] = useState(false);
   const [mermaForm, setMermaForm] = useState({
@@ -221,6 +224,7 @@ export default function Inventario() {
         setTodosProductos(prod);
         await cargarCategorias();
         await cargarUnidadesMedida();
+        await cargarTiposProducto();
       } else if (activeTab === 4) {
         const lotesAll = await apiFetch('/lotes');
         setTodosLotes(lotesAll);
@@ -256,6 +260,15 @@ export default function Inventario() {
     try {
       const units = await apiFetch('/productos/unidades-medida');
       setUnidadesMedida(units);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const cargarTiposProducto = async () => {
+    try {
+      const types = await apiFetch('/productos/tipos');
+      setTiposProducto(types);
     } catch (e) {
       console.error(e);
     }
@@ -1815,7 +1828,15 @@ export default function Inventario() {
             <Select
               value={productoForm.categoria}
               label="Categoría"
-              onChange={(e) => setProductoForm({ ...productoForm, categoria: e.target.value })}
+              onChange={(e) => {
+                const catName = e.target.value;
+                const matchedCat = categorias.find((c: any) => c.nombre === catName);
+                setProductoForm({
+                  ...productoForm,
+                  categoria: catName,
+                  tipoProducto: matchedCat ? matchedCat.tipoProducto : 'PRODUCTO_TERMINADO'
+                });
+              }}
             >
               {categorias.length === 0 ? (
                 ['LECHE', 'YOGURT', 'QUESOS', 'MANTEQUILLA', 'HELADOS', 'POSTRES', 'OTROS'].map((cat) => (
@@ -1836,9 +1857,19 @@ export default function Inventario() {
               label="Tipo de Producto"
               onChange={(e) => setProductoForm({ ...productoForm, tipoProducto: e.target.value })}
             >
-              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
-              <MenuItem value="INSUMO">Insumo</MenuItem>
-              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+              {tiposProducto.length === 0 ? (
+                [
+                  { nombre: 'PRODUCTO_TERMINADO', descripcion: 'Producto Terminado' },
+                  { nombre: 'INSUMO', descripcion: 'Insumo' },
+                  { nombre: 'MATERIA_PRIMA', descripcion: 'Materia Prima' },
+                ].map((t) => (
+                  <MenuItem key={t.nombre} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              ) : (
+                tiposProducto.map((t) => (
+                  <MenuItem key={t.id} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
 
@@ -1954,7 +1985,15 @@ export default function Inventario() {
             <Select
               value={editarProductoForm.categoria}
               label="Categoría"
-              onChange={(e) => setEditarProductoForm({ ...editarProductoForm, categoria: e.target.value })}
+              onChange={(e) => {
+                const catName = e.target.value;
+                const matchedCat = categorias.find((c: any) => c.nombre === catName);
+                setEditarProductoForm({
+                  ...editarProductoForm,
+                  categoria: catName,
+                  tipoProducto: matchedCat ? matchedCat.tipoProducto : 'PRODUCTO_TERMINADO'
+                });
+              }}
             >
               {categorias.length === 0 ? (
                 ['LECHE', 'YOGURT', 'QUESOS', 'MANTEQUILLA', 'HELADOS', 'POSTRES', 'OTROS'].map((cat) => (
@@ -1975,9 +2014,19 @@ export default function Inventario() {
               label="Tipo de Producto"
               onChange={(e) => setEditarProductoForm({ ...editarProductoForm, tipoProducto: e.target.value })}
             >
-              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado</MenuItem>
-              <MenuItem value="INSUMO">Insumo</MenuItem>
-              <MenuItem value="MATERIA_PRIMA">Materia Prima</MenuItem>
+              {tiposProducto.length === 0 ? (
+                [
+                  { nombre: 'PRODUCTO_TERMINADO', descripcion: 'Producto Terminado' },
+                  { nombre: 'INSUMO', descripcion: 'Insumo' },
+                  { nombre: 'MATERIA_PRIMA', descripcion: 'Materia Prima' },
+                ].map((t) => (
+                  <MenuItem key={t.nombre} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              ) : (
+                tiposProducto.map((t) => (
+                  <MenuItem key={t.id} value={t.nombre}>{t.descripcion}</MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
 
