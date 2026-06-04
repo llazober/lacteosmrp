@@ -15,6 +15,9 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 8. [Asistente Inteligente ERP AI](#8-asistente-inteligente-erp-ai)
 9. [Módulo de Producción Láctea](#9-módulo-de-producción-láctea)
 10. [Módulo de Control de Calidad y Cumplimiento](#10-módulo-de-control-de-calidad-y-cumplimiento)
+11. [Chat Operativo](#11-chat-operativo)
+12. [Administración de Personal y Auditoría](#12-administración-de-personal-y-auditoría)
+13. [Utilidades y Configuración de Tablas Maestras](#13-utilidades-y-configuración-de-tablas-maestras)
 
 ---
 
@@ -171,3 +174,44 @@ Este módulo asegura que la materia prima recibida y los lotes producidos cumpla
     1.  **Reportar NC**: Permite registrar desviaciones de tipo producción o almacenamiento, asociando la incidencia a una orden de producción o un lote específico.
     2.  **Registro de Evidencia**: El inspector puede simular y subir una captura fotográfica digital como evidencia del defecto físico detectado.
     3.  **Resolución y Acciones Correctivas**: La no conformidad permanece como *ABIERTA* hasta que un supervisor analice la falla, registre las **Acciones Correctivas** aplicadas en la planta (ej. descarte de lote, recalibración de pasteurizadora) y cierre formalmente el ticket como *RESUELTA*.
+
+---
+
+## 11. Chat Operativo
+
+El módulo de **Chat Operativo** facilita la coordinación instantánea y la resolución de incidencias en tiempo real entre sucursales y la administración general del sistema (HQ).
+
+*   **Canal General (`#general`)**: Sala de chat corporativa abierta de forma global. Todos los usuarios logueados del sistema pueden enviar y leer mensajes en este espacio.
+*   **Canales de Sucursal (`#nombre-sucursal`)**: Salas de chat privadas destinadas a la coordinación interna de cada sucursal:
+    *   Los operarios y cajeros asignados a una sucursal solo pueden acceder y chatear en su respectivo canal de sucursal.
+    *   Los roles directivos (`ADMINISTRADOR` y `SUPERVISOR`) tienen acceso visual y de escritura en todos los canales de sucursales para dar soporte.
+*   **Identificación Visual**: Para facilitar el reconocimiento de los mensajes, cada burbuja de chat muestra el nombre del empleado, su sucursal de origen (en el canal general) y una etiqueta coloreada según su rol jerárquico.
+
+---
+
+## 12. Administración de Personal y Auditoría
+
+Este módulo (accesible bajo **Auditoría y Personal**) centraliza la supervisión de usuarios y el registro inmutable de acciones realizadas en el ERP para auditorías internas.
+
+*   **Gestión de Personal**:
+    *   *Alta y Modificación de Usuarios*: Permite registrar nuevos empleados asignándoles Nombre, Correo Electrónico (el cual sirve de credencial de inicio de sesión), Rol, Sucursal de trabajo y Estado (Activo o Inactivo).
+    *   *Blanqueo de Clave*: Los administradores pueden forzar el cambio de contraseña de cualquier usuario sin necesidad de conocer su clave actual.
+*   **Bitácora de Auditoría**:
+    *   Muestra un registro tabular no modificable de todas las transacciones críticas del ERP (ej. `ELIMINAR_ORDEN_COMPRA`, `REGISTRAR_PAGO`, `CREAR_ROL`).
+    *   Cada fila detalla el nombre del usuario responsable, la fecha exacta, la acción, el módulo afectado y un payload de detalles en formato JSON con la información exacta del cambio.
+
+---
+
+## 13. Utilidades y Configuración de Tablas Maestras
+
+El panel de **Utilidades** agrupa las configuraciones globales, catálogos estructurales y seguridad del sistema.
+
+*   **Pestaña 1: Sucursales**: Registro, edición y desactivación de sucursales. Cada local comercial o bodega cuenta con código único, dirección, teléfono y correo propio.
+*   **Pestaña 2: Categorías de Producto**: Mantenimiento del catálogo para clasificar productos. Permite asociar categorías a tipos estructurales específicos (Producto Terminado, Insumo, Materia Prima).
+*   **Pestaña 3: Unidades de Medida**: Registro de unidades de empaque y volumen (ej. litros, gramos, unidades) utilizadas para cuantificar materias primas y existencias.
+*   **Pestaña 4: Roles y Permisos**:
+    *   Matriz dinámica de seguridad donde se pueden crear nuevos roles personalizados y activar/desactivar sus permisos operativos mediante checkboxes.
+    *   Los roles del sistema preestablecidos de fábrica no pueden ser eliminados para proteger la integridad estructural de la aplicación.
+*   **Pestaña 5: Configuración de IA**:
+    *   Permite cargar y guardar la API Key de OpenAI para dar vida a **Vaquita AI**.
+    *   Permite seleccionar el modelo de lenguaje activo (ej. `gpt-4o-mini`, `gpt-4o`) para controlar el costo y la calidad de las respuestas del asistente de operaciones.
