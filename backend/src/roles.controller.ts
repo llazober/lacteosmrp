@@ -18,9 +18,83 @@ export class RolesController {
 
   @Get()
   async listarRoles() {
-    return this.prisma.rol.findMany({
+    const roles = await this.prisma.rol.findMany({
       orderBy: { nombre: 'asc' },
     });
+
+    if (roles.length === 0) {
+      const rolesDefault = [
+        {
+          nombre: 'ADMINISTRADOR',
+          descripcion: 'Administrador global del sistema con acceso total',
+          permisos: JSON.stringify([
+            'VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_VENTAS', 'VER_FRIO',
+            'VER_TRAZABILIDAD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO',
+            'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_CALIDAD', 'GESTIONAR_CALIDAD',
+            'VER_COMPRAS', 'GESTIONAR_COMPRAS', 'VER_FINANZAS', 'GESTIONAR_FINANZAS',
+            'VER_AUDITORIA', 'VER_CHAT', 'USAR_ASISTENTE', 'VER_UTILIDADES', 'GESTIONAR_ROLES',
+            'VER_SUCURSALES', 'GESTIONAR_SUCURSALES', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
+            'VER_LOTES', 'GESTIONAR_LOTES'
+          ])
+        },
+        {
+          nombre: 'SUPERVISOR',
+          descripcion: 'Supervisor general con capacidad de ver y editar configuraciones operativas',
+          permisos: JSON.stringify([
+            'VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_VENTAS', 'VER_FRIO',
+            'VER_TRAZABILIDAD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO',
+            'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_CALIDAD', 'GESTIONAR_CALIDAD',
+            'VER_COMPRAS', 'GESTIONAR_COMPRAS', 'VER_FINANZAS', 'GESTIONAR_FINANZAS',
+            'VER_AUDITORIA', 'VER_CHAT', 'USAR_ASISTENTE', 'VER_UTILIDADES', 'GESTIONAR_ROLES',
+            'VER_SUCURSALES', 'GESTIONAR_SUCURSALES', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
+            'VER_LOTES', 'GESTIONAR_LOTES'
+          ])
+        },
+        {
+          nombre: 'GERENTE_TIENDA',
+          descripcion: 'Gerente encargado de la operación de una sucursal',
+          permisos: JSON.stringify([
+            'VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_VENTAS', 'VER_FRIO',
+            'VER_TRAZABILIDAD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO',
+            'VER_COMPRAS', 'VER_CHAT', 'USAR_ASISTENTE', 'VER_UTILIDADES',
+            'VER_PRODUCTOS', 'VER_LOTES'
+          ])
+        },
+        {
+          nombre: 'CAJERO',
+          descripcion: 'Operador de caja y punto de venta',
+          permisos: JSON.stringify([
+            'VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'
+          ])
+        },
+        {
+          nombre: 'ALMACEN',
+          descripcion: 'Gestor de stock, materias primas y órdenes de producción',
+          permisos: JSON.stringify([
+            'VER_DASHBOARD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
+            'VER_LOTES', 'GESTIONAR_LOTES', 'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_COMPRAS',
+            'GESTIONAR_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES'
+          ])
+        },
+        {
+          nombre: 'CONTROL_CALIDAD',
+          descripcion: 'Inspector de calidad y aseguramiento higiénico-sanitario',
+          permisos: JSON.stringify([
+            'VER_DASHBOARD', 'VER_CALIDAD', 'GESTIONAR_CALIDAD', 'VER_LOTES', 'VER_CHAT'
+          ])
+        }
+      ];
+
+      for (const r of rolesDefault) {
+        await this.prisma.rol.create({ data: r });
+      }
+
+      return this.prisma.rol.findMany({
+        orderBy: { nombre: 'asc' },
+      });
+    }
+
+    return roles;
   }
 
   @Roles('ADMINISTRADOR')
