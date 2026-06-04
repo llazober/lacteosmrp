@@ -7,6 +7,7 @@ interface Usuario {
   rol: string;
   sucursalId: string | null;
   sucursalNombre: string;
+  permisos?: string[];
 }
 
 interface AuthState {

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 import {
   Paper,
   Typography,
   Box,
   Button,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -162,23 +163,19 @@ export default function Ventas() {
       <Paper className="glass-panel" sx={{ p: 3, mb: 4 }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: isHQ ? '2fr 2fr 3fr 2fr' : '3fr 3fr 2fr' }, gap: 2, alignItems: 'center' }}>
           <Box>
-            <TextField
-              fullWidth
+            <DatePicker
               label="Fecha de Inicio"
-              type="date"
-              size="small"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
+              value={fechaInicio ? dayjs(fechaInicio) : null}
+              onChange={(newValue) => setFechaInicio(newValue ? newValue.format('YYYY-MM-DD') : '')}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
             />
           </Box>
           <Box>
-            <TextField
-              fullWidth
+            <DatePicker
               label="Fecha Final"
-              type="date"
-              size="small"
-              value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
+              value={fechaFin ? dayjs(fechaFin) : null}
+              onChange={(newValue) => setFechaFin(newValue ? newValue.format('YYYY-MM-DD') : '')}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
             />
           </Box>
           {isHQ && (

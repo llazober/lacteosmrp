@@ -24,6 +24,7 @@ import { AiService } from './ai.service';
 import { FinanzasController } from './finanzas.controller';
 import { ProduccionController } from './produccion.controller';
 import { CalidadController } from './calidad.controller';
+import { RolesController } from './roles.controller';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CalidadController } from './calidad.controller';
     FinanzasController,
     ProduccionController,
     CalidadController,
+    RolesController,
   ],
   providers: [
     AppService,

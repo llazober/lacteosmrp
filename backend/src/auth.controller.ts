@@ -68,6 +68,8 @@ export class AuthController {
       },
     });
 
+    const permisos = await this.obtenerPermisosPorRol(usuario.rol);
+
     return {
       token,
       usuario: {
@@ -77,6 +79,7 @@ export class AuthController {
         rol: usuario.rol,
         sucursalId: usuario.sucursalId,
         sucursalNombre: usuario.sucursal?.nombre || 'Todas',
+        permisos,
       },
     };
   }
@@ -100,6 +103,8 @@ export class AuthController {
     if (!usuario) {
       throw new BadRequestException('Usuario no encontrado.');
     }
+    const permisos = await this.obtenerPermisosPorRol(usuario.rol);
+
     return {
       id: usuario.id,
       email: usuario.email,
@@ -107,6 +112,7 @@ export class AuthController {
       rol: usuario.rol,
       sucursalId: usuario.sucursalId,
       sucursalNombre: usuario.sucursal?.nombre || 'Todas',
+      permisos,
     };
   }
 
@@ -468,5 +474,41 @@ export class AuthController {
     }
 
     return consolidado;
+  }
+
+  private async obtenerPermisosPorRol(rolNombre: string): Promise<string[]> {
+    const dbRole = await this.prisma.rol.findUnique({
+      where: { nombre: rolNombre },
+    });
+    if (dbRole) {
+      try {
+        return JSON.parse(dbRole.permisos);
+      } catch (e) {
+        return [];
+      }
+    }
+    // Fallback permissions based on standard roles
+    if (rolNombre === 'ADMINISTRADOR' || rolNombre === 'SUPERVISOR') {
+      return [
+        'VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_VENTAS', 'VER_FRIO',
+        'VER_TRAZABILIDAD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO',
+        'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_CALIDAD', 'GESTIONAR_CALIDAD',
+        'VER_COMPRAS', 'GESTIONAR_COMPRAS', 'VER_FINANZAS', 'GESTIONAR_FINANZAS',
+        'VER_AUDITORIA', 'VER_CHAT', 'USAR_ASISTENTE', 'VER_UTILIDADES', 'GESTIONAR_ROLES',
+        'VER_SUCURSALES', 'GESTIONAR_SUCURSALES', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
+        'VER_LOTES', 'GESTIONAR_LOTES'
+      ];
+    } else if (rolNombre === 'ALMACEN') {
+      return [
+        'VER_DASHBOARD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
+        'VER_LOTES', 'GESTIONAR_LOTES', 'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_COMPRAS',
+        'GESTIONAR_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES'
+      ];
+    } else if (rolNombre === 'CAJERO') {
+      return ['VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
+    } else if (rolNombre === 'CONTROL_CALIDAD') {
+      return ['VER_DASHBOARD', 'VER_CALIDAD', 'GESTIONAR_CALIDAD', 'VER_LOTES', 'VER_CHAT'];
+    }
+    return [];
   }
 }

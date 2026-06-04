@@ -23,7 +23,31 @@ import {
   Select,
   MenuItem,
   Divider,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
 } from '@mui/material';
+
+const ALL_PERMISSIONS = [
+  'VER_DASHBOARD',
+  'VER_INVENTARIO',
+  'GESTIONAR_INVENTARIO',
+  'VER_COMPRAS',
+  'GESTIONAR_COMPRAS',
+  'VER_VENTAS',
+  'GESTIONAR_VENTAS',
+  'VER_FINANZAS',
+  'GESTIONAR_FINANZAS',
+  'VER_AUDITORIA',
+  'VER_CHAT',
+  'USAR_ASISTENTE',
+  'VER_UTILIDADES',
+  'GESTIONAR_ROLES',
+  'VER_PRODUCCION',
+  'GESTIONAR_PRODUCCION',
+  'VER_CALIDAD',
+  'GESTIONAR_CALIDAD',
+];
 import {
   Add,
   Edit,
@@ -35,12 +59,43 @@ export default function Utilidades() {
   const usuario = useAuthStore((state) => state.usuario);
   const [activeTab, setActiveTab] = useState(0);
 
+  // States for Sucursales
+  const [sucursales, setSucursales] = useState<any[]>([]);
+  const [openSucursal, setOpenSucursal] = useState(false);
+  const [sucursalForm, setSucursalForm] = useState({
+    codigo: '',
+    nombre: '',
+    direccion: '',
+    telefono: '',
+    correo: '',
+  });
+  const [openEditSucursal, setOpenEditSucursal] = useState(false);
+  const [selectedSucursal, setSelectedSucursal] = useState<any>(null);
+  const [editSucursalForm, setEditSucursalForm] = useState({
+    nombre: '',
+    direccion: '',
+    telefono: '',
+    correo: '',
+    estado: 'ACTIVO',
+  });
+
   // States for Categorías
   const [categorias, setCategorias] = useState<any[]>([]);
   const [openCrearCategoria, setOpenCrearCategoria] = useState(false);
   const [openEditarCategoria, setOpenEditarCategoria] = useState(false);
   const [selectedCategoria, setSelectedCategoria] = useState<any>(null);
   const [categoriaForm, setCategoriaForm] = useState({ nombre: '', tipoProducto: 'PRODUCTO_TERMINADO' });
+
+  // States for Roles
+  const [roles, setRoles] = useState<any[]>([]);
+  const [openRol, setOpenRol] = useState(false);
+  const [rolForm, setRolForm] = useState({
+    nombre: '',
+    descripcion: '',
+    permisos: [] as string[],
+  });
+  const [openEditarRol, setOpenEditarRol] = useState(false);
+  const [selectedRol, setSelectedRol] = useState<any>(null);
 
   // States for Unidades de Medida
   const [unidadesMedida, setUnidadesMedida] = useState<any[]>([]);
@@ -124,12 +179,156 @@ export default function Utilidades() {
         await cargarTerminosPago();
       } else if (activeTab === 4) {
         await cargarTerminosPago();
+      } else if (activeTab === 5) {
+        await cargarSucursales();
       } else if (activeTab === 6) {
+        await cargarRoles();
+      } else if (activeTab === 8) {
         await cargarConfiguracionIA();
       }
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const cargarSucursales = async () => {
+    try {
+      const data = await apiFetch('/sucursales');
+      setSucursales(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCreateSucursal = async () => {
+    try {
+      setErrorMsg(null);
+      if (!sucursalForm.codigo.trim() || !sucursalForm.nombre.trim()) {
+        throw new Error('El código y el nombre son requeridos.');
+      }
+      await apiFetch('/sucursales', {
+        method: 'POST',
+        body: JSON.stringify(sucursalForm),
+      });
+      setSuccessMsg('Sucursal creada exitosamente.');
+      setOpenSucursal(false);
+      await cargarSucursales();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleAbrirEditarSucursal = (sucursal: any) => {
+    setSelectedSucursal(sucursal);
+    setEditSucursalForm({
+      nombre: sucursal.nombre,
+      direccion: sucursal.direccion || '',
+      telefono: sucursal.telefono || '',
+      correo: sucursal.correo || '',
+      estado: sucursal.estado,
+    });
+    setOpenEditSucursal(true);
+  };
+
+  const handleEditSucursalSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      if (!editSucursalForm.nombre.trim()) {
+        throw new Error('El nombre de la sucursal es obligatorio.');
+      }
+      await apiFetch(`/sucursales/${selectedSucursal.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(editSucursalForm),
+      });
+      setSuccessMsg('Sucursal actualizada con éxito.');
+      setOpenEditSucursal(false);
+      setSelectedSucursal(null);
+      await cargarSucursales();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEliminarSucursal = (id: string) => {
+    triggerConfirm(
+      'Eliminar Sucursal',
+      '¿Está seguro de que desea eliminar esta sucursal? Esta acción no se puede deshacer.',
+      async () => {
+        await apiFetch(`/sucursales/${id}`, {
+          method: 'DELETE',
+        });
+        setSuccessMsg('Sucursal eliminada con éxito.');
+        await cargarSucursales();
+      }
+    );
+  };
+
+  const cargarRoles = async () => {
+    try {
+      const data = await apiFetch('/roles');
+      setRoles(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCrearRolSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      if (!rolForm.nombre.trim() || !rolForm.descripcion.trim()) {
+        throw new Error('El nombre y la descripción del rol son obligatorios.');
+      }
+      await apiFetch('/roles', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: rolForm.nombre.toUpperCase().trim(),
+          descripcion: rolForm.descripcion.trim(),
+          permisos: rolForm.permisos,
+        }),
+      });
+      setSuccessMsg('Rol creado con éxito.');
+      setOpenRol(false);
+      await cargarRoles();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEditarRolSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      if (!rolForm.nombre.trim() || !rolForm.descripcion.trim()) {
+        throw new Error('El nombre y la descripción del rol son obligatorios.');
+      }
+      await apiFetch(`/roles/${selectedRol.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          nombre: rolForm.nombre.toUpperCase().trim(),
+          descripcion: rolForm.descripcion.trim(),
+          permisos: rolForm.permisos,
+        }),
+      });
+      setSuccessMsg('Rol actualizado con éxito.');
+      setOpenEditarRol(false);
+      setSelectedRol(null);
+      await cargarRoles();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEliminarRol = (id: string) => {
+    triggerConfirm(
+      'Eliminar Rol',
+      '¿Está seguro de que desea eliminar este rol? Esta acción no se puede deshacer.',
+      async () => {
+        await apiFetch(`/roles/${id}`, {
+          method: 'DELETE',
+        });
+        setSuccessMsg('Rol eliminado con éxito.');
+        await cargarRoles();
+      }
+    );
   };
 
   const cargarTerminosPago = async () => {
@@ -565,6 +764,8 @@ export default function Utilidades() {
         <Tab label="Tipos de Producto" />
         <Tab label="Proveedores" />
         <Tab label="Condiciones de Pago" />
+        <Tab label="Gestión de Sucursales" />
+        <Tab label="Roles y Permisos" />
         <Tab label="Manual del Sistema" />
         {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
           <Tab label="Configuración del Sistema" />
@@ -1121,8 +1322,216 @@ export default function Utilidades() {
         </Paper>
       )}
 
-      {/* TAB 5: MANUAL Y GUÍA DEL SISTEMA */}
+      {/* TAB 5: GESTIÓN DE SUCURSALES */}
       {activeTab === 5 && (
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Gestión de Sucursales
+            </Typography>
+            {usuario?.rol === 'ADMINISTRADOR' && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Add />}
+                onClick={() => {
+                  setSucursalForm({
+                    codigo: '',
+                    nombre: '',
+                    direccion: '',
+                    telefono: '',
+                    correo: '',
+                  });
+                  setOpenSucursal(true);
+                }}
+              >
+                Registrar Sucursal
+              </Button>
+            )}
+          </Box>
+
+          <Box sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Código</TableCell>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Dirección</TableCell>
+                  <TableCell>Teléfono</TableCell>
+                  <TableCell>Correo</TableCell>
+                  <TableCell>Estado</TableCell>
+                  {usuario?.rol === 'ADMINISTRADOR' && <TableCell align="right">Acciones</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {sucursales.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={usuario?.rol === 'ADMINISTRADOR' ? 7 : 6} align="center">
+                      No hay sucursales registradas.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sucursales.map((suc) => (
+                    <TableRow key={suc.id}>
+                      <TableCell sx={{ fontFamily: 'monospace' }}>{suc.codigo}</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>{suc.nombre}</TableCell>
+                      <TableCell>{suc.direccion || '—'}</TableCell>
+                      <TableCell>{suc.telefono || '—'}</TableCell>
+                      <TableCell>{suc.correo || '—'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={suc.estado}
+                          color={suc.estado === 'ACTIVO' ? 'success' : 'error'}
+                          size="small"
+                          sx={{ fontWeight: 700 }}
+                        />
+                      </TableCell>
+                      {usuario?.rol === 'ADMINISTRADOR' && (
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="info"
+                              startIcon={<Edit />}
+                              onClick={() => handleAbrirEditarSucursal(suc)}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="error"
+                              startIcon={<Delete />}
+                              onClick={() => handleEliminarSucursal(suc.id)}
+                            >
+                              Eliminar
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* TAB 6: ROLES Y PERMISOS */}
+      {activeTab === 6 && (
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Roles y Permisos del Sistema
+            </Typography>
+            {usuario?.rol === 'ADMINISTRADOR' && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Add />}
+                onClick={() => {
+                  setRolForm({
+                    nombre: '',
+                    descripcion: '',
+                    permisos: [],
+                  });
+                  setOpenRol(true);
+                }}
+              >
+                Crear Rol
+              </Button>
+            )}
+          </Box>
+
+          <Box sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Rol</TableCell>
+                  <TableCell>Descripción</TableCell>
+                  <TableCell>Permisos Asignados</TableCell>
+                  {usuario?.rol === 'ADMINISTRADOR' && <TableCell align="right">Acciones</TableCell>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {roles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={usuario?.rol === 'ADMINISTRADOR' ? 4 : 3} align="center">
+                      No hay roles registrados.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  roles.map((r) => {
+                    let permsList: string[] = [];
+                    try {
+                      permsList = JSON.parse(r.permisos || '[]');
+                    } catch (e) {
+                      permsList = [];
+                    }
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell sx={{ fontWeight: 700 }}>
+                          <Chip label={r.nombre} color="secondary" variant="outlined" size="small" sx={{ fontWeight: 800 }} />
+                        </TableCell>
+                        <TableCell>{r.descripcion}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', maxWidth: '500px' }}>
+                            {permsList.length === 0 ? (
+                              <Typography variant="caption" color="text.secondary">Ninguno</Typography>
+                            ) : (
+                              permsList.map((p: string) => (
+                                <Chip key={p} label={p} size="small" sx={{ fontSize: '0.7rem' }} />
+                              ))
+                            )}
+                          </Box>
+                        </TableCell>
+                        {usuario?.rol === 'ADMINISTRADOR' && (
+                          <TableCell align="right">
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="info"
+                                startIcon={<Edit />}
+                                onClick={() => {
+                                  setSelectedRol(r);
+                                  setRolForm({
+                                    nombre: r.nombre,
+                                    descripcion: r.descripcion,
+                                    permisos: permsList,
+                                  });
+                                  setOpenEditarRol(true);
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="error"
+                                startIcon={<Delete />}
+                                onClick={() => handleEliminarRol(r.id)}
+                                disabled={['ADMINISTRADOR', 'SUPERVISOR', 'GERENTE_TIENDA', 'CAJERO', 'ALMACEN', 'CONTROL_CALIDAD'].includes(r.nombre)}
+                              >
+                                Eliminar
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* TAB 7: MANUAL Y GUÍA DEL SISTEMA */}
+      {activeTab === 7 && (
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <Box sx={{ mb: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
@@ -1395,8 +1804,8 @@ export default function Utilidades() {
         </Paper>
       )}
 
-      {/* TAB 6: CONFIGURACIÓN DEL SISTEMA */}
-      {activeTab === 6 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+      {/* TAB 8: CONFIGURACIÓN DEL SISTEMA */}
+      {activeTab === 8 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
         <Paper className="glass-panel" sx={{ p: 4 }}>
           <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{ 
@@ -2079,6 +2488,221 @@ export default function Utilidades() {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenEditarTermino(false)}>Cancelar</Button>
           <Button variant="contained" color="primary" onClick={handleEditarTerminoSubmit}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* REGISTRAR SUCURSAL DIALOG */}
+      <Dialog open={openSucursal} onClose={() => setOpenSucursal(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Registrar Nueva Sucursal</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Código de Sucursal"
+            placeholder="SUC-003"
+            size="small"
+            value={sucursalForm.codigo}
+            onChange={(e) => setSucursalForm({ ...sucursalForm, codigo: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Nombre"
+            placeholder="Sucursal Providencia"
+            size="small"
+            value={sucursalForm.nombre}
+            onChange={(e) => setSucursalForm({ ...sucursalForm, nombre: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Dirección"
+            placeholder="Av. Providencia 1234"
+            size="small"
+            value={sucursalForm.direccion}
+            onChange={(e) => setSucursalForm({ ...sucursalForm, direccion: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Teléfono"
+            placeholder="+56 9 1234 5678"
+            size="small"
+            value={sucursalForm.telefono}
+            onChange={(e) => setSucursalForm({ ...sucursalForm, telefono: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Correo Electrónico"
+            placeholder="providencia@lavaquita.cl"
+            size="small"
+            value={sucursalForm.correo}
+            onChange={(e) => setSucursalForm({ ...sucursalForm, correo: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenSucursal(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleCreateSucursal}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* EDITAR SUCURSAL DIALOG */}
+      <Dialog open={openEditSucursal} onClose={() => { setOpenEditSucursal(false); setSelectedSucursal(null); }} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Sucursal: {selectedSucursal?.nombre}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Código de Sucursal"
+            size="small"
+            value={selectedSucursal?.codigo || ''}
+            disabled
+          />
+          <TextField
+            fullWidth
+            label="Nombre"
+            size="small"
+            value={editSucursalForm.nombre}
+            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, nombre: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Dirección"
+            size="small"
+            value={editSucursalForm.direccion}
+            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, direccion: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Teléfono"
+            size="small"
+            value={editSucursalForm.telefono}
+            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, telefono: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="Correo Electrónico"
+            size="small"
+            value={editSucursalForm.correo}
+            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, correo: e.target.value })}
+          />
+          <FormControl fullWidth size="small">
+            <InputLabel>Estado</InputLabel>
+            <Select
+              value={editSucursalForm.estado}
+              label="Estado"
+              onChange={(e) => setEditSucursalForm({ ...editSucursalForm, estado: e.target.value })}
+            >
+              <MenuItem value="ACTIVO">Activo</MenuItem>
+              <MenuItem value="INACTIVO">Inactivo</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => { setOpenEditSucursal(false); setSelectedSucursal(null); }}>Cancelar</Button>
+          <Button variant="contained" color="primary" onClick={handleEditSucursalSubmit}>Guardar Cambios</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: CREAR ROL */}
+      <Dialog open={openRol} onClose={() => setOpenRol(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>Crear Nuevo Rol</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Nombre del Rol"
+            placeholder="OPERADOR_LOGISTICA"
+            size="small"
+            value={rolForm.nombre}
+            onChange={(e) => setRolForm({ ...rolForm, nombre: e.target.value.toUpperCase() })}
+          />
+          <TextField
+            fullWidth
+            label="Descripción"
+            placeholder="Rol encargado de la logística de despachos y recepciones."
+            size="small"
+            value={rolForm.descripcion}
+            onChange={(e) => setRolForm({ ...rolForm, descripcion: e.target.value })}
+          />
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+            Asignar Permisos
+          </Typography>
+          <FormGroup sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            {ALL_PERMISSIONS.map((perm) => {
+              const isChecked = rolForm.permisos.includes(perm);
+              return (
+                <FormControlLabel
+                  key={perm}
+                  control={
+                    <Checkbox
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRolForm({ ...rolForm, permisos: [...rolForm.permisos, perm] });
+                        } else {
+                          setRolForm({ ...rolForm, permisos: rolForm.permisos.filter((p) => p !== perm) });
+                        }
+                      }}
+                    />
+                  }
+                  label={<Typography variant="body2" sx={{ fontSize: '0.8rem' }}>{perm}</Typography>}
+                />
+              );
+            })}
+          </FormGroup>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenRol(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleCrearRolSubmit}>Guardar Rol</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: EDITAR ROL */}
+      <Dialog open={openEditarRol} onClose={() => { setOpenEditarRol(false); setSelectedRol(null); }} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Rol: {selectedRol?.nombre}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Nombre del Rol"
+            size="small"
+            value={rolForm.nombre}
+            onChange={(e) => setRolForm({ ...rolForm, nombre: e.target.value.toUpperCase() })}
+            disabled={['ADMINISTRADOR', 'SUPERVISOR', 'GERENTE_TIENDA', 'CAJERO', 'ALMACEN', 'CONTROL_CALIDAD'].includes(selectedRol?.nombre)}
+          />
+          <TextField
+            fullWidth
+            label="Descripción"
+            size="small"
+            value={rolForm.descripcion}
+            onChange={(e) => setRolForm({ ...rolForm, descripcion: e.target.value })}
+          />
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+            Modificar Permisos
+          </Typography>
+          <FormGroup sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            {ALL_PERMISSIONS.map((perm) => {
+              const isChecked = rolForm.permisos.includes(perm);
+              return (
+                <FormControlLabel
+                  key={perm}
+                  control={
+                    <Checkbox
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRolForm({ ...rolForm, permisos: [...rolForm.permisos, perm] });
+                        } else {
+                          setRolForm({ ...rolForm, permisos: rolForm.permisos.filter((p) => p !== perm) });
+                        }
+                      }}
+                    />
+                  }
+                  label={<Typography variant="body2" sx={{ fontSize: '0.8rem' }}>{perm}</Typography>}
+                />
+              );
+            })}
+          </FormGroup>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => { setOpenEditarRol(false); setSelectedRol(null); }}>Cancelar</Button>
+          <Button variant="contained" color="primary" onClick={handleEditarRolSubmit}>Guardar Cambios</Button>
         </DialogActions>
       </Dialog>
 

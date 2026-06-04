@@ -44,6 +44,8 @@ import {
   Biotech as CalidadIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 import { theme } from './theme';
 import { useAuthStore, apiFetch } from './store/useAuthStore';
@@ -179,47 +181,60 @@ function MainLayout() {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/', roles: [] },
-    { text: 'Punto de Venta (POS)', icon: <PosIcon />, path: '/pos', roles: [] },
-    { text: 'Ventas', icon: <VentasIcon />, path: '/ventas', roles: [] },
-    { text: 'Cadena de Frío IoT', icon: <FrioIcon />, path: '/frio', roles: [] },
-    { text: 'Trazabilidad de Lotes', icon: <TrazabilidadIcon />, path: '/trazabilidad', roles: [] },
-    { text: 'Inventarios', icon: <InventarioIcon />, path: '/inventario', roles: [] },
-    { text: 'Producción', icon: <ProduccionIcon />, path: '/produccion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'] },
-    { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'] },
-    { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [] },
-    { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'] },
-    { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'] },
-    { text: 'Chat Operativo', icon: <ChatIcon />, path: '/chat', roles: [] },
-    { text: 'Asistente AI', icon: <SmartToyIcon />, path: '/asistente', roles: [] },
-    { text: 'Utilidades', icon: <UtilidadesIcon />, path: '/utilidades', roles: [] },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/', roles: [], permission: 'VER_DASHBOARD' },
+    { text: 'Punto de Venta (POS)', icon: <PosIcon />, path: '/pos', roles: [], permission: 'VER_POS' },
+    { text: 'Ventas', icon: <VentasIcon />, path: '/ventas', roles: [], permission: 'VER_VENTAS' },
+    { text: 'Cadena de Frío IoT', icon: <FrioIcon />, path: '/frio', roles: [], permission: 'VER_FRIO' },
+    { text: 'Trazabilidad de Lotes', icon: <TrazabilidadIcon />, path: '/trazabilidad', roles: [], permission: 'VER_TRAZABILIDAD' },
+    { text: 'Inventarios', icon: <InventarioIcon />, path: '/inventario', roles: [], permission: 'VER_INVENTARIO' },
+    { text: 'Producción', icon: <ProduccionIcon />, path: '/produccion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PRODUCCION' },
+    { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'], permission: 'VER_CALIDAD' },
+    { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [], permission: 'VER_COMPRAS' },
+    { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
+    { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_AUDITORIA' },
+    { text: 'Chat Operativo', icon: <ChatIcon />, path: '/chat', roles: [], permission: 'VER_CHAT' },
+    { text: 'Asistente AI', icon: <SmartToyIcon />, path: '/asistente', roles: [], permission: 'USAR_ASISTENTE' },
+    { text: 'Utilidades', icon: <UtilidadesIcon />, path: '/utilidades', roles: [], permission: 'VER_UTILIDADES' },
   ];
 
-  // Filtrar ítems de menú por rol de usuario
-  const filteredMenuItems = menuItems.filter(
-    (item) => item.roles.length === 0 || (usuario && item.roles.includes(usuario.rol))
-  );
+  // Filtrar ítems de menú por rol o permisos de usuario
+  const filteredMenuItems = menuItems.filter((item) => {
+    if (!usuario) return false;
+    if (usuario.rol === 'ADMINISTRADOR' || usuario.rol === 'SUPERVISOR') return true;
+    if (usuario.permisos && item.permission) {
+      return usuario.permisos.includes(item.permission);
+    }
+    if (item.roles.length === 0) return true;
+    return item.roles.includes(usuario.rol);
+  });
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Branding header */}
-      <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(2, 132, 199, 0.15)',
-            color: 'primary.main',
-            p: 1,
-            borderRadius: 2,
-          }}
-        >
-          <Storefront sx={{ fontSize: 28 }} />
+      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(2, 132, 199, 0.15)',
+              color: 'primary.main',
+              p: 1,
+              borderRadius: 2,
+            }}
+          >
+            <Storefront sx={{ fontSize: 28 }} />
+          </Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Lácteos ERP
+          </Typography>
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Lácteos ERP
-        </Typography>
+        {usuario && (
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <span>📍</span> Sucursal: <strong>{usuario.sucursalNombre || 'Todas'}</strong>
+          </Typography>
+        )}
       </Box>
 
       <Divider sx={{ opacity: 0.5 }} />
@@ -480,12 +495,14 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router>
-          {token ? <MainLayout /> : <Login />}
-        </Router>
-      </ThemeProvider>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <Router>
+            {token ? <MainLayout /> : <Login />}
+          </Router>
+        </ThemeProvider>
+      </LocalizationProvider>
     </QueryClientProvider>
   );
 }

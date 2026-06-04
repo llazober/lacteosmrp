@@ -22,6 +22,7 @@ import {
   Select,
   MenuItem,
   Alert,
+  TablePagination,
 } from '@mui/material';
 import {
   PersonAdd,
@@ -31,7 +32,6 @@ import {
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 export default function Auditoria() {
-  const usuario = useAuthStore((state) => state.usuario);
   const systemTimezone = useAuthStore((state) => state.systemTimezone);
   const [activeTab, setActiveTab] = useState(0);
 
@@ -39,25 +39,11 @@ export default function Auditoria() {
   const [logs, setLogs] = useState<any[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [sucursales, setSucursales] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
 
-  // Modales de Sucursales
-  const [openSucursal, setOpenSucursal] = useState(false);
-  const [sucursalForm, setSucursalForm] = useState({
-    codigo: '',
-    nombre: '',
-    direccion: '',
-    telefono: '',
-    correo: '',
-  });
-  const [openEditSucursal, setOpenEditSucursal] = useState(false);
-  const [selectedSucursal, setSelectedSucursal] = useState<any>(null);
-  const [editSucursalForm, setEditSucursalForm] = useState({
-    nombre: '',
-    direccion: '',
-    telefono: '',
-    correo: '',
-    estado: 'ACTIVO',
-  });
+  // States for pagination (Bitácora)
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   // Modales
   const [openUser, setOpenUser] = useState(false);
@@ -84,6 +70,7 @@ export default function Auditoria() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    setPage(0);
     cargarDatos();
   }, [activeTab]);
 
@@ -97,75 +84,11 @@ export default function Auditoria() {
         setUsuarios(users);
         const branches = await apiFetch('/sucursales');
         setSucursales(branches);
-      } else if (activeTab === 2) {
-        const branches = await apiFetch('/sucursales');
-        setSucursales(branches);
+        const rolesData = await apiFetch('/roles');
+        setRoles(rolesData);
       }
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const handleCreateSucursal = async () => {
-    try {
-      setErrorMsg(null);
-      if (!sucursalForm.codigo.trim() || !sucursalForm.nombre.trim()) {
-        throw new Error('El código y el nombre son requeridos.');
-      }
-      await apiFetch('/sucursales', {
-        method: 'POST',
-        body: JSON.stringify(sucursalForm),
-      });
-      setSuccessMsg('Sucursal creada exitosamente.');
-      setOpenSucursal(false);
-      cargarDatos();
-    } catch (e: any) {
-      setErrorMsg(e.message);
-    }
-  };
-
-  const handleAbrirEditarSucursal = (sucursal: any) => {
-    setSelectedSucursal(sucursal);
-    setEditSucursalForm({
-      nombre: sucursal.nombre,
-      direccion: sucursal.direccion || '',
-      telefono: sucursal.telefono || '',
-      correo: sucursal.correo || '',
-      estado: sucursal.estado,
-    });
-    setOpenEditSucursal(true);
-  };
-
-  const handleEditSucursalSubmit = async () => {
-    try {
-      setErrorMsg(null);
-      if (!editSucursalForm.nombre.trim()) {
-        throw new Error('El nombre de la sucursal es obligatorio.');
-      }
-      await apiFetch(`/sucursales/${selectedSucursal.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(editSucursalForm),
-      });
-      setSuccessMsg('Sucursal actualizada con éxito.');
-      setOpenEditSucursal(false);
-      setSelectedSucursal(null);
-      cargarDatos();
-    } catch (e: any) {
-      setErrorMsg(e.message);
-    }
-  };
-
-  const handleEliminarSucursal = async (id: string) => {
-    if (!window.confirm('¿Está seguro de que desea eliminar esta sucursal?')) return;
-    try {
-      setErrorMsg(null);
-      await apiFetch(`/sucursales/${id}`, {
-        method: 'DELETE',
-      });
-      setSuccessMsg('Sucursal eliminada con éxito.');
-      cargarDatos();
-    } catch (e: any) {
-      setErrorMsg(e.message);
     }
   };
 
@@ -244,24 +167,6 @@ export default function Auditoria() {
           </Button>
         )}
 
-        {activeTab === 2 && usuario?.rol === 'ADMINISTRADOR' && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => {
-              setSucursalForm({
-                codigo: '',
-                nombre: '',
-                direccion: '',
-                telefono: '',
-                correo: '',
-              });
-              setOpenSucursal(true);
-            }}
-          >
-            Registrar Sucursal
-          </Button>
-        )}
       </Box>
 
       {successMsg && (
@@ -288,7 +193,6 @@ export default function Auditoria() {
       >
         <Tab label="Bitácora de Auditoría" />
         <Tab label="Gestión de Personal y Roles" />
-        <Tab label="Gestión de Sucursales" />
       </Tabs>
 
       {/* TAB 0: BITÁCORA */}
@@ -312,7 +216,7 @@ export default function Auditoria() {
                     <TableCell colSpan={6} align="center">No hay registros de auditoría.</TableCell>
                   </TableRow>
                 ) : (
-                  logs.map((log) => (
+                  logs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((log) => (
                     <TableRow key={log.id}>
                       <TableCell>{new Date(log.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{log.usuarioNombre}</TableCell>
@@ -342,6 +246,23 @@ export default function Auditoria() {
               </TableBody>
             </Table>
           </Box>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={logs.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            labelRowsPerPage="Registros por página:"
+            sx={{
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'text.secondary',
+            }}
+          />
         </Paper>
       )}
 
@@ -430,12 +351,9 @@ export default function Auditoria() {
               label="Rol"
               onChange={(e) => setUserForm({ ...userForm, rol: e.target.value })}
             >
-              <MenuItem value="ADMINISTRADOR">Administrador (Global)</MenuItem>
-              <MenuItem value="SUPERVISOR">Supervisor (Global)</MenuItem>
-              <MenuItem value="GERENTE_TIENDA">Gerente de Tienda (Sucursal)</MenuItem>
-              <MenuItem value="CAJERO">Cajero (Sucursal)</MenuItem>
-              <MenuItem value="ALMACEN">Operador de Almacén</MenuItem>
-              <MenuItem value="CONTROL_CALIDAD">Inspector de Calidad</MenuItem>
+              {roles.map((r) => (
+                <MenuItem key={r.id} value={r.nombre}>{r.nombre}</MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -488,12 +406,9 @@ export default function Auditoria() {
               label="Rol"
               onChange={(e) => setEditUserForm({ ...editUserForm, rol: e.target.value })}
             >
-              <MenuItem value="ADMINISTRADOR">Administrador (Global)</MenuItem>
-              <MenuItem value="SUPERVISOR">Supervisor (Global)</MenuItem>
-              <MenuItem value="GERENTE_TIENDA">Gerente de Tienda (Sucursal)</MenuItem>
-              <MenuItem value="CAJERO">Cajero (Sucursal)</MenuItem>
-              <MenuItem value="ALMACEN">Operador de Almacén</MenuItem>
-              <MenuItem value="CONTROL_CALIDAD">Inspector de Calidad</MenuItem>
+              {roles.map((r) => (
+                <MenuItem key={r.id} value={r.nombre}>{r.nombre}</MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -538,183 +453,6 @@ export default function Auditoria() {
         </DialogActions>
       </Dialog>
 
-      {/* TAB 2: SUCURSALES */}
-      {activeTab === 2 && (
-        <Paper className="glass-panel" sx={{ p: 3 }}>
-          <Box sx={{ overflowX: 'auto', width: '100%' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Código</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Dirección</TableCell>
-                  <TableCell>Teléfono</TableCell>
-                  <TableCell>Correo</TableCell>
-                  <TableCell>Estado</TableCell>
-                  {usuario?.rol === 'ADMINISTRADOR' && <TableCell align="right">Acciones</TableCell>}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sucursales.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={usuario?.rol === 'ADMINISTRADOR' ? 7 : 6} align="center">
-                      No hay sucursales registradas.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sucursales.map((suc) => (
-                    <TableRow key={suc.id}>
-                      <TableCell sx={{ fontFamily: 'monospace' }}>{suc.codigo}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{suc.nombre}</TableCell>
-                      <TableCell>{suc.direccion || '—'}</TableCell>
-                      <TableCell>{suc.telefono || '—'}</TableCell>
-                      <TableCell>{suc.correo || '—'}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={suc.estado}
-                          color={suc.estado === 'ACTIVO' ? 'success' : 'error'}
-                          size="small"
-                          sx={{ fontWeight: 700 }}
-                        />
-                      </TableCell>
-                      {usuario?.rol === 'ADMINISTRADOR' && (
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              color="info"
-                              onClick={() => handleAbrirEditarSucursal(suc)}
-                            >
-                              Editar
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              color="error"
-                              onClick={() => handleEliminarSucursal(suc.id)}
-                            >
-                              Eliminar
-                            </Button>
-                          </Box>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Box>
-        </Paper>
-      )}
-
-      {/* REGISTRAR SUCURSAL DIALOG */}
-      <Dialog open={openSucursal} onClose={() => setOpenSucursal(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 800 }}>Registrar Nueva Sucursal</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <TextField
-            fullWidth
-            label="Código de Sucursal"
-            placeholder="SUC-003"
-            size="small"
-            value={sucursalForm.codigo}
-            onChange={(e) => setSucursalForm({ ...sucursalForm, codigo: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Nombre"
-            placeholder="Sucursal Providencia"
-            size="small"
-            value={sucursalForm.nombre}
-            onChange={(e) => setSucursalForm({ ...sucursalForm, nombre: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Dirección"
-            placeholder="Av. Providencia 1234"
-            size="small"
-            value={sucursalForm.direccion}
-            onChange={(e) => setSucursalForm({ ...sucursalForm, direccion: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Teléfono"
-            placeholder="+56 9 1234 5678"
-            size="small"
-            value={sucursalForm.telefono}
-            onChange={(e) => setSucursalForm({ ...sucursalForm, telefono: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Correo Electrónico"
-            placeholder="providencia@lavaquita.cl"
-            size="small"
-            value={sucursalForm.correo}
-            onChange={(e) => setSucursalForm({ ...sucursalForm, correo: e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenSucursal(false)}>Cancelar</Button>
-          <Button variant="contained" color="success" onClick={handleCreateSucursal}>Guardar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* EDITAR SUCURSAL DIALOG */}
-      <Dialog open={openEditSucursal} onClose={() => { setOpenEditSucursal(false); setSelectedSucursal(null); }} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 800 }}>Editar Sucursal: {selectedSucursal?.nombre}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <TextField
-            fullWidth
-            label="Código de Sucursal"
-            size="small"
-            value={selectedSucursal?.codigo || ''}
-            disabled
-          />
-          <TextField
-            fullWidth
-            label="Nombre"
-            size="small"
-            value={editSucursalForm.nombre}
-            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, nombre: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Dirección"
-            size="small"
-            value={editSucursalForm.direccion}
-            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, direccion: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Teléfono"
-            size="small"
-            value={editSucursalForm.telefono}
-            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, telefono: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            label="Correo Electrónico"
-            size="small"
-            value={editSucursalForm.correo}
-            onChange={(e) => setEditSucursalForm({ ...editSucursalForm, correo: e.target.value })}
-          />
-          <FormControl fullWidth size="small">
-            <InputLabel>Estado</InputLabel>
-            <Select
-              value={editSucursalForm.estado}
-              label="Estado"
-              onChange={(e) => setEditSucursalForm({ ...editSucursalForm, estado: e.target.value })}
-            >
-              <MenuItem value="ACTIVO">Activo</MenuItem>
-              <MenuItem value="INACTIVO">Inactivo</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => { setOpenEditSucursal(false); setSelectedSucursal(null); }}>Cancelar</Button>
-          <Button variant="contained" color="primary" onClick={handleEditSucursalSubmit}>Guardar Cambios</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

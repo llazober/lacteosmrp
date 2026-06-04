@@ -25,7 +25,10 @@ import {
   IconButton,
   Tooltip,
   InputAdornment,
+  TablePagination,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 import {
   Inventory,
   CompareArrows,
@@ -42,6 +45,23 @@ export default function Inventario() {
   const usuario = useAuthStore((state) => state.usuario);
   const systemTimezone = useAuthStore((state) => state.systemTimezone);
   const [activeTab, setActiveTab] = useState(0);
+
+  // Pagination states
+  const [pageStock, setPageStock] = useState(0);
+  const [rowsPerPageStock, setRowsPerPageStock] = useState(50);
+
+  const [pageMov, setPageMov] = useState(0);
+  const [rowsPerPageMov, setRowsPerPageMov] = useState(50);
+  const [searchMovProd, setSearchMovProd] = useState('');
+  const [searchMovLote, setSearchMovLote] = useState('');
+
+  const [pageCat, setPageCat] = useState(0);
+  const [rowsPerPageCat, setRowsPerPageCat] = useState(50);
+  const [searchCatSKU, setSearchCatSKU] = useState('');
+  const [searchCatDesc, setSearchCatDesc] = useState('');
+
+  const [pageLote, setPageLote] = useState(0);
+  const [rowsPerPageLote, setRowsPerPageLote] = useState(50);
 
   // Datos
   const [inventario, setInventario] = useState<any[]>([]);
@@ -684,6 +704,49 @@ export default function Inventario() {
     return true;
   });
 
+  const paginatedInventario = filteredInventario.slice(
+    pageStock * rowsPerPageStock,
+    pageStock * rowsPerPageStock + rowsPerPageStock
+  );
+
+  const filteredMovimientos = movimientos.filter((mov) => {
+    const prodMatch = !searchMovProd || 
+      mov.producto?.descripcion.toLowerCase().includes(searchMovProd.toLowerCase()) ||
+      mov.producto?.sku.toLowerCase().includes(searchMovProd.toLowerCase());
+    const loteMatch = !searchMovLote ||
+      (mov.lote && mov.lote.numeroLote.toLowerCase().includes(searchMovLote.toLowerCase()));
+    return prodMatch && loteMatch;
+  });
+
+  const paginatedMovimientos = filteredMovimientos.slice(
+    pageMov * rowsPerPageMov,
+    pageMov * rowsPerPageMov + rowsPerPageMov
+  );
+
+  const filteredTodosProductos = todosProductos.filter((p) => {
+    const skuMatch = !searchCatSKU || p.sku.toLowerCase().includes(searchCatSKU.toLowerCase());
+    const descMatch = !searchCatDesc || p.descripcion.toLowerCase().includes(searchCatDesc.toLowerCase());
+    return skuMatch && descMatch;
+  });
+
+  const paginatedTodosProductos = filteredTodosProductos.slice(
+    pageCat * rowsPerPageCat,
+    pageCat * rowsPerPageCat + rowsPerPageCat
+  );
+
+  const sortedLotes = [...todosLotes].sort((a, b) => {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const paginatedTodosLotes = sortedLotes.slice(
+    pageLote * rowsPerPageLote,
+    pageLote * rowsPerPageLote + rowsPerPageLote
+  );
+
+  const mermasMovimientos = movimientos
+    .filter((m) => m.tipo === 'MERMA')
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -904,12 +967,12 @@ export default function Inventario() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredInventario.length === 0 ? (
+                {paginatedInventario.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center">No hay productos en inventario.</TableCell>
                   </TableRow>
                 ) : (
-                  filteredInventario.map((inv) => {
+                  paginatedInventario.map((inv) => {
                     const isLow = inv.existencia < inv.existMin;
                     return (
                       <TableRow key={inv.id}>
@@ -970,6 +1033,19 @@ export default function Inventario() {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={filteredInventario.length}
+              page={pageStock}
+              onPageChange={(_, newPage) => setPageStock(newPage)}
+              rowsPerPage={rowsPerPageStock}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageStock(parseInt(e.target.value, 10));
+                setPageStock(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              labelRowsPerPage="Registros por página:"
+            />
           </Box>
         </Paper>
       )}
@@ -977,6 +1053,20 @@ export default function Inventario() {
       {/* TAB 1: KARDEX */}
       {activeTab === 1 && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+            <TextField
+              size="small"
+              label="Buscar por Producto"
+              value={searchMovProd}
+              onChange={(e) => { setSearchMovProd(e.target.value); setPageMov(0); }}
+            />
+            <TextField
+              size="small"
+              label="Buscar por Lote"
+              value={searchMovLote}
+              onChange={(e) => { setSearchMovLote(e.target.value); setPageMov(0); }}
+            />
+          </Box>
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
               <TableHead>
@@ -993,12 +1083,12 @@ export default function Inventario() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {movimientos.length === 0 ? (
+                {paginatedMovimientos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center">No hay movimientos registrados.</TableCell>
                   </TableRow>
                 ) : (
-                  movimientos.map((mov) => (
+                  paginatedMovimientos.map((mov) => (
                     <TableRow key={mov.id}>
                       <TableCell>{new Date(mov.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}</TableCell>
                       <TableCell>
@@ -1023,6 +1113,19 @@ export default function Inventario() {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={filteredMovimientos.length}
+              page={pageMov}
+              onPageChange={(_, newPage) => setPageMov(newPage)}
+              rowsPerPage={rowsPerPageMov}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageMov(parseInt(e.target.value, 10));
+                setPageMov(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              labelRowsPerPage="Registros por página:"
+            />
           </Box>
         </Paper>
       )}
@@ -1124,6 +1227,20 @@ export default function Inventario() {
       {/* TAB 3: CATÁLOGO DE PRODUCTOS */}
       {activeTab === 3 && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+            <TextField
+              size="small"
+              label="Buscar por SKU"
+              value={searchCatSKU}
+              onChange={(e) => { setSearchCatSKU(e.target.value); setPageCat(0); }}
+            />
+            <TextField
+              size="small"
+              label="Buscar por Descripción"
+              value={searchCatDesc}
+              onChange={(e) => { setSearchCatDesc(e.target.value); setPageCat(0); }}
+            />
+          </Box>
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
               <TableHead>
@@ -1144,12 +1261,12 @@ export default function Inventario() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {todosProductos.length === 0 ? (
+                {paginatedTodosProductos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} align="center">No hay productos en el catálogo.</TableCell>
                   </TableRow>
                 ) : (
-                  todosProductos.map((p) => (
+                  paginatedTodosProductos.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell sx={{ fontWeight: 700 }}>{p.sku}</TableCell>
                       <TableCell>{p.codigoBarras}</TableCell>
@@ -1225,6 +1342,19 @@ export default function Inventario() {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={filteredTodosProductos.length}
+              page={pageCat}
+              onPageChange={(_, newPage) => setPageCat(newPage)}
+              rowsPerPage={rowsPerPageCat}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageCat(parseInt(e.target.value, 10));
+                setPageCat(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              labelRowsPerPage="Registros por página:"
+            />
           </Box>
         </Paper>
       )}
@@ -1248,12 +1378,12 @@ export default function Inventario() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {todosLotes.length === 0 ? (
+                {paginatedTodosLotes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center">No hay lotes registrados.</TableCell>
                   </TableRow>
                 ) : (
-                  todosLotes.map((l) => {
+                  paginatedTodosLotes.map((l) => {
                     const diasRestantes = Math.ceil((new Date(l.fechaVencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                     const isVencido = diasRestantes <= 0;
                     return (
@@ -1369,6 +1499,19 @@ export default function Inventario() {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={todosLotes.length}
+              page={pageLote}
+              onPageChange={(_, newPage) => setPageLote(newPage)}
+              rowsPerPage={rowsPerPageLote}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageLote(parseInt(e.target.value, 10));
+                setPageLote(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              labelRowsPerPage="Registros por página:"
+            />
           </Box>
         </Paper>
       )}
@@ -1426,67 +1569,65 @@ export default function Inventario() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {movimientos.filter((m) => m.tipo === 'MERMA').length === 0 ? (
+                {mermasMovimientos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center">
                       <Typography color="text.secondary" sx={{ py: 2 }}>No se han registrado mermas o pérdidas en el sistema.</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  movimientos
-                    .filter((m) => m.tipo === 'MERMA')
-                    .map((m) => {
-                      const match = m.motivo.match(/^\[(.*?)\]\s*(.*)$/);
-                      const tipo = match ? match[1] : 'OTROS';
-                      const comentario = match ? match[2] : m.motivo;
+                  mermasMovimientos.map((m) => {
+                    const match = m.motivo.match(/^\[(.*?)\]\s*(.*)$/);
+                    const tipo = match ? match[1] : 'OTROS';
+                    const comentario = match ? match[2] : m.motivo;
 
-                      const getTipoColor = (t: string) => {
-                        switch (t) {
-                          case 'VENCIMIENTO': return 'warning';
-                          case 'ROTURA_DANIO': return 'info';
-                          case 'ROBO': return 'error';
-                          case 'FALLO_FRIO': return 'primary';
-                          default: return 'default';
-                        }
-                      };
+                    const getTipoColor = (t: string) => {
+                      switch (t) {
+                        case 'VENCIMIENTO': return 'warning';
+                        case 'ROTURA_DANIO': return 'info';
+                        case 'ROBO': return 'error';
+                        case 'FALLO_FRIO': return 'primary';
+                        default: return 'default';
+                      }
+                    };
 
-                      const getTipoLabel = (t: string) => {
-                        switch (t) {
-                          case 'VENCIMIENTO': return 'Vencimiento';
-                          case 'ROTURA_DANIO': return 'Rotura/Daño';
-                          case 'ROBO': return 'Robo/Hurto';
-                          case 'FALLO_FRIO': return 'Fallo Frío';
-                          default: return 'Otros';
-                        }
-                      };
+                    const getTipoLabel = (t: string) => {
+                      switch (t) {
+                        case 'VENCIMIENTO': return 'Vencimiento';
+                        case 'ROTURA_DANIO': return 'Rotura/Daño';
+                        case 'ROBO': return 'Robo/Hurto';
+                        case 'FALLO_FRIO': return 'Fallo Frío';
+                        default: return 'Otros';
+                      }
+                    };
 
-                      return (
-                        <TableRow key={m.id}>
-                          <TableCell>{new Date(m.fecha).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{m.sucursalOrigen?.nombre || 'Global'}</TableCell>
-                          <TableCell sx={{ fontFamily: 'monospace' }}>{m.producto?.sku}</TableCell>
-                          <TableCell>{m.producto?.descripcion}</TableCell>
-                          <TableCell>
-                            {m.lote ? (
-                              <Chip label={m.lote.numeroLote} size="small" variant="outlined" />
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">Sin Lote</Typography>
-                            )}
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 700, color: 'error.main' }}>-{m.cantidad} U</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={getTipoLabel(tipo)}
-                              color={getTipoColor(tipo) as any}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell>{comentario}</TableCell>
-                          <TableCell>{m.usuario?.nombre} ({m.usuario?.rol})</TableCell>
-                        </TableRow>
-                      );
-                    })
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell>{new Date(m.fecha).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{m.sucursalOrigen?.nombre || 'Global'}</TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace' }}>{m.producto?.sku}</TableCell>
+                        <TableCell>{m.producto?.descripcion}</TableCell>
+                        <TableCell>
+                          {m.lote ? (
+                            <Chip label={m.lote.numeroLote} size="small" variant="outlined" />
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">Sin Lote</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'error.main' }}>-{m.cantidad} U</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={getTipoLabel(tipo)}
+                            color={getTipoColor(tipo) as any}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>{comentario}</TableCell>
+                        <TableCell>{m.usuario?.nombre} ({m.usuario?.rol})</TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -2180,23 +2321,23 @@ export default function Inventario() {
             </Select>
           </FormControl>
 
-          <TextField
-            fullWidth
-            label="Fecha de Producción"
-            type="date"
-            size="small"
-            value={loteForm.fechaProduccion}
-            onChange={(e) => setLoteForm({ ...loteForm, fechaProduccion: e.target.value })}
-          />
+          <Box sx={{ mb: 2 }}>
+            <DatePicker
+              label="Fecha de Producción"
+              value={loteForm.fechaProduccion ? dayjs(loteForm.fechaProduccion) : null}
+              onChange={(newValue) => setLoteForm({ ...loteForm, fechaProduccion: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
+          </Box>
 
-          <TextField
-            fullWidth
-            label="Fecha de Vencimiento"
-            type="date"
-            size="small"
-            value={loteForm.fechaVencimiento}
-            onChange={(e) => setLoteForm({ ...loteForm, fechaVencimiento: e.target.value })}
-          />
+          <Box sx={{ mb: 2 }}>
+            <DatePicker
+              label="Fecha de Vencimiento"
+              value={loteForm.fechaVencimiento ? dayjs(loteForm.fechaVencimiento) : null}
+              onChange={(newValue) => setLoteForm({ ...loteForm, fechaVencimiento: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
+          </Box>
 
           <TextField
             fullWidth
@@ -2281,23 +2422,23 @@ export default function Inventario() {
             </Select>
           </FormControl>
 
-          <TextField
-            fullWidth
-            label="Fecha de Producción"
-            type="date"
-            size="small"
-            value={editarLoteForm.fechaProduccion}
-            onChange={(e) => setEditarLoteForm({ ...editarLoteForm, fechaProduccion: e.target.value })}
-          />
+          <Box sx={{ mb: 2 }}>
+            <DatePicker
+              label="Fecha de Producción"
+              value={editarLoteForm.fechaProduccion ? dayjs(editarLoteForm.fechaProduccion) : null}
+              onChange={(newValue) => setEditarLoteForm({ ...editarLoteForm, fechaProduccion: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
+          </Box>
 
-          <TextField
-            fullWidth
-            label="Fecha de Vencimiento"
-            type="date"
-            size="small"
-            value={editarLoteForm.fechaVencimiento}
-            onChange={(e) => setEditarLoteForm({ ...editarLoteForm, fechaVencimiento: e.target.value })}
-          />
+          <Box sx={{ mb: 2 }}>
+            <DatePicker
+              label="Fecha de Vencimiento"
+              value={editarLoteForm.fechaVencimiento ? dayjs(editarLoteForm.fechaVencimiento) : null}
+              onChange={(newValue) => setEditarLoteForm({ ...editarLoteForm, fechaVencimiento: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
+          </Box>
 
           <TextField
             fullWidth

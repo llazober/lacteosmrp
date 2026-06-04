@@ -68,6 +68,15 @@ model Usuario {
   noConformidades    NoConformidad[]
 }
 
+model Rol {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String
+  permisos    String   @default("[]") // Stringified JSON array of permissions
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Producto {
   id             String   @id @default(uuid())
   sku            String   @unique

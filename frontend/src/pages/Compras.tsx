@@ -23,6 +23,8 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 import {
   LocalShipping,
   Check,
@@ -500,14 +502,14 @@ export default function Compras() {
             onChange={(e) => setOcForm({ ...ocForm, costoUnitario: e.target.value })}
           />
 
-          <TextField
-            fullWidth
-            label="Fecha Estimada de Entrega"
-            type="date"
-            size="small"
-            value={ocForm.fechaEntrega}
-            onChange={(e) => setOcForm({ ...ocForm, fechaEntrega: e.target.value })}
-          />
+          <Box sx={{ mt: 1 }}>
+            <DatePicker
+              label="Fecha Estimada de Entrega"
+              value={ocForm.fechaEntrega ? dayjs(ocForm.fechaEntrega) : null}
+              onChange={(newValue) => setOcForm({ ...ocForm, fechaEntrega: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenOC(false)}>Cancelar</Button>
@@ -543,24 +545,20 @@ export default function Compras() {
                     onChange={(e) => handleUpdateLoteInfo(index, 'numeroLote', e.target.value)}
                   />
                 </Box>
-                <Box>
-                  <TextField
-                    fullWidth
+                <Box sx={{ mt: 1 }}>
+                  <DatePicker
                     label="Fecha Producción"
-                    type="date"
-                    size="small"
-                    value={lote.fechaProduccion}
-                    onChange={(e) => handleUpdateLoteInfo(index, 'fechaProduccion', e.target.value)}
+                    value={lote.fechaProduccion ? dayjs(lote.fechaProduccion) : null}
+                    onChange={(newValue) => handleUpdateLoteInfo(index, 'fechaProduccion', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
                   />
                 </Box>
-                <Box>
-                  <TextField
-                    fullWidth
+                <Box sx={{ mt: 1 }}>
+                  <DatePicker
                     label="Fecha Vencimiento"
-                    type="date"
-                    size="small"
-                    value={lote.fechaVencimiento}
-                    onChange={(e) => handleUpdateLoteInfo(index, 'fechaVencimiento', e.target.value)}
+                    value={lote.fechaVencimiento ? dayjs(lote.fechaVencimiento) : null}
+                    onChange={(newValue) => handleUpdateLoteInfo(index, 'fechaVencimiento', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
                   />
                 </Box>
 
@@ -671,14 +669,14 @@ export default function Compras() {
             onChange={(e) => setEditarOcForm({ ...editarOcForm, costoUnitario: e.target.value })}
           />
 
-          <TextField
-            fullWidth
-            label="Fecha Estimada de Entrega"
-            type="date"
-            size="small"
-            value={editarOcForm.fechaEntrega}
-            onChange={(e) => setEditarOcForm({ ...editarOcForm, fechaEntrega: e.target.value })}
-          />
+          <Box sx={{ mt: 1 }}>
+            <DatePicker
+              label="Fecha Estimada de Entrega"
+              value={editarOcForm.fechaEntrega ? dayjs(editarOcForm.fechaEntrega) : null}
+              onChange={(newValue) => setEditarOcForm({ ...editarOcForm, fechaEntrega: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEditarOC(false); setSelectedOC(null); }}>Cancelar</Button>

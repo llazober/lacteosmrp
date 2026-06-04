@@ -27,6 +27,8 @@ import {
   Tooltip,
   LinearProgress,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 import {
   Add,
   ReceiptLong,
@@ -594,14 +596,14 @@ export default function CuentasPorPagar() {
               </Select>
             </FormControl>
 
-            <TextField
-              fullWidth
-              type="date"
-              label="Fecha de Emisión"
-              size="small"
-              value={facturaForm.fechaEmision}
-              onChange={(e) => setFacturaForm({ ...facturaForm, fechaEmision: e.target.value })}
-            />
+            <Box sx={{ mt: 1 }}>
+              <DatePicker
+                label="Fecha de Emisión"
+                value={facturaForm.fechaEmision ? dayjs(facturaForm.fechaEmision) : null}
+                onChange={(newValue) => setFacturaForm({ ...facturaForm, fechaEmision: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              />
+            </Box>
           </Box>
 
           <Divider />
@@ -863,14 +865,14 @@ export default function CuentasPorPagar() {
                   onChange={(e) => setPagoForm({ ...pagoForm, monto: e.target.value })}
                 />
                 
-                <TextField
-                  fullWidth
-                  type="date"
-                  label="Fecha de Pago"
-                  size="small"
-                  value={pagoForm.fechaPago}
-                  onChange={(e) => setPagoForm({ ...pagoForm, fechaPago: e.target.value })}
-                />
+                <Box sx={{ mt: 1 }}>
+                  <DatePicker
+                    label="Fecha de Pago"
+                    value={pagoForm.fechaPago ? dayjs(pagoForm.fechaPago) : null}
+                    onChange={(newValue) => setPagoForm({ ...pagoForm, fechaPago: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                  />
+                </Box>
                 
                 <Box sx={{ gridColumn: 'span 2' }}>
                   <FormControl fullWidth size="small">
@@ -905,14 +907,12 @@ export default function CuentasPorPagar() {
                       value={pagoForm.chequeBanco}
                       onChange={(e) => setPagoForm({ ...pagoForm, chequeBanco: e.target.value })}
                     />
-                    <Box sx={{ gridColumn: 'span 2' }}>
-                      <TextField
-                        fullWidth
-                        type="date"
+                    <Box sx={{ gridColumn: 'span 2', mt: 1 }}>
+                      <DatePicker
                         label="Fecha de Vencimiento / Cobro Cheque"
-                        size="small"
-                        value={pagoForm.chequeVence}
-                        onChange={(e) => setPagoForm({ ...pagoForm, chequeVence: e.target.value })}
+                        value={pagoForm.chequeVence ? dayjs(pagoForm.chequeVence) : null}
+                        onChange={(newValue) => setPagoForm({ ...pagoForm, chequeVence: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
                       />
                     </Box>
                   </>
