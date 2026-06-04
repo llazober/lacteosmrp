@@ -111,7 +111,7 @@ export default function Calidad() {
         const leche = await apiFetch('/calidad/recepcion-leche');
         setControlesLeche(leche);
         const lot = await apiFetch('/lotes');
-        setLotes(lot.filter((l: any) => l.producto.sku.includes('LECHE') || l.producto.sku.includes('MP-')));
+        setLotes(lot.filter((l: any) => l.producto.sku.includes('LECHE') || l.producto.sku.includes('MP-') || l.producto.sku.includes('INS-')));
       } else if (activeTab === 1) {
         const insp = await apiFetch('/calidad/inspecciones');
         setInspecciones(insp);
@@ -440,62 +440,130 @@ export default function Calidad() {
 
       {/* --- TAB RECEPCIÓN LECHE --- */}
       {activeTab === 0 && (
-        <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
-                <TableCell>Fecha</TableCell>
-                <TableCell>Lote Leche</TableCell>
-                <TableCell>Temp (°C)</TableCell>
-                <TableCell>Grasa (%)</TableCell>
-                <TableCell>Proteína (%)</TableCell>
-                <TableCell>Acidez (°D)</TableCell>
-                <TableCell>Antibióticos</TableCell>
-                <TableCell>Resultado</TableCell>
-                <TableCell>Auditor / Inspector</TableCell>
-                <TableCell>Observaciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {controlesLeche.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} align="center">
-                    No hay controles de recepción registrados.
-                  </TableCell>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Lotes Pendientes de Aprobación */}
+          <Paper className="glass-panel" sx={{ p: 3, backgroundColor: '#111827', borderRadius: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: 'warning.light' }}>
+              <Warning color="warning" /> Lotes de Insumos Pendientes de Calidad
+            </Typography>
+            {lotes.filter((l: any) => l.estado === 'PENDIENTE').length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No hay lotes de materias primas o insumos pendientes de aprobación. ¡Todo al día!
+              </Typography>
+            ) : (
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
+                {lotes.filter((l: any) => l.estado === 'PENDIENTE').map((lote: any) => (
+                  <Card key={lote.id} sx={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
+                    <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.light' }}>
+                          Lote: {lote.numeroLote}
+                        </Typography>
+                        <Chip label="PENDIENTE" color="warning" size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                        {lote.producto.descripcion}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        Cantidad: <strong>{lote.cantidadActual} {lote.producto.unidadMedida}</strong>
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        Proveedor: {lote.proveedor.nombre}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        Vence: {new Date(lote.fechaVencimiento).toLocaleDateString('es-CO')}
+                      </Typography>
+                      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          size="small"
+                          sx={{ fontSize: '0.75rem', py: 0.5 }}
+                          onClick={() => {
+                            setLecheForm({
+                              loteId: lote.id,
+                              temperatura: '',
+                              grasa: '',
+                              proteina: '',
+                              acidez: '',
+                              antibioticos: false,
+                              resultado: 'APROBADO',
+                              observaciones: '',
+                            });
+                            setOpenLeche(true);
+                          }}
+                        >
+                          Auditar e Ingresar
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+          </Paper>
+
+          {/* Historial de Controles */}
+          <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Historial de Controles de Recepción</Typography>
+            </Box>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell>Lote Leche</TableCell>
+                  <TableCell>Temp (°C)</TableCell>
+                  <TableCell>Grasa (%)</TableCell>
+                  <TableCell>Proteína (%)</TableCell>
+                  <TableCell>Acidez (°D)</TableCell>
+                  <TableCell>Antibióticos</TableCell>
+                  <TableCell>Resultado</TableCell>
+                  <TableCell>Auditor / Inspector</TableCell>
+                  <TableCell>Observaciones</TableCell>
                 </TableRow>
-              ) : (
-                controlesLeche.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>{new Date(c.fecha).toLocaleString()}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{c.loteId || 'Leche Directa Silo'}</TableCell>
-                    <TableCell sx={{ color: c.temperatura > 4.5 ? 'error.main' : 'inherit' }}>
-                      {c.temperatura} °C
+              </TableHead>
+              <TableBody>
+                {controlesLeche.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} align="center">
+                      No hay controles de recepción registrados.
                     </TableCell>
-                    <TableCell>{c.grasa}%</TableCell>
-                    <TableCell>{c.proteina}%</TableCell>
-                    <TableCell>{c.acidez} °D</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={c.antibioticos ? 'DETECTADO' : 'LIBRE'}
-                        color={c.antibioticos ? 'error' : 'success'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={c.resultado}
-                        color={c.resultado === 'APROBADO' ? 'success' : c.resultado === 'CUARENTENA' ? 'warning' : 'error'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{c.inspector.nombre}</TableCell>
-                    <TableCell>{c.observaciones || '-'}</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
+                ) : (
+                  controlesLeche.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell>{new Date(c.fecha).toLocaleString()}</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>{c.loteId || 'Leche Directa Silo'}</TableCell>
+                      <TableCell sx={{ color: c.temperatura > 4.5 ? 'error.main' : 'inherit' }}>
+                        {c.temperatura} °C
+                      </TableCell>
+                      <TableCell>{c.grasa}%</TableCell>
+                      <TableCell>{c.proteina}%</TableCell>
+                      <TableCell>{c.acidez} °D</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={c.antibioticos ? 'DETECTADO' : 'LIBRE'}
+                          color={c.antibioticos ? 'error' : 'success'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={c.resultado}
+                          color={c.resultado === 'APROBADO' ? 'success' : c.resultado === 'CUARENTENA' ? 'warning' : 'error'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{c.inspector.nombre}</TableCell>
+                      <TableCell>{c.observaciones || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Box>
       )}
 
       {/* --- TAB AUDITORIAS Y LOTES --- */}
@@ -656,7 +724,7 @@ export default function Calidad() {
                   >
                     {lotes.map((l) => (
                       <MenuItem key={l.id} value={l.id}>
-                        {l.numeroLote} ({l.cantidadActual} Litros)
+                        {l.numeroLote} ({l.cantidadActual} {l.producto.unidadMedida}){l.estado === 'PENDIENTE' ? ' - [PENDIENTE]' : ''}
                       </MenuItem>
                     ))}
                   </Select>

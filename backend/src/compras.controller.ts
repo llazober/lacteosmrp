@@ -190,7 +190,7 @@ export class ComprasController {
             temperaturaRequeridaMax: parseFloat(loteInfo.tempMax || 6.0),
             cantidadInicial: cantidadRecibidaAhora,
             cantidadActual: cantidadRecibidaAhora,
-            estado: 'APROBADO',
+            estado: 'PENDIENTE',
           },
         });
 

@@ -50,22 +50,24 @@ export class CalidadController {
       }
     });
 
-    // Si el control de calidad rechaza el lote, actualizamos el estado del lote a RECHAZADO o CUARENTENA
-    if (loteId && (resultado === 'RECHAZADO' || resultado === 'CUARENTENA')) {
+    // Actualizar el estado del lote en base al resultado del control de calidad
+    if (loteId) {
       await this.prisma.lote.update({
         where: { id: loteId },
         data: { estado: resultado }
       });
 
-      // Crear Alerta automática
-      await this.prisma.alerta.create({
-        data: {
-          sucursalId: req.user.sucursalId || (await this.prisma.sucursal.findFirst())?.id || '',
-          tipo: 'TEMPERATURA',
-          mensaje: `Lote de leche ${loteId} fue RECHAZADO por control de calidad. Motivo: ${observaciones || 'Fuera de rango'}.`,
-          estado: 'ACTIVA',
-        }
-      });
+      // Crear Alerta automática si es rechazado o puesto en cuarentena
+      if (resultado === 'RECHAZADO' || resultado === 'CUARENTENA') {
+        await this.prisma.alerta.create({
+          data: {
+            sucursalId: req.user.sucursalId || (await this.prisma.sucursal.findFirst())?.id || '',
+            tipo: 'TEMPERATURA',
+            mensaje: `Lote de leche ${loteId} fue RECHAZADO o puesto en CUARENTENA por control de calidad. Motivo: ${observaciones || 'Fuera de rango'}.`,
+            estado: 'ACTIVA',
+          }
+        });
+      }
     }
 
     // Auditoría
@@ -117,8 +119,8 @@ export class CalidadController {
       }
     });
 
-    // Si el control de producto terminado falla, cambiar estado del lote
-    if (loteId && (resultado === 'RECHAZADO' || resultado === 'CUARENTENA')) {
+    // Actualizar el estado del lote en base al resultado de la inspección de calidad
+    if (loteId) {
       await this.prisma.lote.update({
         where: { id: loteId },
         data: { estado: resultado }
