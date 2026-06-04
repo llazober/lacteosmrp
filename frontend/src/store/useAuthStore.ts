@@ -102,7 +102,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     headers,
   });
 
-  if (response.status === 401 || response.status === 419) {
+  if ((response.status === 401 || response.status === 419) && !path.includes('/auth/login')) {
     useAuthStore.getState().logout();
     throw new Error('Sesión vencida. Ingrese nuevamente.');
   }
