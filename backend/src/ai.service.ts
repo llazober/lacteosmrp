@@ -77,7 +77,7 @@ REGLAS DE SEGURIDAD IMPORTANTES:
 PAUTAS DE RESPUESTA:
 - Responde siempre de forma profesional, clara y cordial.
 - Presenta los datos numéricos y listas en formatos visuales excelentes usando Markdown (negritas, listas con viñetas y tablas legibles).
-- Formatea los valores monetarios con formato de pesos chilenos o la divisa local con decimales (ej. $1.500,00).
+- Formatea los valores monetarios en dólares estadounidenses (USD) con dos decimales (ej. $46.20, $1,500.00). NUNCA multipliques ni dividas los valores recibidos, úsalos tal como vienen.
 - Si la información requerida no se encuentra en las herramientas, dilo amablemente.`;
 
     const messages: any[] = [
@@ -305,7 +305,7 @@ PAUTAS DE RESPUESTA:
     const totalProductos = new Set(inventarios.map((i) => i.productoId)).size;
     const stockTotal = inventarios.reduce((sum, i) => sum + i.existencia, 0);
     const valorEstimado = inventarios.reduce(
-      (sum, i) => sum + i.existencia * i.producto.precioVenta,
+      (sum, i) => sum + i.existencia * Number(i.producto.precioVenta),
       0,
     );
 
@@ -358,13 +358,13 @@ PAUTAS DE RESPUESTA:
       where: filter,
     });
 
-    const totalIngresos = ventas.reduce((sum, v) => sum + v.total, 0);
+    const totalIngresos = ventas.reduce((sum, v) => sum + Number(v.total), 0);
     const totalTickets = ventas.length;
     const promedioTicket = totalTickets > 0 ? totalIngresos / totalTickets : 0;
 
     const metodosPago: Record<string, number> = {};
     ventas.forEach((v) => {
-      metodosPago[v.metodoPago] = (metodosPago[v.metodoPago] || 0) + v.total;
+      metodosPago[v.metodoPago] = (metodosPago[v.metodoPago] || 0) + Number(v.total);
     });
 
     return { totalIngresos, totalTickets, promedioTicket, metodosPago };
