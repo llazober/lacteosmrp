@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import OpenAI from 'openai';
+import { getTimezoneOffsetMinutes } from './utils/timezone';
 
 @Injectable()
 export class AiService {
@@ -44,6 +45,12 @@ export class AiService {
     const openai = await this.getOpenAIClient();
     const model = await this.getActiveModel();
 
+    const { offsetStr, timezone } = await getTimezoneOffsetMinutes(this.prisma);
+    const now = new Date();
+    const nowString = now.toLocaleDateString('en-CA', { timeZone: timezone });
+    const nowTimeStr = now.toLocaleTimeString('es-CL', { timeZone: timezone });
+    const dayOfWeek = now.toLocaleDateString('es-CL', { weekday: 'long', timeZone: timezone });
+
     // Enforce sucursal parameter if not admin or supervisor
     const isHQ = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR';
     const sucursalFiltro = isHQ ? null : user.sucursalId;
@@ -51,6 +58,11 @@ export class AiService {
     const systemPrompt = `Eres "Vaquita AI", el asistente inteligente de operaciones oficial de la cadena de lácteos "La Vaquita".
 Tienes acceso a consultas en tiempo real sobre la base de datos del sistema para ayudar a responder las preguntas del usuario.
 Usa las funciones de herramientas (tools) disponibles para obtener los datos necesarios.
+
+CONTEXTO DEL SISTEMA:
+- Fecha Actual (Hoy): ${nowString} (${dayOfWeek})
+- Hora Actual: ${nowTimeStr}
+- Zona Horaria: ${timezone} (Offset: ${offsetStr})
 
 CONTEXTO DEL USUARIO:
 - Nombre: ${user.nombre}
@@ -333,10 +345,11 @@ PAUTAS DE RESPUESTA:
   }
 
   private async obtenerReporteVentas(fechaInicio: string, fechaFin: string, sucursalId?: string) {
+    const { offsetStr } = await getTimezoneOffsetMinutes(this.prisma);
     const filter: any = {
       fecha: {
-        gte: new Date(`${fechaInicio}T00:00:00`),
-        lte: new Date(`${fechaFin}T23:59:59`),
+        gte: new Date(`${fechaInicio}T00:00:00${offsetStr}`),
+        lte: new Date(`${fechaFin}T23:59:59${offsetStr}`),
       },
     };
     if (sucursalId) filter.sucursalId = sucursalId;
