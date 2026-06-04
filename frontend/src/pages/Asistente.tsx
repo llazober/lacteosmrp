@@ -26,20 +26,60 @@ interface Mensaje {
 
 export default function Asistente() {
   const usuario = useAuthStore((state) => state.usuario);
-  const [historial, setHistorial] = useState<Mensaje[]>([
-    {
-      role: 'assistant',
-      content: `¡Hola **${usuario?.nombre || 'Usuario'}**! Soy **ERP AI**, tu asistente inteligente para la gestión de "Lácteos ERP". 
+  const userKey = usuario ? `lacteoserp_ai_history_${usuario.id}` : 'lacteoserp_ai_history_guest';
+
+  const [historial, setHistorial] = useState<Mensaje[]>(() => {
+    const saved = localStorage.getItem(userKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }));
+        }
+      } catch (e) {
+        console.error('Error parsing AI history:', e);
+      }
+    }
+    return [
+      {
+        role: 'assistant',
+        content: `¡Hola **${usuario?.nombre || 'Usuario'}**! Soy **ERP AI**, tu asistente inteligente para la gestión de "Lácteos ERP". 
       
 Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verificar alertas de cadena de frío en tiempo real. 
 
 ¿En qué puedo ayudarte hoy?`,
-      timestamp: new Date(),
-    },
-  ]);
+        timestamp: new Date(),
+      },
+    ];
+  });
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Save history to localStorage when it changes
+  useEffect(() => {
+    if (historial.length > 0) {
+      localStorage.setItem(userKey, JSON.stringify(historial));
+    }
+  }, [historial, userKey]);
+
+  const handleLimpiarHistorial = () => {
+    localStorage.removeItem(userKey);
+    setHistorial([
+      {
+        role: 'assistant',
+        content: `¡Hola **${usuario?.nombre || 'Usuario'}**! Soy **ERP AI**, tu asistente inteligente para la gestión de "Lácteos ERP". 
+      
+Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verificar alertas de cadena de frío en tiempo real. 
+
+¿En qué puedo ayudarte hoy?`,
+        timestamp: new Date(),
+      },
+    ]);
+  };
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -308,13 +348,33 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   return (
     <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
-      <Box>
-        <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
-          Asistente Operativo IA
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Resuelve dudas sobre stock, ventas, alertas de temperatura o mermas conversando con el asistente de Lácteos ERP.
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+            Asistente Operativo IA
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Resuelve dudas sobre stock, ventas, alertas de temperatura o mermas conversando con el asistente de Lácteos ERP.
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={handleLimpiarHistorial}
+          sx={{
+            borderRadius: '10px',
+            textTransform: 'none',
+            fontWeight: 'bold',
+            borderColor: 'rgba(239, 68, 68, 0.3)',
+            backgroundColor: 'rgba(239, 68, 68, 0.05)',
+            '&:hover': {
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            },
+          }}
+        >
+          Limpiar Historial
+        </Button>
       </Box>
 
       {/* Main Grid */}
