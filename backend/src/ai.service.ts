@@ -55,9 +55,30 @@ export class AiService {
     const isHQ = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR';
     const sucursalFiltro = isHQ ? null : user.sucursalId;
 
+    // Cargar manual del sistema dinámicamente si existe
+    let manualContext = '';
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const manualPath = path.join(process.cwd(), 'manual_sistema.md');
+      if (fs.existsSync(manualPath)) {
+        manualContext = fs.readFileSync(manualPath, 'utf-8');
+      }
+    } catch (e) {
+      console.warn('No se pudo cargar el manual del sistema:', e);
+    }
+
     const systemPrompt = `Eres "Vaquita AI", el asistente inteligente de operaciones oficial de la cadena de lácteos "La Vaquita".
 Tienes acceso a consultas en tiempo real sobre la base de datos del sistema para ayudar a responder las preguntas del usuario.
 Usa las funciones de herramientas (tools) disponibles para obtener los datos necesarios.
+
+Además de los datos dinámicos de la base de datos, cuentas con el MANUAL OPERATIVO DEL SISTEMA para responder cualquier pregunta del usuario sobre cómo funciona la aplicación, flujos operativos (como recibir lotes por OC, abrir caja, mermas, etc.), roles y permisos.
+
+MANUAL OPERATIVO DEL SISTEMA:
+${manualContext || 'No disponible por el momento.'}
+
+CONTRATO DE RESPUESTA SOBRE EL MANUAL:
+- Si el usuario pregunta cómo se realiza un proceso operativo, descríbelo paso a paso basándote estrictamente en el manual anterior.
 
 CONTEXTO DEL SISTEMA:
 - Fecha Actual (Hoy): ${nowString} (${dayOfWeek})
