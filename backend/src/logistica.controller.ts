@@ -464,7 +464,9 @@ export class LogisticaController implements OnModuleInit {
   // 4. CÁLCULO AUTOMÁTICO DE REABASTECIMIENTO Y REDISTRIBUCIÓN FEFO
   // ==========================================
   @Get('reabastecimiento/calcular')
-  async calcularReabastecimiento() {
+  async calcularReabastecimiento(@Query('useSafetyStockMin') useSafetyStockMin?: string) {
+    const useSafety = useSafetyStockMin === 'true';
+
     // Obtener todas las sucursales (excluyendo Planta de Producción Principal que actúa como el CD)
     const sucursales = await this.prisma.sucursal.findMany({
       where: { estado: 'ACTIVO' },
@@ -515,8 +517,12 @@ export class LogisticaController implements OnModuleInit {
         else if (prod.categoria === 'QUESOS') diasObjetivo = 10;
         else if (prod.categoria === 'MANTEQUILLA') diasObjetivo = 15;
 
-        const stockMinimoSeguridad = inv ? inv.existMin : 5;
-        const stockObjetivo = Math.max(promedioVentasDiarias * diasObjetivo, stockMinimoSeguridad);
+        let stockObjetivo = promedioVentasDiarias * diasObjetivo;
+
+        if (useSafety) {
+          const stockMinimoSeguridad = inv ? inv.existMin : 5;
+          stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
+        }
 
         // 4. Calcular Cantidad a Reabastecer
         if (stockActual < stockObjetivo) {

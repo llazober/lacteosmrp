@@ -100,6 +100,7 @@ export default function Logistica() {
   // --- TABLA REABASTECIMIENTO ---
   const [propuestas, setPropuestas] = useState<any[]>([]);
   const [autoReplenish, setAutoReplenish] = useState(true);
+  const [useSafetyStockMin, setUseSafetyStockMin] = useState(false);
 
   // --- TABLA PLANIFICACIÓN DE RUTAS ---
   const [sugerenciasRuta, setSugerenciasRuta] = useState<any[]>([]);
@@ -165,7 +166,7 @@ export default function Logistica() {
     }
   }, [rutasActivas, rutaSeleccionada, activeTab]);
 
-  const cargarDatosLogistica = async () => {
+  const cargarDatosLogistica = async (useSafetyStockOverride?: boolean) => {
     setLoading(true);
     setError(null);
     try {
@@ -180,7 +181,8 @@ export default function Logistica() {
       if (terminado) setForecastingProducto(terminado.id);
 
       // Cargar propuestas de reabastecimiento
-      const props = await apiFetch('/logistica/reabastecimiento/calcular');
+      const checkSafety = useSafetyStockOverride !== undefined ? useSafetyStockOverride : useSafetyStockMin;
+      const props = await apiFetch('/logistica/reabastecimiento/calcular' + (checkSafety ? '?useSafetyStockMin=true' : ''));
       setPropuestas(props);
 
       // Cargar rutas activas en monitoreo
@@ -245,6 +247,12 @@ export default function Logistica() {
       setError(e.message || 'Error al guardar la configuración.');
       setAutoReplenish(!val);
     }
+  };
+
+  const handleToggleSafetyStock = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.checked;
+    setUseSafetyStockMin(val);
+    cargarDatosLogistica(val);
   };
 
   // --- CALCULAR RUTAS TSP/VRP ---
@@ -584,7 +592,7 @@ export default function Logistica() {
             Administre la flota, calcule necesidades de stock, planifique despachos optimizados y monitoree la cadena de frío en tiempo real.
           </Typography>
         </Box>
-        <Button variant="outlined" onClick={cargarDatosLogistica} startIcon={<Restore />}>
+        <Button variant="outlined" onClick={() => cargarDatosLogistica()} startIcon={<Restore />}>
           Refrescar Datos
         </Button>
       </Box>
@@ -644,6 +652,27 @@ export default function Logistica() {
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                         Corre periódicamente en segundo plano
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ mr: 0 }}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={useSafetyStockMin}
+                      onChange={handleToggleSafetyStock}
+                      color="secondary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        Forzar Mínimo de Seguridad
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Usar stock mínimo si supera estimación (Prueba)
                       </Typography>
                     </Box>
                   }
