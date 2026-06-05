@@ -541,17 +541,9 @@ PAUTAS DE RESPUESTA:
     });
 
     const totalIngresos = ventas.reduce((sum, v) => sum + Number(v.total), 0);
-    const totalTickets = ventas.length;
-    const promedioTicket = totalTickets > 0 ? totalIngresos / totalTickets : 0;
-
-    const metodosPago: Record<string, number> = {};
-    ventas.forEach((v) => {
-      metodosPago[v.metodoPago] =
-        (metodosPago[v.metodoPago] || 0) + Number(v.total);
-    });
 
     // Breakdown per sucursal, including those with 0 sales
-    const desgloseSucursales: Record<string, { nombre: string; total: number; tickets: number }> = {};
+    const desgloseSucursales: Record<string, { nombre: string; total: number }> = {};
     const sucursalesDb = await this.prisma.sucursal.findMany({
       where: {
         estado: 'ACTIVO',
@@ -564,7 +556,6 @@ PAUTAS DE RESPUESTA:
       desgloseSucursales[s.id] = {
         nombre: s.nombre,
         total: 0,
-        tickets: 0,
       };
     });
 
@@ -575,18 +566,13 @@ PAUTAS DE RESPUESTA:
         desgloseSucursales[sId] = {
           nombre: sNombre,
           total: 0,
-          tickets: 0,
         };
       }
       desgloseSucursales[sId].total += Number(v.total);
-      desgloseSucursales[sId].tickets += 1;
     });
 
     return {
       totalIngresos,
-      totalTickets,
-      promedioTicket,
-      metodosPago,
       desgloseSucursales: Object.values(desgloseSucursales),
     };
   }
