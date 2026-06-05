@@ -166,7 +166,12 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
         mimeType = '';
       }
 
-      const options = mimeType ? { mimeType } : undefined;
+      const options: any = {
+        audioBitsPerSecond: 16000,
+      };
+      if (mimeType) {
+        options.mimeType = mimeType;
+      }
       const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
