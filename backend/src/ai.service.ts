@@ -243,6 +243,20 @@ PAUTAS DE RESPUESTA:
           },
         },
       },
+      {
+        type: 'function',
+        function: {
+          name: 'obtenerPropuestasReabastecimiento',
+          description: 'Calcula y obtiene las propuestas sugeridas de reabastecimiento de productos para las sucursales, indicando el stock actual y la cantidad sugerida.',
+          parameters: {
+            type: 'object',
+            properties: {
+              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
+              useSafetyStockMin: { type: 'boolean', description: 'Si es true, utiliza el stock mínimo de seguridad como base mínima si supera la estimación de ventas.' },
+            },
+          },
+        },
+      },
     ];
 
     try {
@@ -303,6 +317,8 @@ PAUTAS DE RESPUESTA:
               functionResult = await this.obtenerRutasLogistica();
             } else if (functionName === 'obtenerTransferenciasReabastecimiento') {
               functionResult = await this.obtenerTransferenciasReabastecimiento(rawArgs.sucursalId);
+            } else if (functionName === 'obtenerPropuestasReabastecimiento') {
+              functionResult = await this.obtenerPropuestasReabastecimiento(rawArgs.sucursalId, rawArgs.useSafetyStockMin);
             } else {
               functionResult = { error: `Función ${functionName} no implementada.` };
             }
@@ -607,5 +623,143 @@ PAUTAS DE RESPUESTA:
       orderBy: { fechaEnvio: 'desc' },
       take: 20,
     });
+  }
+
+  private async obtenerPropuestasReabastecimiento(sucursalId?: string, useSafetyStockMin?: boolean) {
+    const sucursales = await this.prisma.sucursal.findMany({
+      where: { estado: 'ACTIVO' },
+    });
+
+    const plantaPrincipal = sucursales.find((s) => s.codigo === 'SUC-001');
+
+    const productos = await this.prisma.producto.findMany({
+      where: { estado: 'ACTIVO', tipoProducto: 'PRODUCTO_TERMINADO' },
+    });
+
+    const propuestas: any[] = [];
+    const hoy = new Date();
+    const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    for (const suc of sucursales) {
+      if (suc.codigo === 'SUC-001') continue;
+      if (sucursalId && suc.id !== sucursalId) continue;
+
+      for (const prod of productos) {
+        const inv = await this.prisma.inventario.findUnique({
+          where: { productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id } },
+        });
+        const stockActual = inv ? inv.existencia : 0;
+
+        const ventasDetalle = await this.prisma.ventaDetalle.findMany({
+          where: {
+            productoId: prod.id,
+            venta: {
+              sucursalId: suc.id,
+              fecha: { gte: hace30Dias },
+              estado: 'COMPLETADA',
+            },
+          },
+          select: { cantidad: true },
+        });
+
+        const totalVendido = ventasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
+        const promedioVentasDiarias = totalVendido > 0 ? totalVendido / 30 : 2.0;
+
+        const diasInventario = promedioVentasDiarias > 0 ? stockActual / promedioVentasDiarias : 0;
+
+        let diasObjetivo = 5;
+        if (prod.categoria === 'YOGURT') diasObjetivo = 7;
+        else if (prod.categoria === 'QUESOS') diasObjetivo = 10;
+        else if (prod.categoria === 'MANTEQUILLA') diasObjetivo = 15;
+
+        let stockObjetivo = promedioVentasDiarias * diasObjetivo;
+
+        if (useSafetyStockMin) {
+          const stockMinimoSeguridad = inv ? inv.existMin : 5;
+          stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
+        }
+
+        if (stockActual < stockObjetivo) {
+          const cantidadSugerida = Math.ceil(stockObjetivo - stockActual);
+
+          // Buscar origen sugerido
+          let tipoOrigen = 'CD';
+          let origenSugeridoId = plantaPrincipal ? plantaPrincipal.id : null;
+          let origenSugeridoNombre = plantaPrincipal ? plantaPrincipal.nombre : 'Centro de Distribución';
+          let detalleRazon = 'Suministrado desde el Centro de Distribución';
+
+          const otrosInventarios = await this.prisma.inventario.findMany({
+            where: {
+              productoId: prod.id,
+              sucursalId: { notIn: [suc.id, plantaPrincipal?.id].filter(Boolean) as string[] },
+              existencia: { gt: 0 },
+            },
+            include: { sucursal: true },
+          });
+
+          for (const otroInv of otrosInventarios) {
+            const otroVentasDetalle = await this.prisma.ventaDetalle.findMany({
+              where: {
+                productoId: prod.id,
+                venta: { sucursalId: otroInv.sucursalId, fecha: { gte: hace30Dias }, estado: 'COMPLETADA' },
+              },
+              select: { cantidad: true },
+            });
+            const otroTotalVendido = otroVentasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
+            const otroPromedioVentas = otroTotalVendido > 0 ? otroTotalVendido / 30 : 2.0;
+            const otroStockObjetivo = otroPromedioVentas * diasObjetivo;
+
+            const exceso = otroInv.existencia - otroStockObjetivo;
+            if (exceso >= cantidadSugerida) {
+              tipoOrigen = 'TRANSFERENCIA';
+              origenSugeridoId = otroInv.sucursalId;
+              origenSugeridoNombre = otroInv.sucursal.nombre;
+              detalleRazon = `Exceso de stock en ${otroInv.sucursal.nombre} (${otroInv.existencia} unidades vs stock objetivo de ${otroStockObjetivo.toFixed(1)})`;
+              break;
+            }
+          }
+
+          if (tipoOrigen === 'CD' && plantaPrincipal) {
+            const CDInv = await this.prisma.inventario.findUnique({
+              where: { productoId_sucursalId: { productoId: prod.id, sucursalId: plantaPrincipal.id } },
+            });
+            const CDStock = CDInv ? CDInv.existencia : 0;
+            if (CDStock < cantidadSugerida) {
+              if (prod.marca === 'Lácteos ERP') {
+                tipoOrigen = 'PRODUCCION';
+                origenSugeridoId = null;
+                origenSugeridoNombre = 'Línea de Producción Interna';
+                detalleRazon = 'Stock insuficiente en CD. Requiere programar orden de producción.';
+              } else {
+                tipoOrigen = 'COMPRA';
+                origenSugeridoId = null;
+                origenSugeridoNombre = 'Proveedor Externo';
+                detalleRazon = 'Stock insuficiente en CD. Requiere generar orden de compra a proveedor.';
+              }
+            }
+          }
+
+          propuestas.push({
+            sucursalId: suc.id,
+            sucursalNombre: suc.nombre,
+            productoId: prod.id,
+            productoSku: prod.sku,
+            productoNombre: prod.descripcion,
+            stockActual: parseFloat(stockActual.toFixed(2)),
+            promedioVentasDiarias: parseFloat(promedioVentasDiarias.toFixed(2)),
+            diasInventario: parseFloat(diasInventario.toFixed(1)),
+            stockObjetivo: parseFloat(stockObjetivo.toFixed(1)),
+            cantidadSugerida,
+            tipoOrigen,
+            origenSugeridoId,
+            origenSugeridoNombre,
+            detalleRazon,
+            alertaRiesgo: diasInventario <= 2 ? 'CRITICO' : 'STOCK_BAJO',
+          });
+        }
+      }
+    }
+
+    return propuestas;
   }
 }
