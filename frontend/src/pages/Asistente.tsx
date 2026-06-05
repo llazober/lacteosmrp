@@ -64,6 +64,8 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speakTimeoutRef = useRef<any>(null);
 
   // Voice States
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -84,6 +86,10 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
       return () => {
         window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+        if (speakTimeoutRef.current) {
+          clearTimeout(speakTimeoutRef.current);
+        }
+        window.speechSynthesis.cancel();
       };
     }
   }, []);
@@ -108,48 +114,55 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   // Clean and speak text out loud using Web Speech Synthesis
   const speakText = (text: string) => {
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // cancel any ongoing speech
-
-      // Clean the text to make it natural to read out loud, removing markdown, symbols, hashes, ampersands, dashes, etc.
-      const clean = text
-        .replace(/```[\s\S]*?```/g, '') // remove code blocks
-        .replace(/\|[\s\S]*?\|/g, '')   // remove markdown tables
-        .replace(/[-+|#*`~&=_<>[\]{}()]/g, ' ') // remove special symbols, hashes, ampersands, dashes
-        .replace(/\$/g, ' dólares ')   // speak dollars naturally
-        .replace(/\s+/g, ' ')           // normalize spaces
-        .trim();
-
-      if (!clean) return;
-
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = 'es-CL';
-
-      // Voice selection
-      const voices = window.speechSynthesis.getVoices();
-      let selectedVoice: SpeechSynthesisVoice | undefined;
-
-      if (voiceURI) {
-        selectedVoice = voices.find(v => v.voiceURI === voiceURI);
+      window.speechSynthesis.cancel();
+      if (speakTimeoutRef.current) {
+        clearTimeout(speakTimeoutRef.current);
       }
 
-      if (!selectedVoice) {
-        // Fallback to automatic female spanish voice selection
-        const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
-        const femaleKeywords = ['sabina', 'helena', 'laura', 'daria', 'paula', 'elena', 'maria', 'francisca', 'yolanda', 'google español', 'siri', 'female', 'mujer', 'zira', 'monica', 'paulina', 'ana'];
-        selectedVoice = esVoices.find(v => 
-          femaleKeywords.some(kw => v.name.toLowerCase().includes(kw))
-        );
-        if (!selectedVoice && esVoices.length > 0) {
-          selectedVoice = esVoices[0];
+      speakTimeoutRef.current = setTimeout(() => {
+        // Clean table lines (lines starting with '|')
+        const lines = text.split('\n');
+        const cleanLines = lines.filter(line => !line.trim().startsWith('|'));
+        const textWithoutTables = cleanLines.join(' ');
+
+        const clean = textWithoutTables
+          .replace(/```[\s\S]*?```/g, '') // remove code blocks
+          .replace(/[-+|#*`~&=_<>[\]{}()]/g, ' ') // remove special symbols, hashes, ampersands, dashes
+          .replace(/\$/g, ' dólares ')   // speak dollars naturally
+          .replace(/\s+/g, ' ')           // normalize spaces
+          .trim();
+
+        if (!clean) return;
+
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = 'es-CL';
+
+        const voices = window.speechSynthesis.getVoices();
+        let selectedVoice: SpeechSynthesisVoice | undefined;
+
+        if (voiceURI) {
+          selectedVoice = voices.find(v => v.voiceURI === voiceURI);
         }
-      }
 
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        utterance.lang = selectedVoice.lang;
-      }
+        if (!selectedVoice) {
+          const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
+          const femaleKeywords = ['sabina', 'helena', 'laura', 'daria', 'paula', 'elena', 'maria', 'francisca', 'yolanda', 'google español', 'siri', 'female', 'mujer', 'zira', 'monica', 'paulina', 'ana'];
+          selectedVoice = esVoices.find(v => 
+            femaleKeywords.some(kw => v.name.toLowerCase().includes(kw))
+          );
+          if (!selectedVoice && esVoices.length > 0) {
+            selectedVoice = esVoices[0];
+          }
+        }
 
-      window.speechSynthesis.speak(utterance);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          utterance.lang = selectedVoice.lang;
+        }
+
+        utteranceRef.current = utterance; // Keep reference to prevent GC
+        window.speechSynthesis.speak(utterance);
+      }, 250);
     }
   };
 
