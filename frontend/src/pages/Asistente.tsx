@@ -14,6 +14,9 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
+  FormControl,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Send, SmartToy, Person, Mic, MicOff } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
@@ -61,23 +64,49 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Voice States
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceURI, setVoiceURI] = useState<string>(() => {
+    return localStorage.getItem('lacteoserp_preferred_voice') || '';
+  });
+
   // Refs to avoid stale closures in event listeners
   const transcriptRef = useRef('');
   const handleEnviarRef = useRef<(texto: string, isVoice?: boolean) => Promise<void>>(async () => {});
 
-  // Pre-load voices on component mount to avoid asynchronous empty voice lists
+  // Pre-load voices on component mount and filter Spanish ones
   useEffect(() => {
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
-      const handleVoicesChanged = () => {
-        window.speechSynthesis.getVoices();
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
+        setAvailableVoices(esVoices);
       };
-      window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
+      
+      loadVoices();
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
       return () => {
-        window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+        window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
       };
     }
   }, []);
+
+  const handleVoiceChange = (uri: string) => {
+    setVoiceURI(uri);
+    localStorage.setItem('lacteoserp_preferred_voice', uri);
+    // Test the newly selected voice immediately
+    if (uri && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const voices = window.speechSynthesis.getVoices();
+      const selected = voices.find(v => v.voiceURI === uri);
+      if (selected) {
+        const utterance = new SpeechSynthesisUtterance("Hola, he cambiado a esta voz.");
+        utterance.voice = selected;
+        utterance.lang = selected.lang;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  };
 
   // Clean and speak text out loud using Web Speech Synthesis
   const speakText = (text: string) => {
@@ -98,23 +127,29 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'es-CL';
 
-      // Female voice selection
+      // Voice selection
       const voices = window.speechSynthesis.getVoices();
-      const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
-      
-      // Look for a female voice first by checking common names and keywords
-      const femaleKeywords = ['sabina', 'helena', 'laura', 'daria', 'paula', 'elena', 'maria', 'francisca', 'yolanda', 'google español', 'siri', 'female', 'mujer', 'zira'];
-      let selectedVoice = esVoices.find(v => 
-        femaleKeywords.some(kw => v.name.toLowerCase().includes(kw))
-      );
+      let selectedVoice: SpeechSynthesisVoice | undefined;
 
-      // Fallback to any Spanish voice
-      if (!selectedVoice && esVoices.length > 0) {
-        selectedVoice = esVoices[0];
+      if (voiceURI) {
+        selectedVoice = voices.find(v => v.voiceURI === voiceURI);
+      }
+
+      if (!selectedVoice) {
+        // Fallback to automatic female spanish voice selection
+        const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
+        const femaleKeywords = ['sabina', 'helena', 'laura', 'daria', 'paula', 'elena', 'maria', 'francisca', 'yolanda', 'google español', 'siri', 'female', 'mujer', 'zira', 'monica', 'paulina', 'ana'];
+        selectedVoice = esVoices.find(v => 
+          femaleKeywords.some(kw => v.name.toLowerCase().includes(kw))
+        );
+        if (!selectedVoice && esVoices.length > 0) {
+          selectedVoice = esVoices[0];
+        }
       }
 
       if (selectedVoice) {
         utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
       }
 
       window.speechSynthesis.speak(utterance);
@@ -705,27 +740,62 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
               gap: 1.5,
             }}
           >
-            {isRecording && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)', width: 'fit-content' }}>
-                <Box 
-                  sx={{ 
-                    width: 8, 
-                    height: 8, 
-                    borderRadius: '50%', 
-                    backgroundColor: '#ef4444', 
-                    animation: 'pulse-dot 1.2s infinite ease-in-out',
-                    '@keyframes pulse-dot': {
-                      '0%': { opacity: 0.4 },
-                      '50%': { opacity: 1 },
-                      '100%': { opacity: 0.4 },
-                    }
-                  }} 
-                />
-                <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 'bold' }}>
-                  {input.trim() ? "🎙️ Transcribiendo..." : "🎙️ Escuchando... habla ahora"}
-                </Typography>
-              </Box>
-            )}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+              {isRecording ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)', width: 'fit-content' }}>
+                  <Box 
+                    sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%', 
+                      backgroundColor: '#ef4444', 
+                      animation: 'pulse-dot 1.2s infinite ease-in-out',
+                      '@keyframes pulse-dot': {
+                        '0%': { opacity: 0.4 },
+                        '50%': { opacity: 1 },
+                        '100%': { opacity: 0.4 },
+                      }
+                    }} 
+                  />
+                  <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 'bold' }}>
+                    {input.trim() ? "🎙️ Transcribiendo..." : "🎙️ Escuchando... habla ahora"}
+                  </Typography>
+                </Box>
+              ) : <div />}
+
+              {'speechSynthesis' in window && availableVoices.length > 0 && (
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                  <Select
+                    value={voiceURI}
+                    onChange={(e) => handleVoiceChange(e.target.value)}
+                    displayEmpty
+                    sx={{
+                      fontSize: '0.75rem',
+                      height: 28,
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '8px',
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.08)',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.15)',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'primary.main',
+                      },
+                    }}
+                  >
+                    <MenuItem value="">🗣️ Voz: Auto-Femenina</MenuItem>
+                    {availableVoices.map((v) => (
+                      <MenuItem key={v.voiceURI} value={v.voiceURI} sx={{ fontSize: '0.75rem' }}>
+                        🗣️ {v.name.replace(/Microsoft |Google /g, '')}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
 
             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', width: '100%' }}>
               <TextField
