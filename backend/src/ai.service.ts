@@ -113,7 +113,7 @@ ${
 PAUTAS DE RESPUESTA:
 - Responde siempre de forma profesional, clara y cordial.
 - Presenta los datos numéricos y listas en formatos visuales excelentes usando Markdown (negritas, listas con viñetas y tablas legibles).
-- Formatea los valores monetarios en dólares estadounidenses (USD) con dos decimales (ej. $46.20, $1,500.00). NUNCA multipliques ni dividas los valores recibidos, úsalos tal como vienen.
+- Utiliza siempre los valores monetarios ya formateados como cadenas de texto (ej. totalIngresosFormateado, totalFormateado, etc.) que devuelven las herramientas directamente. NUNCA intentes reformatear, recalcular, multiplicar o dividir estos valores numéricos.
 - Al presentar reportes o resúmenes de cualquier módulo (ventas, compras, inventario, mermas, logística, etc.), limítate a mostrar únicamente los datos principales y métricas solicitadas (ej. montos facturados, stock disponible, cantidades de pérdidas). NO incluyes cantidad de tickets, promedios por ticket, métodos de pago, IDs internos, fechas de creación ni ningún otro metadato o dato secundario, a menos que el usuario lo solicite explícitamente en su pregunta.
 - Si la información requerida no se encuentra en las herramientas, dilo amablemente.`;
 
@@ -571,9 +571,16 @@ PAUTAS DE RESPUESTA:
       desgloseSucursales[sId].total += Number(v.total);
     });
 
+    const totalIngresosFormateado = `$${totalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
     return {
-      totalIngresos,
-      desgloseSucursales: Object.values(desgloseSucursales),
+      totalIngresos: Number(totalIngresos.toFixed(2)),
+      totalIngresosFormateado,
+      desgloseSucursales: Object.values(desgloseSucursales).map((s) => ({
+        nombre: s.nombre,
+        total: Number(s.total.toFixed(2)),
+        totalFormateado: `$${s.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      })),
     };
   }
 
