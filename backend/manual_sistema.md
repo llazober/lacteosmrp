@@ -18,6 +18,7 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 11. [Chat Operativo](#11-chat-operativo)
 12. [Administración de Personal y Auditoría](#12-administración-de-personal-y-auditoría)
 13. [Utilidades y Configuración de Tablas Maestras](#13-utilidades-y-configuración-de-tablas-maestras)
+14. [Rutas Inteligentes y Reabastecimiento Automático](#14-rutas-inteligentes-y-reabastecimiento-automático)
 
 ---
 
@@ -215,3 +216,23 @@ El panel de **Utilidades** agrupa las configuraciones globales, catálogos estru
 *   **Pestaña 5: Configuración de IA**:
     *   Permite cargar y guardar la API Key de OpenAI para dar vida a **Vaquita AI**.
     *   Permite seleccionar el modelo de lenguaje activo (ej. `gpt-4o-mini`, `gpt-4o`) para controlar el costo y la calidad de las respuestas del asistente de operaciones.
+
+---
+
+## 14. Rutas Inteligentes y Reabastecimiento Automático
+
+Este módulo gestiona la optimización física de la cadena de distribución del negocio, calculando rutas de entrega eficientes y reabasteciendo de manera automática o manual el stock de los locales de venta de Santa Ana.
+
+### Rutas Inteligentes (VRP/TSP)
+*   **Propósito**: Diseñar y asignar recorridos de distribución eficientes desde el Centro de Distribución (CD) principal (código `SUC-001`) hacia las diferentes sucursales de venta.
+*   **Algoritmo VRP/TSP**: Calcula la secuencia óptima de entrega para la flota vehicular, reduciendo la distancia total de viaje, el consumo de combustible y asegurando el paso ordenado por los puntos de destino.
+*   **Visualización en Mapa**: Proporciona un mapa cartográfico interactivo de alto contraste que ilustra las posiciones geográficas de las sucursales, camiones de reparto activos y las líneas de ruta trazadas en Santa Ana.
+
+### Cálculo de Reabastecimiento
+*   **Decisión de Reabastecer**: Se genera una propuesta de reabastecimiento para una sucursal si el inventario de un producto en ella es menor que su **Stock Objetivo**.
+*   **Fórmula del Stock Objetivo**: El Stock Objetivo se define como el valor máximo entre:
+    1.  **Demanda por Proyección de Ventas**: Las ventas diarias promedio de los últimos 30 días multiplicadas por los días de cobertura objetivo de la categoría del producto (Leche: 5 días, Yogurt: 7 días, Quesos: 10 días, Mantequilla: 15 días). Si no hay ventas, se asume un promedio de venta base de 2 unidades/día.
+    2.  **Stock Mínimo de Seguridad (`existMin`)**: El umbral configurado físicamente por los gerentes en la tabla de inventario. Esto garantiza que las tiendas en estado de **Stock Crítico** sean abastecidas preventivamente sin depender de que exista un histórico de ventas reciente.
+*   **Flujo FEFO de Origen**: Al autorizar y procesar una propuesta de transferencia, el sistema localiza el stock disponible en el origen (CD u otras tiendas) y prioriza la extracción utilizando los lotes con la fecha de vencimiento más próxima (*First Expired, First Out*).
+*   **Procesamiento Automático en Segundo Plano**: Si la configuración de auto-reabastecimiento está activada (`autoReplenishEnabled`), el sistema ejecutará periódicamente en segundo plano el cálculo y registrará directamente las transferencias en estado `PENDIENTE` para asegurar el flujo logístico continuo.
+
