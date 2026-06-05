@@ -53,10 +53,19 @@ export class AiService {
       weekday: 'long',
       timeZone: timezone,
     });
-
     // Enforce sucursal parameter if not admin or supervisor
     const isHQ = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR';
     const sucursalFiltro = isHQ ? null : user.sucursalId;
+
+    let sucursalNombre = 'Todas / HQ';
+    if (user.sucursalId) {
+      const dbSuc = await this.prisma.sucursal.findUnique({
+        where: { id: user.sucursalId },
+      });
+      if (dbSuc) {
+        sucursalNombre = dbSuc.nombre;
+      }
+    }
 
     // Cargar manual del sistema dinámicamente si existe
     let manualContext = '';
@@ -91,12 +100,15 @@ CONTEXTO DEL SISTEMA:
 CONTEXTO DEL USUARIO:
 - Nombre: ${user.nombre}
 - Rol: ${user.rol}
-- Sucursal asignada: ${user.sucursalNombre || 'HQ / Todas'}
+- Sucursal asignada: ${sucursalNombre}
 - ID de Sucursal: ${user.sucursalId || 'Ninguno'}
 
-REGLAS DE SEGURIDAD IMPORTANTES:
-1. Si tu rol no es ADMINISTRADOR o SUPERVISOR, solo tienes permitido consultar información de tu propia sucursal (${user.sucursalNombre || 'N/A'}).
-2. Aunque el usuario te pida ver datos globales o de otras sucursales, debes filtrar y pasar únicamente tu ID de sucursal (${user.sucursalId}) como parámetro. El backend forzará este filtro de todas formas por seguridad.
+REGLAS DE SEGURIDAD Y ACCESO DE SUCURSAL:
+${
+  isHQ
+    ? `- Como tu rol es ${user.rol}, tienes acceso global y completo (HQ). Tienes permitido consultar la información de todas las sucursales, comparar ventas/inventarios entre sucursales, y consolidar datos globales. Puedes invocar las herramientas sin el parámetro sucursalId o con el sucursalId de cualquier sucursal si el usuario lo solicita.`
+    : `- Como tu rol es ${user.rol}, estás estrictamente limitado a tu propia sucursal (${sucursalNombre}). No tienes permitido consultar información global o de otras sucursales. Aunque el usuario te pida ver datos de otras sucursales, debes pasar obligatoriamente tu ID de sucursal (${user.sucursalId}) como parámetro a todas las herramientas. El backend forzará este filtro por seguridad.`
+}
 
 PAUTAS DE RESPUESTA:
 - Responde siempre de forma profesional, clara y cordial.
