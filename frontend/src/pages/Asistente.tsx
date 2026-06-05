@@ -120,10 +120,20 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       }
 
       speakTimeoutRef.current = setTimeout(() => {
-        // Clean table lines (lines starting with '|')
+        // Format table lines to be read out loud naturally, skipping only the markdown separator lines
         const lines = text.split('\n');
-        const cleanLines = lines.filter(line => !line.trim().startsWith('|'));
-        const textWithoutTables = cleanLines.join(' ');
+        const cleanLines = lines.map(line => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('|') && (trimmed.includes('---') || trimmed.includes('- | -') || trimmed.includes('-|-'))) {
+            return '';
+          }
+          if (trimmed.startsWith('|')) {
+            const cols = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+            return cols.join(', ');
+          }
+          return line;
+        });
+        const textWithoutTables = cleanLines.filter(Boolean).join(' ');
 
         const clean = textWithoutTables
           .replace(/```[\s\S]*?```/g, '') // remove code blocks
