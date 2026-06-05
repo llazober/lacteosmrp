@@ -305,8 +305,8 @@ export default function Logistica() {
     // Planta Principal coordinates (Santa Ana, El Salvador)
     const map = L.map('map-container').setView([13.9942, -89.5597], 13);
     
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CartoDB &copy; OpenStreetMap contributors',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
     mapRef.current = map;
