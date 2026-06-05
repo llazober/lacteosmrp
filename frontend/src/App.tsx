@@ -42,6 +42,7 @@ import {
   Assessment as VentasIcon,
   Factory as ProduccionIcon,
   Biotech as CalidadIcon,
+  LocalShipping as LogisticaIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -67,6 +68,7 @@ import CuentasPorPagar from './pages/CuentasPorPagar';
 import Ventas from './pages/Ventas';
 import Produccion from './pages/Produccion';
 import Calidad from './pages/Calidad';
+import Logistica from './pages/Logistica';
 
 const DRAWER_WIDTH = 280;
 const queryClient = new QueryClient();
@@ -193,6 +195,7 @@ function MainLayout() {
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
     { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_AUDITORIA' },
     { text: 'Chat Operativo', icon: <ChatIcon />, path: '/chat', roles: [], permission: 'VER_CHAT' },
+    { text: 'Rutas y Logística', icon: <LogisticaIcon />, path: '/logistica', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_LOGISTICA' },
     { text: 'Asistente AI', icon: <SmartToyIcon />, path: '/asistente', roles: [], permission: 'USAR_ASISTENTE' },
     { text: 'Utilidades', icon: <UtilidadesIcon />, path: '/utilidades', roles: [], permission: 'VER_UTILIDADES' },
   ];
@@ -480,6 +483,11 @@ function MainLayout() {
             <Route path="/consolidado" element={<Consolidado />} />
           ) : (
             <Route path="/consolidado" element={<Navigate to="/" />} />
+          )}
+          {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? (
+            <Route path="/logistica" element={<Logistica />} />
+          ) : (
+            <Route path="/logistica" element={<Navigate to="/" />} />
           )}
           <Route path="/utilidades" element={<Utilidades />} />
           <Route path="/asistente" element={<Asistente />} />

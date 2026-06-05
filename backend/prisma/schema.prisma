@@ -18,6 +18,8 @@ model Sucursal {
   telefono  String
   correo    String
   estado    String   @default("ACTIVO") // ACTIVO, INACTIVO
+  latitud   Float?
+  longitud  Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -35,6 +37,10 @@ model Sucursal {
   movimientosOrigen     MovimientoInventario[] @relation("OrigenRelationMov")
   movimientosDestino    MovimientoInventario[] @relation("DestinoRelationMov")
   chatMensajes          ChatMensaje[]
+
+  rutasOrigen           Ruta[]                  @relation("OrigenRuta")
+  rutasPuntos           RutaPunto[]
+  solicitudesReabastecimiento SolicitudReabastecimiento[]
 }
 
 model Usuario {
@@ -108,6 +114,7 @@ model Producto {
   recetaDetalles  RecetaDetalle[]
   ordenProduccionDetalles OrdenProduccionDetalle[]
   mermas          Merma[]
+  solicitudesReabastecimiento SolicitudReabastecimiento[]
 }
 
 model Proveedor {
@@ -634,4 +641,100 @@ model NoConformidad {
   fecha             DateTime @default(now())
 
   responsable       Usuario  @relation(fields: [responsableId], references: [id])
+}
+
+model Camion {
+  id               String   @id @default(uuid())
+  placa            String   @unique
+  capacidadPeso    Float
+  capacidadVolumen Float
+  temperaturaMin   Float
+  temperaturaMax   Float
+  estado           String   @default("DISPONIBLE") // DISPONIBLE, EN_RUTA, MANTENIMIENTO
+  gpsLat           Float?
+  gpsLng           Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  rutas            Ruta[]
+}
+
+model Conductor {
+  id        String   @id @default(uuid())
+  nombre    String
+  licencia  String
+  telefono  String
+  estado    String   @default("ACTIVO") // ACTIVO, EN_RUTA, INACTIVO
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rutas     Ruta[]
+}
+
+model Ruta {
+  id                    String            @id @default(uuid())
+  codigo                String            @unique
+  camionId              String
+  conductorId           String
+  estado                String            @default("PLANIFICADA") // PLANIFICADA, EN_CAMINO, COMPLETADA, RETRASADA
+  fecha                 DateTime          @default(now())
+  origenId              String
+  kilometros            Float             @default(0)
+  tiempoEstimado        Float             @default(0) // en minutos
+  consumoEstimado       Float             @default(0) // en litros
+  costoEntrega          Float             @default(0)
+  temperaturaSalida     Float?
+  temperaturaRecepcion  Float?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  camion                Camion            @relation(fields: [camionId], references: [id])
+  conductor             Conductor         @relation(fields: [conductorId], references: [id])
+  origen                Sucursal          @relation("OrigenRuta", fields: [origenId], references: [id])
+  puntos                RutaPunto[]
+  temperaturas          RutaTemperatura[]
+}
+
+model RutaPunto {
+  id          String   @id @default(uuid())
+  rutaId      String
+  sucursalId  String
+  ordenVisita Int
+  estado      String   @default("PENDIENTE") // PENDIENTE, ENTREGADO, OMITIDO
+  tipo        String   @default("ENTREGA") // ENTREGA, RETORNO
+
+  ruta        Ruta     @relation(fields: [rutaId], references: [id], onDelete: Cascade)
+  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+}
+
+model RutaTemperatura {
+  id          String   @id @default(uuid())
+  rutaId      String
+  temperatura Float
+  humedad     Float?
+  fecha       DateTime @default(now())
+  estado      String   @default("OK") // OK, ALERTA, CRITICO
+  ubicacion   String?
+
+  ruta        Ruta     @relation(fields: [rutaId], references: [id], onDelete: Cascade)
+}
+
+model SolicitudReabastecimiento {
+  id               String   @id @default(uuid())
+  codigo           String   @unique
+  sucursalId       String
+  productoId       String
+  cantidadSugerida Float
+  cantidadAprobada Float?
+  diasInventario   Float
+  stockObjetivo    Float
+  stockActual      Float
+  estado           String   @default("PENDIENTE") // PENDIENTE, PROCESADA, RECHAZADA
+  tipoOrigen       String?  // TRANSFERENCIA, COMPRA, PRODUCCION
+  origenSugeridoId String?  // ID de sucursal de origen o proveedor
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sucursal         Sucursal @relation(fields: [sucursalId], references: [id])
+  producto         Producto @relation(fields: [productoId], references: [id])
 }

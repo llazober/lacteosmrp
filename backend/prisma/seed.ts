@@ -7,6 +7,13 @@ async function main() {
   console.log('Iniciando proceso de semilla (seed) para Lácteos ERP...');
 
   // Limpiar base de datos en orden inverso de dependencias
+  await prisma.solicitudReabastecimiento.deleteMany({});
+  await prisma.rutaTemperatura.deleteMany({});
+  await prisma.rutaPunto.deleteMany({});
+  await prisma.ruta.deleteMany({});
+  await prisma.camion.deleteMany({});
+  await prisma.conductor.deleteMany({});
+
   await prisma.noConformidad.deleteMany({});
   await prisma.controlCalidad.deleteMany({});
   await prisma.controlLeche.deleteMany({});
@@ -113,22 +120,78 @@ async function main() {
   const s1 = await prisma.sucursal.create({
     data: {
       codigo: 'SUC-001',
-      nombre: 'Planta de Producción Principal',
-      direccion: 'Av. Industrial 1240, Santiago',
-      telefono: '+56 2 2345 6789',
-      correo: 'planta@lacteoserp.cl',
+      nombre: 'Planta de Producción Santa Ana (CD)',
+      direccion: 'Zona Industrial Panamericana, Santa Ana',
+      telefono: '+503 2440 1234',
+      correo: 'planta@lacteoserp.com',
       estado: 'ACTIVO',
+      latitud: 13.9785,
+      longitud: -89.5398,
     },
   });
 
   const s2 = await prisma.sucursal.create({
     data: {
       codigo: 'SUC-002',
-      nombre: 'Distribuidora Express - Providencia',
-      direccion: 'Av. Providencia 1920, Santiago',
-      telefono: '+56 2 2345 6790',
-      correo: 'express@lacteoserp.cl',
+      nombre: 'Lácteos Express - Santa Ana Centro',
+      direccion: '2a Calle Poniente, Parque Libertad, Santa Ana',
+      telefono: '+503 2440 1235',
+      correo: 'centro@lacteoserp.com',
       estado: 'ACTIVO',
+      latitud: 13.9942,
+      longitud: -89.5597,
+    },
+  });
+
+  const s3 = await prisma.sucursal.create({
+    data: {
+      codigo: 'SUC-003',
+      nombre: 'Lácteos Express - Metrocentro',
+      direccion: 'Bulevar Los 44, Metrocentro Santa Ana',
+      telefono: '+503 2440 1236',
+      correo: 'metrocentro@lacteoserp.com',
+      estado: 'ACTIVO',
+      latitud: 13.9772,
+      longitud: -89.5638,
+    },
+  });
+
+  const s4 = await prisma.sucursal.create({
+    data: {
+      codigo: 'SUC-004',
+      nombre: 'Lácteos Express - El Palmar',
+      direccion: 'Avenida Fray Felipe de Jesús Moraga, Santa Ana',
+      telefono: '+503 2440 1237',
+      correo: 'elpalmar@lacteoserp.com',
+      estado: 'ACTIVO',
+      latitud: 14.0080,
+      longitud: -89.5445,
+    },
+  });
+
+  const s5 = await prisma.sucursal.create({
+    data: {
+      codigo: 'SUC-005',
+      nombre: 'Lácteos Express - Colonia El Trébol',
+      direccion: 'Colonia El Trébol, Santa Ana',
+      telefono: '+503 2440 1238',
+      correo: 'trebol@lacteoserp.com',
+      estado: 'ACTIVO',
+      latitud: 13.9680,
+      longitud: -89.5505,
+    },
+  });
+
+  const s6 = await prisma.sucursal.create({
+    data: {
+      codigo: 'SUC-006',
+      nombre: 'Lácteos Express - Bypass',
+      direccion: 'Bypass Santa Ana, Santa Ana',
+      telefono: '+503 2440 1239',
+      correo: 'bypass@lacteoserp.com',
+      estado: 'ACTIVO',
+      latitud: 13.9885,
+      longitud: -89.5750,
     },
   });
 
@@ -594,7 +657,169 @@ async function main() {
     data: { productoId: p2.id, sucursalId: s2.id, existencia: 45, existMin: 10, existMax: 100 },
   });
 
-  console.log('Inventarios inicializados.');
+  // Inventarios Sucursales Nuevas (s3, s4, s5, s6)
+  // s3 - Maipú
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s3.id, existencia: 12, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s3.id, existencia: 8, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s3.id, existencia: 22, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s3.id, existencia: 18, existMin: 5, existMax: 30 } });
+
+  // s4 - Las Condes
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s4.id, existencia: 60, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s4.id, existencia: 55, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s4.id, existencia: 4, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s4.id, existencia: 12, existMin: 5, existMax: 30 } });
+
+  // s5 - Ñuñoa
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s5.id, existencia: 8, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s5.id, existencia: 75, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s5.id, existencia: 15, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s5.id, existencia: 14, existMin: 5, existMax: 30 } });
+
+  // s6 - La Florida
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s6.id, existencia: 70, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s6.id, existencia: 12, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s6.id, existencia: 35, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s6.id, existencia: 6, existMin: 5, existMax: 30 } });
+
+  console.log('Inventarios inicializados para todas las sucursales.');
+
+  // --- 6.5. SEMILLAS PARA FLOTA Y LOGÍSTICA ---
+  console.log('Inicializando flota de camiones y conductores...');
+
+  const c1 = await prisma.camion.create({
+    data: {
+      placa: 'FH-DR-40',
+      capacidadPeso: 3500.0,
+      capacidadVolumen: 15.0,
+      temperaturaMin: 2.0,
+      temperaturaMax: 6.0,
+      estado: 'DISPONIBLE',
+      gpsLat: 13.9785,
+      gpsLng: -89.5398,
+    },
+  });
+
+  const c2 = await prisma.camion.create({
+    data: {
+      placa: 'BK-XP-88',
+      capacidadPeso: 5000.0,
+      capacidadVolumen: 22.0,
+      temperaturaMin: -24.0,
+      temperaturaMax: -18.0,
+      estado: 'DISPONIBLE',
+      gpsLat: 13.9785,
+      gpsLng: -89.5398,
+    },
+  });
+
+  const c3 = await prisma.camion.create({
+    data: {
+      placa: 'CW-PL-12',
+      capacidadPeso: 1500.0,
+      capacidadVolumen: 8.0,
+      temperaturaMin: 10.0,
+      temperaturaMax: 22.0,
+      estado: 'DISPONIBLE',
+      gpsLat: 13.9785,
+      gpsLng: -89.5398,
+    },
+  });
+
+  const cond1 = await prisma.conductor.create({
+    data: { nombre: 'Pedro Gómez', licencia: 'Clase A4', telefono: '+56 9 1111 2222', estado: 'ACTIVO' },
+  });
+
+  const cond2 = await prisma.conductor.create({
+    data: { nombre: 'Juan Rodríguez', licencia: 'Clase A4', telefono: '+56 9 3333 4444', estado: 'ACTIVO' },
+  });
+
+  const cond3 = await prisma.conductor.create({
+    data: { nombre: 'Luis Medina', licencia: 'Clase B', telefono: '+56 9 5555 6666', estado: 'ACTIVO' },
+  });
+
+  console.log('Flota inicial de camiones y choferes creada.');
+
+  // --- GENERACIÓN DE VENTAS HISTÓRICAS ---
+  console.log('Generando ventas históricas de los últimos 30 días para motor de pronósticos...');
+  const sucursalesList = [s1, s2, s3, s4, s5, s6];
+  const productosList = [p1, p2, p3, p4];
+
+  // Crear una caja para registrar las ventas históricas
+  for (const suc of sucursalesList) {
+    const caja = await prisma.cajaControl.create({
+      data: {
+        sucursalId: suc.id,
+        cajeroId: uCajero.id,
+        montoApertura: 50000,
+        estado: 'CERRADA',
+        fechaApertura: new Date(hoy.getTime() - 40 * 24 * 60 * 60 * 1000),
+        fechaCierre: new Date(hoy.getTime() - 40 * 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000),
+        montoCierre: 120000,
+        montoArqueo: 120000,
+        diferencia: 0,
+      }
+    });
+
+    for (let dayOffset = 30; dayOffset >= 1; dayOffset--) {
+      const fechaVenta = new Date(hoy.getTime() - dayOffset * 24 * 60 * 60 * 1000);
+      const dayOfWeek = fechaVenta.getDay();
+
+      for (const prod of productosList) {
+        // Ventas base estimadas: leche y yogurt se venden más
+        let baseQty = prod.categoria === 'LECHE' || prod.categoria === 'YOGURT' ? 8 : 3;
+
+        // Factor día de semana: fin de semana vende un 30% más
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          baseQty *= 1.3;
+        }
+
+        // Variabilidad aleatoria
+        let qty = Math.round(baseQty + (Math.random() * 4 - 2));
+        if (qty <= 0) qty = 1;
+
+        const subtotal = qty * prod.precioVenta;
+        const iva = subtotal * 0.19;
+        const total = subtotal + iva;
+
+        // Buscar lote adecuado
+        const associatedLote = prod.id === p1.id ? loteP1_ok : (prod.id === p2.id ? loteP2_ok : loteP2_ok);
+
+        const ticketNum = `TK-${suc.codigo}-${prod.sku}-${dayOffset}-${Math.floor(Math.random() * 1000)}`;
+
+        const venta = await prisma.venta.create({
+          data: {
+            ticketNumero: ticketNum,
+            sucursalId: suc.id,
+            clienteNombre: 'Cliente Frecuente',
+            fecha: fechaVenta,
+            metodoPago: 'EFECTIVO',
+            subtotal,
+            iva,
+            total,
+            cajeroId: uCajero.id,
+            cajaAperturaId: caja.id,
+            estado: 'COMPLETADA',
+          }
+        });
+
+        await prisma.ventaDetalle.create({
+          data: {
+            ventaId: venta.id,
+            productoId: prod.id,
+            loteId: associatedLote.id,
+            cantidad: qty,
+            precioUnitario: prod.precioVenta,
+            subtotal,
+            iva,
+            total,
+          }
+        });
+      }
+    }
+  }
+
+  console.log('Ventas históricas creadas con éxito.');
 
   // 7. RECETAS
   // Receta 1: Yogurt Batido de Fresa 1L
