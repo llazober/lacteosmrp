@@ -106,7 +106,7 @@ CONTEXTO DEL USUARIO:
 REGLAS DE SEGURIDAD Y ACCESO DE SUCURSAL:
 ${
   isHQ
-    ? `- Como tu rol es ${user.rol}, tienes acceso global y completo (HQ). Tienes permitido consultar la información de todas las sucursales, comparar ventas/inventarios entre sucursales, y consolidar datos globales. Puedes invocar las herramientas sin el parámetro sucursalId o con el sucursalId de cualquier sucursal si el usuario lo solicita.`
+    ? `- Como tu rol es ${user.rol}, tienes acceso global y completo (HQ). Tienes permitido consultar la información de todas las sucursales, comparar ventas/inventarios entre sucursales, y consolidar datos globales. Puedes invocar las herramientas sin el parámetro sucursalId o con el sucursalId de cualquier sucursal si el usuario lo solicita. IMPORTANTE: Si el usuario te pide un reporte consolidado global, ventas de todas las sucursales, inventario global o comparación general, NO debes pasar el parámetro sucursalId en absoluto a las herramientas. Solo pasalo si la pregunta es sobre una sucursal específica.`
     : `- Como tu rol es ${user.rol}, estás estrictamente limitado a tu propia sucursal (${sucursalNombre}). No tienes permitido consultar información global o de otras sucursales. Aunque el usuario te pida ver datos de otras sucursales, debes pasar obligatoriamente tu ID de sucursal (${user.sucursalId}) como parámetro a todas las herramientas. El backend forzará este filtro por seguridad.`
 }
 
@@ -162,7 +162,7 @@ PAUTAS DE RESPUESTA:
             properties: {
               sucursalId: {
                 type: 'string',
-                description: 'ID opcional de la sucursal para filtrar.',
+                description: 'ID opcional de la sucursal para filtrar. IMPORTANTE: Si el usuario solicita un reporte global, NO pases este parámetro.',
               },
             },
           },
@@ -187,7 +187,7 @@ PAUTAS DE RESPUESTA:
               },
               sucursalId: {
                 type: 'string',
-                description: 'ID opcional de la sucursal para filtrar.',
+                description: 'ID opcional de la sucursal para filtrar. IMPORTANTE: Si el usuario solicita un consolidado global o ventas de todas las sucursales, NO pases este parámetro.',
               },
             },
             required: ['fechaInicio', 'fechaFin'],
