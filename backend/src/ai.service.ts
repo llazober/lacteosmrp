@@ -650,6 +650,19 @@ PAUTAS DE RESPUESTA:
         });
         const stockActual = inv ? inv.existencia : 0;
 
+        const transferenciasPendientes = await this.prisma.transferenciaDetalle.findMany({
+          where: {
+            productoId: prod.id,
+            transferencia: {
+              destinoId: suc.id,
+              estado: { in: ['PENDIENTE', 'EN_TRANSITO'] },
+            },
+          },
+          select: { cantidad: true },
+        });
+        const stockEnTransito = transferenciasPendientes.reduce((sum, item) => sum + item.cantidad, 0);
+        const stockDisponible = stockActual + stockEnTransito;
+
         const ventasDetalle = await this.prisma.ventaDetalle.findMany({
           where: {
             productoId: prod.id,
@@ -665,7 +678,7 @@ PAUTAS DE RESPUESTA:
         const totalVendido = ventasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
         const promedioVentasDiarias = totalVendido > 0 ? totalVendido / 30 : 2.0;
 
-        const diasInventario = promedioVentasDiarias > 0 ? stockActual / promedioVentasDiarias : 0;
+        const diasInventario = promedioVentasDiarias > 0 ? stockDisponible / promedioVentasDiarias : 0;
 
         let diasObjetivo = 5;
         if (prod.categoria === 'YOGURT') diasObjetivo = 7;
@@ -679,8 +692,8 @@ PAUTAS DE RESPUESTA:
           stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
         }
 
-        if (stockActual < stockObjetivo) {
-          const cantidadSugerida = Math.ceil(stockObjetivo - stockActual);
+        if (stockDisponible < stockObjetivo) {
+          const cantidadSugerida = Math.ceil(stockObjetivo - stockDisponible);
 
           // Buscar origen sugerido
           let tipoOrigen = 'CD';

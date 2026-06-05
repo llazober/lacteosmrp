@@ -487,11 +487,24 @@ export class LogisticaController implements OnModuleInit {
       if (suc.codigo === 'SUC-001') continue; // El CD no se reabastece a sí mismo con este flujo
 
       for (const prod of productos) {
-        // 1. Obtener Inventario Actual
+        // 1. Obtener Inventario Actual y en Tránsito
         const inv = await this.prisma.inventario.findUnique({
           where: { productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id } },
         });
         const stockActual = inv ? inv.existencia : 0;
+
+        const transferenciasPendientes = await this.prisma.transferenciaDetalle.findMany({
+          where: {
+            productoId: prod.id,
+            transferencia: {
+              destinoId: suc.id,
+              estado: { in: ['PENDIENTE', 'EN_TRANSITO'] },
+            },
+          },
+          select: { cantidad: true },
+        });
+        const stockEnTransito = transferenciasPendientes.reduce((sum, item) => sum + item.cantidad, 0);
+        const stockDisponible = stockActual + stockEnTransito;
 
         // 2. Calcular Promedio Ventas Diarias (últimos 30 días)
         const ventasDetalle = await this.prisma.ventaDetalle.findMany({
@@ -509,7 +522,7 @@ export class LogisticaController implements OnModuleInit {
         const totalVendido = ventasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
         const promedioVentasDiarias = totalVendido > 0 ? totalVendido / 30 : 2.0; // Default 2 unidades al día si no hay ventas
 
-        const diasInventario = promedioVentasDiarias > 0 ? stockActual / promedioVentasDiarias : 0;
+        const diasInventario = promedioVentasDiarias > 0 ? stockDisponible / promedioVentasDiarias : 0;
 
         // 3. Determinar Stock Objetivo según Configuración por Categoría
         let diasObjetivo = 5; // Default leche
@@ -525,8 +538,8 @@ export class LogisticaController implements OnModuleInit {
         }
 
         // 4. Calcular Cantidad a Reabastecer
-        if (stockActual < stockObjetivo) {
-          const cantidadSugerida = Math.ceil(stockObjetivo - stockActual);
+        if (stockDisponible < stockObjetivo) {
+          const cantidadSugerida = Math.ceil(stockObjetivo - stockDisponible);
 
           // 5. Redistribución Inteligente (Buscar excesos o vencimientos en otras sucursales)
           let tipoOrigen = 'CD'; // Por defecto, se despacha del Centro de Distribución
