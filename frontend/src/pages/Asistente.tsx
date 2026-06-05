@@ -96,6 +96,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       rec.lang = 'es-CL';
 
       rec.onstart = () => {
+        console.log('Speech recognition started');
         setIsRecording(true);
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel(); // stop talking when recording starts
@@ -103,6 +104,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       };
 
       rec.onend = () => {
+        console.log('Speech recognition ended. Transcript:', transcriptRef.current);
         setIsRecording(false);
         // Automatically send voice query when recording finishes
         const currentText = transcriptRef.current;
@@ -126,13 +128,11 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
 
       rec.onresult = (event: any) => {
         let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;
         }
-        if (transcript.trim()) {
-          transcriptRef.current = transcript;
-          setInput(transcript);
-        }
+        transcriptRef.current = transcript;
+        setInput(transcript);
       };
 
       recognitionRef.current = rec;
@@ -660,73 +660,97 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
               borderTop: '1px solid rgba(255,255,255,0.08)',
               backgroundColor: 'rgba(0, 0, 0, 0.2)',
               display: 'flex',
+              flexDirection: 'column',
               gap: 1.5,
-              alignItems: 'center',
             }}
           >
-            <TextField
-              fullWidth
-              multiline
-              maxRows={3}
-              placeholder={isRecording ? "Escuchando... Habla ahora" : "Pregúntale al asistente... (ej. ¿cuánto vendió la sucursal Norte ayer?)"}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              disabled={cargando}
-              size="small"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  backgroundColor: isRecording ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.03)',
-                  border: isRecording ? '1px solid rgba(239, 68, 68, 0.3)' : 'inherit',
-                  transition: 'all 0.3s ease',
-                },
-              }}
-            />
-            <IconButton
-              onClick={handleToggleListening}
-              disabled={cargando}
-              sx={{
-                p: 1.5,
-                borderRadius: '50%',
-                backgroundColor: isRecording ? '#ef4444' : 'rgba(255,255,255,0.05)',
-                color: isRecording ? '#fff' : 'primary.main',
-                border: '1px solid',
-                borderColor: isRecording ? '#ef4444' : 'rgba(255,255,255,0.1)',
-                '&:hover': {
-                  backgroundColor: isRecording ? '#dc2626' : 'rgba(255,255,255,0.1)',
-                },
-                ...(isRecording && {
-                  animation: 'pulse-mic 1.5s infinite',
-                  '@keyframes pulse-mic': {
-                    '0%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.5)' },
-                    '70%': { boxShadow: '0 0 0 10px rgba(239, 68, 68, 0)' },
-                    '100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' }
-                  }
-                })
-              }}
-            >
-              {isRecording ? <MicOff sx={{ fontSize: '1.1rem' }} /> : <Mic sx={{ fontSize: '1.1rem' }} />}
-            </IconButton>
-            <IconButton
-              color="primary"
-              onClick={() => handleEnviar(input)}
-              disabled={!input.trim() || cargando || isRecording}
-              sx={{
-                p: 1.5,
-                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                color: '#fff',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
-                },
-                '&.Mui-disabled': {
-                  background: 'rgba(255,255,255,0.05)',
-                  color: 'rgba(255,255,255,0.3)',
-                },
-              }}
-            >
-              <Send sx={{ fontSize: '1.1rem' }} />
-            </IconButton>
+            {isRecording && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)', width: 'fit-content' }}>
+                <Box 
+                  sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    backgroundColor: '#ef4444', 
+                    animation: 'pulse-dot 1.2s infinite ease-in-out',
+                    '@keyframes pulse-dot': {
+                      '0%': { opacity: 0.4 },
+                      '50%': { opacity: 1 },
+                      '100%': { opacity: 0.4 },
+                    }
+                  }} 
+                />
+                <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 'bold' }}>
+                  {input.trim() ? "🎙️ Transcribiendo..." : "🎙️ Escuchando... habla ahora"}
+                </Typography>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', width: '100%' }}>
+              <TextField
+                fullWidth
+                multiline
+                maxRows={3}
+                placeholder={isRecording ? "Escuchando... Habla ahora" : "Pregúntale al asistente... (ej. ¿cuánto vendió la sucursal Norte ayer?)"}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                disabled={cargando}
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    backgroundColor: isRecording ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.03)',
+                    border: isRecording ? '1px solid rgba(239, 68, 68, 0.3)' : 'inherit',
+                    transition: 'all 0.3s ease',
+                  },
+                }}
+              />
+              <IconButton
+                onClick={handleToggleListening}
+                disabled={cargando}
+                sx={{
+                  p: 1.5,
+                  borderRadius: '50%',
+                  backgroundColor: isRecording ? '#ef4444' : 'rgba(255,255,255,0.05)',
+                  color: isRecording ? '#fff' : 'primary.main',
+                  border: '1px solid',
+                  borderColor: isRecording ? '#ef4444' : 'rgba(255,255,255,0.1)',
+                  '&:hover': {
+                    backgroundColor: isRecording ? '#dc2626' : 'rgba(255,255,255,0.1)',
+                  },
+                  ...(isRecording && {
+                    animation: 'pulse-mic 1.5s infinite',
+                    '@keyframes pulse-mic': {
+                      '0%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.5)' },
+                      '70%': { boxShadow: '0 0 0 10px rgba(239, 68, 68, 0)' },
+                      '100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' }
+                    }
+                  })
+                }}
+              >
+                {isRecording ? <MicOff sx={{ fontSize: '1.1rem' }} /> : <Mic sx={{ fontSize: '1.1rem' }} />}
+              </IconButton>
+              <IconButton
+                color="primary"
+                onClick={() => handleEnviar(input)}
+                disabled={!input.trim() || cargando || isRecording}
+                sx={{
+                  p: 1.5,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                  color: '#fff',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
+                  },
+                  '&.Mui-disabled': {
+                    background: 'rgba(255,255,255,0.05)',
+                    color: 'rgba(255,255,255,0.3)',
+                  },
+                }}
+              >
+                <Send sx={{ fontSize: '1.1rem' }} />
+              </IconButton>
+            </Box>
           </Box>
         </Paper>
       </Box>
