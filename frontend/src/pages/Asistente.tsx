@@ -121,6 +121,8 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           alert('Permiso de micrófono denegado. Por favor, permite el acceso al micrófono en la barra de direcciones de tu navegador.');
         } else if (event.error === 'no-speech') {
           console.log('No speech detected');
+        } else if (event.error === 'network') {
+          alert('Error de red en el reconocimiento de voz. Esto ocurre cuando el navegador no puede conectarse a los servidores de transcripción de Google/Microsoft. Verifica tu conexión a internet o intenta usar otro navegador compatible como Chrome o Edge.');
         } else {
           alert(`Error de reconocimiento de voz: ${event.error}`);
         }
