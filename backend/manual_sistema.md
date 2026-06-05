@@ -229,10 +229,12 @@ Este módulo gestiona la optimización física de la cadena de distribución del
 *   **Visualización en Mapa**: Proporciona un mapa cartográfico interactivo de alto contraste que ilustra las posiciones geográficas de las sucursales, camiones de reparto activos y las líneas de ruta trazadas en Santa Ana.
 
 ### Cálculo de Reabastecimiento
-*   **Decisión de Reabastecer**: Se genera una propuesta de reabastecimiento para una sucursal si el inventario de un producto en ella es menor que su **Stock Objetivo**.
-*   **Fórmula del Stock Objetivo**: El Stock Objetivo se define como el valor máximo entre:
-    1.  **Demanda por Proyección de Ventas**: Las ventas diarias promedio de los últimos 30 días multiplicadas por los días de cobertura objetivo de la categoría del producto (Leche: 5 días, Yogurt: 7 días, Quesos: 10 días, Mantequilla: 15 días). Si no hay ventas, se asume un promedio de venta base de 2 unidades/día.
-    2.  **Stock Mínimo de Seguridad (`existMin`)**: El umbral configurado físicamente por los gerentes en la tabla de inventario. Esto garantiza que las tiendas en estado de **Stock Crítico** sean abastecidas preventivamente sin depender de que exista un histórico de ventas reciente.
+*   **Decisión de Reabastecer**: Se genera una propuesta de reabastecimiento para una sucursal si la cantidad de producto disponible (stock físico actual más el stock en tránsito de transferencias en camino) es menor que su **Stock Objetivo**.
+*   **Modos de Cálculo del Stock Objetivo**:
+    *   **Modo Estándar (Por defecto)**: El Stock Objetivo se basa únicamente en la **Demanda por Proyección de Ventas** (promedio de ventas de los últimos 30 días multiplicado por los días de cobertura objetivo). Esto optimiza el inventario ajustándolo a la demanda real y evita sobrestock.
+    *   **Modo de Seguridad (Prueba/Forzar Mínimo)**: El Stock Objetivo se calcula como el valor **máximo** entre la Demanda por Proyección de Ventas y el **Stock Mínimo de Seguridad (`existMin`)**. Esto asegura el abastecimiento inmediato de productos con stock crítico en tiendas nuevas o de baja rotación sin depender del histórico de ventas.
+*   **Días de Cobertura Objetivo**: Por categoría de producto (Leche: 5 días, Yogurt: 7 días, Quesos: 10 días, Mantequilla: 15 días). Si no hay ventas, se asume un promedio base de 2 unidades/día.
+*   **Stock en Tránsito (Prevención de Duplicados)**: Para evitar transferencias duplicadas o repetidas, el algoritmo suma cualquier cantidad de producto que ya se encuentre en camino en transferencias con estado `PENDIENTE` o `EN_TRANSITO` al stock disponible de la sucursal.
 *   **Flujo FEFO de Origen**: Al autorizar y procesar una propuesta de transferencia, el sistema localiza el stock disponible en el origen (CD u otras tiendas) y prioriza la extracción utilizando los lotes con la fecha de vencimiento más próxima (*First Expired, First Out*).
 *   **Procesamiento Automático en Segundo Plano**: Si la configuración de auto-reabastecimiento está activada (`autoReplenishEnabled`), el sistema ejecutará periódicamente en segundo plano el cálculo y registrará directamente las transferencias en estado `PENDIENTE` para asegurar el flujo logístico continuo.
 
