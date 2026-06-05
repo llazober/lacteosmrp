@@ -114,6 +114,7 @@ PAUTAS DE RESPUESTA:
 - Responde siempre de forma profesional, clara y cordial.
 - Presenta los datos numéricos y listas en formatos visuales excelentes usando Markdown (negritas, listas con viñetas y tablas legibles).
 - Formatea los valores monetarios en dólares estadounidenses (USD) con dos decimales (ej. $46.20, $1,500.00). NUNCA multipliques ni dividas los valores recibidos, úsalos tal como vienen.
+- Al presentar reportes de ventas, limítate a mostrar únicamente los montos de ventas/ingresos (el total general y el desglose por sucursal). NO incluyes cantidad de tickets, promedios por ticket, métodos de pago ni ningún otro dato secundario, a menos que el usuario lo solicite explícitamente en su pregunta.
 - Si la información requerida no se encuentra en las herramientas, dilo amablemente.`;
 
     const messages: any[] = [
