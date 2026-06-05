@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Paper,
   Typography,
@@ -29,6 +29,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -95,6 +97,13 @@ export default function Inventario() {
     cantidad: '',
   });
   const [transferItems, setTransferItems] = useState<any[]>([]);
+
+  // Recepción Grupal Modales & Estados
+  const [openRecepcionGrupal, setOpenRecepcionGrupal] = useState(false);
+  const [recepcionDestinoId, setRecepcionDestinoId] = useState('');
+  const [recepcionDestinoNombre, setRecepcionDestinoNombre] = useState('');
+  const [recepcionTransIds, setRecepcionTransIds] = useState<string[]>([]);
+  const [recepcionNombre, setRecepcionNombre] = useState('');
 
   // CRUD Inventario Modales
   const [openAsociar, setOpenAsociar] = useState(false);
@@ -704,6 +713,121 @@ export default function Inventario() {
     }
   };
 
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDrawing = useRef(false);
+
+  const handleOpenRecepcionGrupal = (destinoId: string, destinoNombre: string) => {
+    const pendingForDest = transferencias.filter(
+      (tr) => tr.destinoId === destinoId && (tr.estado === 'PENDIENTE' || tr.estado === 'EN_TRANSITO')
+    );
+    setRecepcionDestinoId(destinoId);
+    setRecepcionDestinoNombre(destinoNombre);
+    setRecepcionTransIds(pendingForDest.map((t) => t.id));
+    setRecepcionNombre(usuario?.nombre || '');
+    setOpenRecepcionGrupal(true);
+  };
+
+  const handleRecepcionGrupalSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      if (recepcionTransIds.length === 0) {
+        throw new Error('Debe seleccionar al menos una transferencia para recibir.');
+      }
+      if (!recepcionNombre.trim()) {
+        throw new Error('El nombre de quien recibe es obligatorio.');
+      }
+
+      const canvas = canvasRef.current;
+      let firmaBase64 = '';
+      if (canvas) {
+        firmaBase64 = canvas.toDataURL('image/png');
+      }
+
+      const body = {
+        transferenciaIds: recepcionTransIds,
+        recibidoPorNombre: recepcionNombre,
+        firmaBase64,
+      };
+
+      await apiFetch('/inventario/transferencias/recepcion-grupal', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      setSuccessMsg('Recepción grupal registrada con éxito.');
+      setOpenRecepcionGrupal(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    isDrawing.current = true;
+    const rect = canvas.getBoundingClientRect();
+
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000000';
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    let clientX, clientY;
+    if ('touches' in e) {
+      if (e.cancelable) e.preventDefault();
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    isDrawing.current = false;
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -1173,7 +1297,32 @@ export default function Inventario() {
                     <TableRow key={tr.id}>
                       <TableCell sx={{ fontWeight: 700 }}>{tr.codigo}</TableCell>
                       <TableCell>{tr.origen.nombre}</TableCell>
-                      <TableCell>{tr.destino.nombre}</TableCell>
+                      <TableCell>
+                        {tr.estado !== 'RECIBIDA' && tr.estado !== 'RECHAZADA' ? (
+                          <Button
+                            variant="text"
+                            size="small"
+                            sx={{
+                              p: 0,
+                              minWidth: 0,
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              textAlign: 'left',
+                              color: 'primary.main',
+                              textDecoration: 'underline',
+                              '&:hover': {
+                                textDecoration: 'none',
+                                color: 'primary.dark',
+                              }
+                            }}
+                            onClick={() => handleOpenRecepcionGrupal(tr.destino.id, tr.destino.nombre)}
+                          >
+                            {tr.destino.nombre}
+                          </Button>
+                        ) : (
+                          tr.destino.nombre
+                        )}
+                      </TableCell>
                       <TableCell>
                         {tr.detalles.map((det: any) => (
                           <div key={det.id}>
@@ -1904,6 +2053,138 @@ export default function Inventario() {
             disabled={transferItems.length === 0 && (!transferForm.productoId || !transferForm.loteId || !transferForm.cantidad)}
           >
             Registrar Solicitud
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: RECEPCIÓN GRUPAL */}
+      <Dialog open={openRecepcionGrupal} onClose={() => setOpenRecepcionGrupal(false)} fullWidth maxWidth="md">
+        <DialogTitle sx={{ fontWeight: 800 }}>Recepción de Carga - {recepcionDestinoNombre}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 0.8fr' }, gap: 3 }}>
+            {/* Lista de transferencias a recibir */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700, color: 'text.secondary' }}>
+                Seleccione las transferencias físicas que está recibiendo:
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 350, overflowY: 'auto', pr: 1 }}>
+                {transferencias
+                  .filter((tr) => tr.destinoId === recepcionDestinoId && (tr.estado === 'PENDIENTE' || tr.estado === 'EN_TRANSITO'))
+                  .map((tr) => {
+                    const isChecked = recepcionTransIds.includes(tr.id);
+                    return (
+                      <Paper
+                        variant="outlined"
+                        key={tr.id}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          borderColor: isChecked ? 'success.light' : 'divider',
+                          bgcolor: isChecked ? 'rgba(46, 125, 50, 0.04)' : 'background.paper',
+                        }}
+                      >
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isChecked}
+                              color="success"
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setRecepcionTransIds([...recepcionTransIds, tr.id]);
+                                } else {
+                                  setRecepcionTransIds(recepcionTransIds.filter((id) => id !== tr.id));
+                                }
+                              }}
+                            />
+                          }
+                          label={
+                            <Box sx={{ ml: 1 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                {tr.codigo} ({tr.estado})
+                              </Typography>
+                              <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                Desde: {tr.origen.nombre}
+                              </Typography>
+                              <Box sx={{ mt: 1 }}>
+                                {tr.detalles.map((det: any) => (
+                                  <Chip
+                                    key={det.id}
+                                    label={`${det.producto.descripcion} (L: ${det.lote?.numeroLote}) x ${det.cantidad} ${det.producto.unidadMedida}`}
+                                    size="small"
+                                    sx={{ mr: 0.5, mb: 0.5 }}
+                                  />
+                                ))}
+                              </Box>
+                            </Box>
+                          }
+                        />
+                      </Paper>
+                    );
+                  })}
+              </Box>
+            </Box>
+
+            {/* Firma y datos de recepción */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                Datos del Receptor
+              </Typography>
+              
+              <TextField
+                fullWidth
+                size="small"
+                label="Nombre de quien recibe"
+                value={recepcionNombre}
+                onChange={(e) => setRecepcionNombre(e.target.value)}
+                required
+              />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                    Firma Digital de Aceptación
+                  </Typography>
+                  <Button size="small" variant="text" color="error" onClick={clearCanvas} sx={{ fontSize: '0.75rem', p: 0 }}>
+                    Limpiar firma
+                  </Button>
+                </Box>
+                <Box
+                  sx={{
+                    border: '2px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: '#ffffff',
+                    overflow: 'hidden',
+                    height: 180,
+                  }}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    width={320}
+                    height={180}
+                    style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenRecepcionGrupal(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleRecepcionGrupalSubmit}
+            disabled={recepcionTransIds.length === 0 || !recepcionNombre.trim()}
+          >
+            Confirmar y Recibir ({recepcionTransIds.length})
           </Button>
         </DialogActions>
       </Dialog>

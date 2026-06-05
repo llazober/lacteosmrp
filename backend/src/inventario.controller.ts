@@ -19,7 +19,10 @@ export class InventarioController {
   @Get()
   async obtenerInventarioGeneral(@Request() req: any) {
     const user = req.user;
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const filter: any = {};
     if (sucursalId) {
@@ -51,7 +54,9 @@ export class InventarioController {
       where: { productoId_sucursalId: { productoId, sucursalId } },
     });
     if (exist) {
-      throw new BadRequestException('Este producto ya está registrado en la sucursal seleccionada.');
+      throw new BadRequestException(
+        'Este producto ya está registrado en la sucursal seleccionada.',
+      );
     }
 
     const inv = await this.prisma.inventario.create({
@@ -71,7 +76,11 @@ export class InventarioController {
         usuarioNombre: req.user.nombre,
         accion: 'CREAR_INVENTARIO',
         modulo: 'INVENTARIO',
-        detalles: JSON.stringify({ sku: inv.producto.sku, sucursal: inv.sucursal.nombre, existencia: inv.existencia }),
+        detalles: JSON.stringify({
+          sku: inv.producto.sku,
+          sucursal: inv.sucursal.nombre,
+          existencia: inv.existencia,
+        }),
       },
     });
 
@@ -80,7 +89,11 @@ export class InventarioController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put(':id')
-  async actualizarInventario(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarInventario(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { existencia, existMin, existMax } = body;
 
     const prev = await this.prisma.inventario.findUnique({
@@ -111,9 +124,14 @@ export class InventarioController {
           sku: inv.producto.sku,
           sucursal: inv.sucursal.nombre,
           cambios: {
-            existencia: existencia != null ? `${prev.existencia} -> ${existencia}` : undefined,
-            existMin: existMin != null ? `${prev.existMin} -> ${existMin}` : undefined,
-            existMax: existMax != null ? `${prev.existMax} -> ${existMax}` : undefined,
+            existencia:
+              existencia != null
+                ? `${prev.existencia} -> ${existencia}`
+                : undefined,
+            existMin:
+              existMin != null ? `${prev.existMin} -> ${existMin}` : undefined,
+            existMax:
+              existMax != null ? `${prev.existMax} -> ${existMax}` : undefined,
           },
         }),
       },
@@ -143,7 +161,10 @@ export class InventarioController {
         usuarioNombre: req.user.nombre,
         accion: 'ELIMINAR_INVENTARIO',
         modulo: 'INVENTARIO',
-        detalles: JSON.stringify({ sku: prev.producto.sku, sucursal: prev.sucursal.nombre }),
+        detalles: JSON.stringify({
+          sku: prev.producto.sku,
+          sucursal: prev.sucursal.nombre,
+        }),
       },
     });
 
@@ -154,7 +175,10 @@ export class InventarioController {
   @Get('movimientos')
   async listarMovimientos(@Request() req: any) {
     const user = req.user;
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const filter: any = {};
     if (sucursalId) {
@@ -183,7 +207,9 @@ export class InventarioController {
     const { productoId, sucursalId, loteId, cantidad, tipo, motivo } = body;
 
     if (!productoId || !sucursalId || cantidad == null || !tipo || !motivo) {
-      throw new BadRequestException('Todos los campos son obligatorios para realizar un ajuste de inventario.');
+      throw new BadRequestException(
+        'Todos los campos son obligatorios para realizar un ajuste de inventario.',
+      );
     }
 
     const cantNum = parseFloat(cantidad);
@@ -196,18 +222,22 @@ export class InventarioController {
       where: { productoId_sucursalId: { productoId, sucursalId } },
     });
 
-    let stockActual = inv ? inv.existencia : 0;
+    const stockActual = inv ? inv.existencia : 0;
     let nuevoStock = stockActual;
 
     if (tipo === 'ENTRADA') {
       nuevoStock += cantNum;
     } else if (tipo === 'SALIDA') {
       if (stockActual < cantNum) {
-        throw new BadRequestException(`Stock insuficiente para realizar el egreso. Stock actual: ${stockActual}`);
+        throw new BadRequestException(
+          `Stock insuficiente para realizar el egreso. Stock actual: ${stockActual}`,
+        );
       }
       nuevoStock -= cantNum;
     } else {
-      throw new BadRequestException('Tipo de ajuste inválido. Debe ser ENTRADA o SALIDA.');
+      throw new BadRequestException(
+        'Tipo de ajuste inválido. Debe ser ENTRADA o SALIDA.',
+      );
     }
 
     // Ejecutar en transacción de Prisma
@@ -228,7 +258,13 @@ export class InventarioController {
       this.prisma.inventario.upsert({
         where: { productoId_sucursalId: { productoId, sucursalId } },
         update: { existencia: nuevoStock },
-        create: { productoId, sucursalId, existencia: nuevoStock, existMin: 10, existMax: 100 },
+        create: {
+          productoId,
+          sucursalId,
+          existencia: nuevoStock,
+          existMin: 10,
+          existMax: 100,
+        },
       }),
       // Si hay lote, ajustar la cantidad del lote si es salida
       ...(loteId
@@ -268,15 +304,26 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
   @Post('merma')
   async registrarMerma(@Request() req: any, @Body() body: any) {
-    const { sucursalId, productoId, loteId, cantidad, tipoMerma, motivo } = body;
+    const { sucursalId, productoId, loteId, cantidad, tipoMerma, motivo } =
+      body;
 
-    if (!sucursalId || !productoId || cantidad == null || !tipoMerma || !motivo) {
-      throw new BadRequestException('Todos los campos son obligatorios para registrar una merma.');
+    if (
+      !sucursalId ||
+      !productoId ||
+      cantidad == null ||
+      !tipoMerma ||
+      !motivo
+    ) {
+      throw new BadRequestException(
+        'Todos los campos son obligatorios para registrar una merma.',
+      );
     }
 
     const cantNum = parseFloat(cantidad);
     if (cantNum <= 0) {
-      throw new BadRequestException('La cantidad de merma debe ser mayor que cero.');
+      throw new BadRequestException(
+        'La cantidad de merma debe ser mayor que cero.',
+      );
     }
 
     // Verificar existencias generales
@@ -286,11 +333,15 @@ export class InventarioController {
     });
 
     if (!inv) {
-      throw new BadRequestException('No se encontraron registros de inventario para este producto en la sucursal seleccionada.');
+      throw new BadRequestException(
+        'No se encontraron registros de inventario para este producto en la sucursal seleccionada.',
+      );
     }
 
     if (inv.existencia < cantNum) {
-      throw new BadRequestException(`Existencias insuficientes en inventario general. Stock actual: ${inv.existencia}`);
+      throw new BadRequestException(
+        `Existencias insuficientes en inventario general. Stock actual: ${inv.existencia}`,
+      );
     }
 
     // Si se pasa lote, verificar stock en el lote
@@ -302,7 +353,9 @@ export class InventarioController {
         throw new BadRequestException('El lote seleccionado no existe.');
       }
       if (lote.cantidadActual < cantNum) {
-        throw new BadRequestException(`Existencias insuficientes en el lote seleccionado. Stock del lote: ${lote.cantidadActual}`);
+        throw new BadRequestException(
+          `Existencias insuficientes en el lote seleccionado. Stock del lote: ${lote.cantidadActual}`,
+        );
       }
     }
 
@@ -355,14 +408,21 @@ export class InventarioController {
       },
     });
 
-    return { message: 'Merma registrada con éxito.', nuevoStock, movimientoId: movimiento.id };
+    return {
+      message: 'Merma registrada con éxito.',
+      nuevoStock,
+      movimientoId: movimiento.id,
+    };
   }
 
   // --- TRANSFERENCIAS INTER-SUCURSAL ---
   @Get('transferencias')
   async listarTransferencias(@Request() req: any) {
     const user = req.user;
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const filter: any = {};
     if (sucursalId) {
@@ -393,11 +453,15 @@ export class InventarioController {
     const { origenId, destinoId, productos } = body; // productos: [{ productoId, loteId, cantidad }]
 
     if (!origenId || !destinoId || !productos || productos.length === 0) {
-      throw new BadRequestException('Origen, destino y al menos un producto son requeridos.');
+      throw new BadRequestException(
+        'Origen, destino y al menos un producto son requeridos.',
+      );
     }
 
     if (origenId === destinoId) {
-      throw new BadRequestException('La sucursal de origen y destino no pueden ser iguales.');
+      throw new BadRequestException(
+        'La sucursal de origen y destino no pueden ser iguales.',
+      );
     }
 
     // Generar código único
@@ -421,7 +485,12 @@ export class InventarioController {
       for (const prod of productos) {
         // Verificar existencia en origen
         const invOrigen = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: prod.productoId, sucursalId: origenId } },
+          where: {
+            productoId_sucursalId: {
+              productoId: prod.productoId,
+              sucursalId: origenId,
+            },
+          },
         });
 
         if (!invOrigen || invOrigen.existencia < parseFloat(prod.cantidad)) {
@@ -450,7 +519,10 @@ export class InventarioController {
         usuarioNombre: req.user.nombre,
         accion: 'SOLICITAR_TRANSFERENCIA',
         modulo: 'INVENTARIO',
-        detalles: JSON.stringify({ id: transferencia.id, codigo: transferencia.codigo }),
+        detalles: JSON.stringify({
+          id: transferencia.id,
+          codigo: transferencia.codigo,
+        }),
       },
     });
 
@@ -479,7 +551,9 @@ export class InventarioController {
     }
 
     if (tr.estado === 'RECIBIDA' || tr.estado === 'RECHAZADA') {
-      throw new BadRequestException('La transferencia ya se encuentra finalizada.');
+      throw new BadRequestException(
+        'La transferencia ya se encuentra finalizada.',
+      );
     }
 
     const updatedTr = await this.prisma.$transaction(async (tx) => {
@@ -487,7 +561,12 @@ export class InventarioController {
       if (estado === 'EN_TRANSITO' && tr.estado === 'PENDIENTE') {
         for (const det of tr.detalles) {
           await tx.inventario.update({
-            where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: tr.origenId } },
+            where: {
+              productoId_sucursalId: {
+                productoId: det.productoId,
+                sucursalId: tr.origenId,
+              },
+            },
             data: { existencia: { decrement: det.cantidad } },
           });
 
@@ -512,7 +591,12 @@ export class InventarioController {
         if (tr.estado === 'PENDIENTE') {
           for (const det of tr.detalles) {
             await tx.inventario.update({
-              where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: tr.origenId } },
+              where: {
+                productoId_sucursalId: {
+                  productoId: det.productoId,
+                  sucursalId: tr.origenId,
+                },
+              },
               data: { existencia: { decrement: det.cantidad } },
             });
             await tx.movimientoInventario.create({
@@ -532,7 +616,12 @@ export class InventarioController {
         for (const det of tr.detalles) {
           // Aumentar existencia en destino
           await tx.inventario.upsert({
-            where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: tr.destinoId } },
+            where: {
+              productoId_sucursalId: {
+                productoId: det.productoId,
+                sucursalId: tr.destinoId,
+              },
+            },
             update: { existencia: { increment: det.cantidad } },
             create: {
               productoId: det.productoId,
@@ -564,7 +653,10 @@ export class InventarioController {
         data: {
           estado,
           fechaRecepcion: estado === 'RECIBIDA' ? new Date() : undefined,
-          recibidoPorId: estado === 'RECIBIDA' || estado === 'RECHAZADA' ? req.user.id : undefined,
+          recibidoPorId:
+            estado === 'RECIBIDA' || estado === 'RECHAZADA'
+              ? req.user.id
+              : undefined,
         },
       });
     });
@@ -581,5 +673,144 @@ export class InventarioController {
     });
 
     return updatedTr;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
+  @Post('transferencias/recepcion-grupal')
+  async recepcionGrupal(@Request() req: any, @Body() body: any) {
+    const { transferenciaIds, recibidoPorNombre, firmaBase64 } = body;
+
+    if (
+      !transferenciaIds ||
+      !Array.isArray(transferenciaIds) ||
+      transferenciaIds.length === 0
+    ) {
+      throw new BadRequestException(
+        'Se requieren IDs de transferencia para procesar.',
+      );
+    }
+
+    if (!recibidoPorNombre) {
+      throw new BadRequestException('El nombre del receptor es requerido.');
+    }
+
+    // 1. Obtener todas las transferencias a procesar
+    const transferencias = await this.prisma.transferencia.findMany({
+      where: { id: { in: transferenciaIds } },
+      include: { detalles: true },
+    });
+
+    if (transferencias.length === 0) {
+      throw new BadRequestException(
+        'No se encontraron transferencias válidas.',
+      );
+    }
+
+    // Filtrar aquellas que ya están recibidas o rechazadas
+    const validTrans = transferencias.filter(
+      (tr) => tr.estado !== 'RECIBIDA' && tr.estado !== 'RECHAZADA',
+    );
+    if (validTrans.length === 0) {
+      throw new BadRequestException(
+        'Todas las transferencias seleccionadas ya están finalizadas.',
+      );
+    }
+
+    // 2. Procesar en una transacción
+    await this.prisma.$transaction(async (tx) => {
+      for (const tr of validTrans) {
+        // Si estaba en PENDIENTE, hay que descontar del origen primero
+        if (tr.estado === 'PENDIENTE') {
+          for (const det of tr.detalles) {
+            await tx.inventario.update({
+              where: {
+                productoId_sucursalId: {
+                  productoId: det.productoId,
+                  sucursalId: tr.origenId,
+                },
+              },
+              data: { existencia: { decrement: det.cantidad } },
+            });
+
+            await tx.movimientoInventario.create({
+              data: {
+                tipo: 'SALIDA',
+                productoId: det.productoId,
+                loteId: det.loteId,
+                sucursalOrigenId: tr.origenId,
+                cantidad: det.cantidad,
+                motivo: `Despacho transferencia directa (Recepción Grupal) ${tr.codigo}`,
+                usuarioId: req.user.id,
+              },
+            });
+          }
+        }
+
+        // Sumar al destino
+        for (const det of tr.detalles) {
+          await tx.inventario.upsert({
+            where: {
+              productoId_sucursalId: {
+                productoId: det.productoId,
+                sucursalId: tr.destinoId,
+              },
+            },
+            update: { existencia: { increment: det.cantidad } },
+            create: {
+              productoId: det.productoId,
+              sucursalId: tr.destinoId,
+              existencia: det.cantidad,
+              existMin: 5,
+              existMax: 100,
+            },
+          });
+
+          await tx.movimientoInventario.create({
+            data: {
+              tipo: 'ENTRADA',
+              productoId: det.productoId,
+              loteId: det.loteId,
+              sucursalDestinoId: tr.destinoId,
+              cantidad: det.cantidad,
+              motivo: `Recepción transferencia (Recepción Grupal) ${tr.codigo}`,
+              usuarioId: req.user.id,
+            },
+          });
+        }
+
+        // Actualizar cabecera de la transferencia
+        await tx.transferencia.update({
+          where: { id: tr.id },
+          data: {
+            estado: 'RECIBIDA',
+            fechaRecepcion: new Date(),
+            recibidoPorId: req.user.id,
+          },
+        });
+      }
+    });
+
+    // 3. Crear registro de Auditoría centralizada con los detalles y la firma
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'RECEPCION_GRUPAL_TRANSFERENCIAS',
+        modulo: 'INVENTARIO',
+        detalles: JSON.stringify({
+          transferenciasProcesadas: validTrans.map((t) => ({
+            id: t.id,
+            codigo: t.codigo,
+          })),
+          recibidoPorNombre,
+          firmaBase64,
+        }),
+      },
+    });
+
+    return {
+      mensaje: 'Recepción grupal procesada con éxito.',
+      cantidadProcesada: validTrans.length,
+    };
   }
 }
