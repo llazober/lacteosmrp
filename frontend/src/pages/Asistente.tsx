@@ -61,6 +61,35 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Refs to avoid stale closures in event listeners
+  const inputRef = useRef('');
+  const handleEnviarRef = useRef<(texto: string) => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
+
+  // Clean and speak text out loud using Web Speech Synthesis
+  const speakText = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // cancel any ongoing speech
+
+      // Clean the text to make it natural to read out loud
+      const clean = text
+        .replace(/```[\s\S]*?```/g, '') // remove code blocks
+        .replace(/\|[\s\S]*?\|/g, '')   // remove markdown tables
+        .replace(/\*\*|`|\*/g, '')      // remove bold/italic/inline code
+        .replace(/\n\s*\n/g, '\n')      // remove extra lines
+        .trim();
+
+      if (!clean) return;
+
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = 'es-CL';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -72,10 +101,18 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
 
       rec.onstart = () => {
         setIsRecording(true);
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel(); // stop talking when recording starts
+        }
       };
 
       rec.onend = () => {
         setIsRecording(false);
+        // Automatically send voice query when recording finishes
+        const currentText = inputRef.current;
+        if (currentText.trim()) {
+          handleEnviarRef.current(currentText);
+        }
       };
 
       rec.onerror = (event: any) => {
@@ -140,6 +177,11 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     }
   }, [historial, cargando]);
 
+  // Keep handleEnviarRef updated
+  useEffect(() => {
+    handleEnviarRef.current = handleEnviar;
+  }, [input, historial, cargando, isRecording]);
+
   const handleEnviar = async (texto: string) => {
     if (!texto.trim() || cargando) return;
 
@@ -177,13 +219,16 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       };
 
       setHistorial((prev) => [...prev, mensajeAsistente]);
+      speakText(res.respuesta);
     } catch (e: any) {
+      const errorText = `Ocurrió un error: ${e.message || 'No se pudo obtener respuesta del asistente.'}`;
       const mensajeError: Mensaje = {
         role: 'assistant',
-        content: `⚠️ **Ocurrió un error:** ${e.message || 'No se pudo obtener respuesta del asistente. Por favor, intente nuevamente.'}`,
+        content: `⚠️ **${errorText}**`,
         timestamp: new Date(),
       };
       setHistorial((prev) => [...prev, mensajeError]);
+      speakText(errorText);
     } finally {
       setCargando(false);
     }
