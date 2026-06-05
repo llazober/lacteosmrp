@@ -61,7 +61,8 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Voice States
@@ -69,10 +70,6 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const [voiceURI, setVoiceURI] = useState<string>(() => {
     return localStorage.getItem('lacteoserp_preferred_voice') || '';
   });
-
-  // Refs to avoid stale closures in event listeners
-  const transcriptRef = useRef('');
-  const handleEnviarRef = useRef<(texto: string, isVoice?: boolean) => Promise<void>>(async () => {});
 
   // Pre-load voices on component mount and filter Spanish ones
   useEffect(() => {
@@ -156,73 +153,93 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     }
   };
 
-  // Initialize Speech Recognition
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const rec = new SpeechRecognition();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'es-CL';
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (!MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+        }
+      } else {
+        mimeType = '';
+      }
 
-      rec.onstart = () => {
-        console.log('Speech recognition started');
-        setIsRecording(true);
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel(); // stop talking when recording starts
+      const options = mimeType ? { mimeType } : undefined;
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
       };
 
-      rec.onend = () => {
-        console.log('Speech recognition ended. Transcript:', transcriptRef.current);
-        setIsRecording(false);
-        // Automatically send voice query when recording finishes
-        const currentText = transcriptRef.current;
-        if (currentText.trim()) {
-          handleEnviarRef.current(currentText, true);
-          transcriptRef.current = ''; // Reset after sending
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+
+        const finalMime = mimeType || recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: finalMime });
+        if (audioBlob.size > 0) {
+          await enviarAudioWhisper(audioBlob);
         }
       };
 
-      rec.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
-        setIsRecording(false);
-        if (event.error === 'not-allowed') {
-          alert('Permiso de micrófono denegado. Por favor, permite el acceso al micrófono en la barra de direcciones de tu navegador.');
-        } else if (event.error === 'no-speech') {
-          console.log('No speech detected');
-        } else if (event.error === 'network') {
-          alert('Error de red en el reconocimiento de voz. Esto ocurre cuando el navegador no puede conectarse a los servidores de transcripción de Google/Microsoft. Verifica tu conexión a internet o intenta usar otro navegador compatible como Chrome o Edge.');
-        } else {
-          alert(`Error de reconocimiento de voz: ${event.error}`);
-        }
-      };
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
 
-      rec.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        transcriptRef.current = transcript;
-        setInput(transcript);
-      };
-
-      recognitionRef.current = rec;
+      recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      alert('No se pudo acceder al micrófono. Por favor, asegúrate de otorgar permisos de micrófono en tu navegador.');
     }
-  }, []);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const enviarAudioWhisper = async (blob: Blob) => {
+    setCargando(true);
+    setInput('Transcribiendo audio...');
+    try {
+      const formData = new FormData();
+      const filename = blob.type.includes('mp4') ? 'audio.mp4' : 'audio.webm';
+      formData.append('file', blob, filename);
+
+      const res = await apiFetch('/ai/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res && res.texto && res.texto.trim()) {
+        setInput('');
+        handleEnviar(res.texto, true);
+      } else {
+        setInput('');
+        alert('No se detectó ninguna palabra. Intenta hablar más claro o más fuerte.');
+      }
+    } catch (e: any) {
+      setInput('');
+      console.error('Error al transcribir audio:', e);
+      alert(`Error de transcripción: ${e.message || 'No se pudo conectar con el servicio Whisper.'}`);
+    } finally {
+      setCargando(false);
+    }
+  };
 
   const handleToggleListening = () => {
-    if (!recognitionRef.current) {
-      alert('Tu navegador no soporta el reconocimiento de voz (Web Speech API). Te recomendamos usar Google Chrome o Microsoft Edge.');
-      return;
-    }
-
     if (isRecording) {
-      recognitionRef.current.stop();
+      stopRecording();
     } else {
-      setInput('');
-      transcriptRef.current = '';
-      recognitionRef.current.start();
+      startRecording();
     }
   };
 
@@ -255,16 +272,11 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     }
   }, [historial, cargando]);
 
-  // Keep handleEnviarRef updated
-  useEffect(() => {
-    handleEnviarRef.current = handleEnviar;
-  }, [input, historial, cargando, isRecording]);
-
   const handleEnviar = async (texto: string, isVoice = false) => {
     if (!texto.trim() || cargando) return;
 
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (isRecording && mediaRecorderRef.current) {
+      stopRecording();
     }
 
     const mensajeUsuario: Mensaje = {

@@ -5,7 +5,10 @@ import {
   Body,
   Request,
   BadRequestException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AiService } from './ai.service';
 import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
@@ -28,6 +31,19 @@ export class AiController {
     return {
       respuesta: await this.aiService.procesarConsulta(req.user, historial),
     };
+  }
+
+  @Post('transcribe')
+  @UseInterceptors(FileInterceptor('file'))
+  async transcribe(@UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('Archivo de audio es requerido.');
+    }
+    const texto = await this.aiService.transcribirAudio(
+      file.buffer,
+      file.originalname || 'audio.webm',
+    );
+    return { texto };
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR')

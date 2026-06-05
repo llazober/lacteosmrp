@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 import { getTimezoneOffsetMinutes } from './utils/timezone';
 
 @Injectable()
@@ -588,6 +588,20 @@ PAUTAS DE RESPUESTA:
       metodosPago,
       desgloseSucursales: Object.values(desgloseSucursales),
     };
+  }
+
+  async transcribirAudio(buffer: Buffer, filename: string): Promise<string> {
+    const openai = await this.getOpenAIClient();
+    try {
+      const file = await toFile(buffer, filename);
+      const transcription = await openai.audio.transcriptions.create({
+        file,
+        model: 'whisper-1',
+      });
+      return transcription.text;
+    } catch (e: any) {
+      throw new BadRequestException(`Error al transcribir audio con Whisper: ${e.message}`);
+    }
   }
 
   private async obtenerMermasRecientes(sucursalId?: string, limit = 30) {
