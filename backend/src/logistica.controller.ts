@@ -981,10 +981,10 @@ export class LogisticaController implements OnModuleInit {
         // Consumo Estimado (ej. camión consume 0.15 litros por km)
         const consumoEstimado = parseFloat((kilometros * 0.15).toFixed(1));
 
-        // Costo de Entrega (combustible $1300/L + chofer $6000/hora + amortización)
-        const costoCombustible = consumoEstimado * 1300;
-        const costoChofer = (tiempoEstimado / 60) * 6000;
-        const costoEntrega = parseFloat((costoCombustible + costoChofer + 15000).toFixed(0)); // $15000 fijos de desgaste
+        // Costo de Entrega (combustible $1.30/L + chofer $6.00/hora + amortización)
+        const costoCombustible = consumoEstimado * 1.30;
+        const costoChofer = (tiempoEstimado / 60) * 6.00;
+        const costoEntrega = parseFloat((costoCombustible + costoChofer + 15.00).toFixed(2)); // $15.00 fijos de desgaste
 
         rutasSugeridas.push({
           codigoSugerido: `RUT-SUG-${Date.now().toString().substring(8)}-${camionIndex + 1}`,
