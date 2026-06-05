@@ -532,6 +532,11 @@ PAUTAS DE RESPUESTA:
 
     const ventas = await this.prisma.venta.findMany({
       where: filter,
+      include: {
+        sucursal: {
+          select: { nombre: true },
+        },
+      },
     });
 
     const totalIngresos = ventas.reduce((sum, v) => sum + Number(v.total), 0);
@@ -544,7 +549,45 @@ PAUTAS DE RESPUESTA:
         (metodosPago[v.metodoPago] || 0) + Number(v.total);
     });
 
-    return { totalIngresos, totalTickets, promedioTicket, metodosPago };
+    // Breakdown per sucursal, including those with 0 sales
+    const desgloseSucursales: Record<string, { nombre: string; total: number; tickets: number }> = {};
+    const sucursalesDb = await this.prisma.sucursal.findMany({
+      where: {
+        estado: 'ACTIVO',
+        ...(sucursalId ? { id: sucursalId } : {}),
+      },
+      select: { id: true, nombre: true },
+    });
+
+    sucursalesDb.forEach((s) => {
+      desgloseSucursales[s.id] = {
+        nombre: s.nombre,
+        total: 0,
+        tickets: 0,
+      };
+    });
+
+    ventas.forEach((v) => {
+      const sId = v.sucursalId;
+      const sNombre = v.sucursal?.nombre || 'Desconocida';
+      if (!desgloseSucursales[sId]) {
+        desgloseSucursales[sId] = {
+          nombre: sNombre,
+          total: 0,
+          tickets: 0,
+        };
+      }
+      desgloseSucursales[sId].total += Number(v.total);
+      desgloseSucursales[sId].tickets += 1;
+    });
+
+    return {
+      totalIngresos,
+      totalTickets,
+      promedioTicket,
+      metodosPago,
+      desgloseSucursales: Object.values(desgloseSucursales),
+    };
   }
 
   private async obtenerMermasRecientes(sucursalId?: string, limit = 30) {

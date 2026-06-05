@@ -63,7 +63,21 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
 
   // Refs to avoid stale closures in event listeners
   const transcriptRef = useRef('');
-  const handleEnviarRef = useRef<(texto: string) => Promise<void>>(async () => {});
+  const handleEnviarRef = useRef<(texto: string, isVoice?: boolean) => Promise<void>>(async () => {});
+
+  // Pre-load voices on component mount to avoid asynchronous empty voice lists
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const handleVoicesChanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+      };
+    }
+  }, []);
 
   // Clean and speak text out loud using Web Speech Synthesis
   const speakText = (text: string) => {
@@ -130,7 +144,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
         // Automatically send voice query when recording finishes
         const currentText = transcriptRef.current;
         if (currentText.trim()) {
-          handleEnviarRef.current(currentText);
+          handleEnviarRef.current(currentText, true);
           transcriptRef.current = ''; // Reset after sending
         }
       };
@@ -211,7 +225,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     handleEnviarRef.current = handleEnviar;
   }, [input, historial, cargando, isRecording]);
 
-  const handleEnviar = async (texto: string) => {
+  const handleEnviar = async (texto: string, isVoice = false) => {
     if (!texto.trim() || cargando) return;
 
     if (isRecording && recognitionRef.current) {
@@ -248,7 +262,9 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       };
 
       setHistorial((prev) => [...prev, mensajeAsistente]);
-      speakText(res.respuesta);
+      if (isVoice) {
+        speakText(res.respuesta);
+      }
     } catch (e: any) {
       const errorText = `Ocurrió un error: ${e.message || 'No se pudo obtener respuesta del asistente.'}`;
       const mensajeError: Mensaje = {
@@ -257,7 +273,9 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
         timestamp: new Date(),
       };
       setHistorial((prev) => [...prev, mensajeError]);
-      speakText(errorText);
+      if (isVoice) {
+        speakText(errorText);
+      }
     } finally {
       setCargando(false);
     }
@@ -266,7 +284,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleEnviar(input);
+      handleEnviar(input, false);
     }
   };
 
@@ -756,7 +774,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
               </IconButton>
               <IconButton
                 color="primary"
-                onClick={() => handleEnviar(input)}
+                onClick={() => handleEnviar(input, false)}
                 disabled={!input.trim() || cargando || isRecording}
                 sx={{
                   p: 1.5,
