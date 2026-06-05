@@ -26,6 +26,9 @@ import {
   Tooltip,
   InputAdornment,
   TablePagination,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -91,6 +94,7 @@ export default function Inventario() {
     loteId: '',
     cantidad: '',
   });
+  const [transferItems, setTransferItems] = useState<any[]>([]);
 
   // CRUD Inventario Modales
   const [openAsociar, setOpenAsociar] = useState(false);
@@ -649,17 +653,28 @@ export default function Inventario() {
   const handleTransferSubmit = async () => {
     try {
       setErrorMsg(null);
-      // Armar el payload con el arreglo de productos
+      
+      let finalProductos = [...transferItems];
+      if (finalProductos.length === 0 && transferForm.productoId && transferForm.loteId && transferForm.cantidad) {
+        finalProductos.push({
+          productoId: transferForm.productoId,
+          loteId: transferForm.loteId,
+          cantidad: transferForm.cantidad,
+        });
+      }
+
+      if (finalProductos.length === 0) {
+        throw new Error('Debe agregar al menos un producto con su lote y cantidad al traslado.');
+      }
+
       const body = {
         origenId: transferForm.origenId,
         destinoId: transferForm.destinoId,
-        productos: [
-          {
-            productoId: transferForm.productoId,
-            loteId: transferForm.loteId,
-            cantidad: transferForm.cantidad,
-          },
-        ],
+        productos: finalProductos.map(item => ({
+          productoId: item.productoId,
+          loteId: item.loteId,
+          cantidad: parseFloat(item.cantidad),
+        })),
       };
 
       await apiFetch('/inventario/transferencias', {
@@ -668,6 +683,7 @@ export default function Inventario() {
       });
       setSuccessMsg('Solicitud de transferencia registrada.');
       setOpenTransfer(false);
+      setTransferItems([]);
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -865,6 +881,7 @@ export default function Inventario() {
                   loteId: '',
                   cantidad: '',
                 });
+                setTransferItems([]);
                 setOpenTransfer(true);
               }}
             >
@@ -1718,77 +1735,176 @@ export default function Inventario() {
       </Dialog>
 
       {/* DIALOG: TRASLADO */}
-      <Dialog open={openTransfer} onClose={() => setOpenTransfer(false)} fullWidth maxWidth="xs">
+      <Dialog open={openTransfer} onClose={() => setOpenTransfer(false)} fullWidth maxWidth="md">
         <DialogTitle sx={{ fontWeight: 800 }}>Solicitud de Traslado Inter-Sucursal</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Sucursal Origen (Desde)</InputLabel>
-            <Select
-              value={transferForm.origenId}
-              label="Sucursal Origen (Desde)"
-              onChange={(e) => setTransferForm({ ...transferForm, origenId: e.target.value })}
-            >
-              {sucursales.map((s) => (
-                <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+            {/* Cabecera y Selección de Sucursales */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'text.secondary' }}>
+                1. Configurar Sucursales
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Sucursal Origen (Desde)</InputLabel>
+                  <Select
+                    value={transferForm.origenId}
+                    label="Sucursal Origen (Desde)"
+                    onChange={(e) => setTransferForm({ ...transferForm, origenId: e.target.value })}
+                  >
+                    {sucursales.map((s) => (
+                      <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Sucursal Destino (Hacia)</InputLabel>
-            <Select
-              value={transferForm.destinoId}
-              label="Sucursal Destino (Hacia)"
-              onChange={(e) => setTransferForm({ ...transferForm, destinoId: e.target.value })}
-            >
-              {sucursales
-                .filter((s) => s.id !== transferForm.origenId)
-                .map((s) => (
-                  <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
-                ))}
-            </Select>
-          </FormControl>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Sucursal Destino (Hacia)</InputLabel>
+                  <Select
+                    value={transferForm.destinoId}
+                    label="Sucursal Destino (Hacia)"
+                    onChange={(e) => setTransferForm({ ...transferForm, destinoId: e.target.value })}
+                  >
+                    {sucursales
+                      .filter((s) => s.id !== transferForm.origenId)
+                      .map((s) => (
+                        <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+              </Box>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Producto</InputLabel>
-            <Select
-              value={transferForm.productoId}
-              label="Producto"
-              onChange={(e) => setTransferForm({ ...transferForm, productoId: e.target.value })}
-            >
-              {productos.map((p) => (
-                <MenuItem key={p.id} value={p.id}>{p.descripcion} ({p.sku})</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <Typography variant="subtitle2" sx={{ mt: 3, mb: 1, fontWeight: 700, color: 'text.secondary' }}>
+                2. Seleccionar Producto y Lote
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Producto</InputLabel>
+                  <Select
+                    value={transferForm.productoId}
+                    label="Producto"
+                    onChange={(e) => setTransferForm({ ...transferForm, productoId: e.target.value, loteId: '' })}
+                  >
+                    {productos.map((p) => (
+                      <MenuItem key={p.id} value={p.id}>{p.descripcion} ({p.sku})</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Lote</InputLabel>
-            <Select
-              value={transferForm.loteId}
-              label="Lote"
-              onChange={(e) => setTransferForm({ ...transferForm, loteId: e.target.value })}
-            >
-              {lotes
-                .filter((l) => l.productoId === transferForm.productoId)
-                .map((l) => (
-                  <MenuItem key={l.id} value={l.id}>{l.numeroLote} (Disponible: {l.cantidadActual})</MenuItem>
-                ))}
-            </Select>
-          </FormControl>
+                <FormControl fullWidth size="small" disabled={!transferForm.productoId}>
+                  <InputLabel>Lote</InputLabel>
+                  <Select
+                    value={transferForm.loteId}
+                    label="Lote"
+                    onChange={(e) => setTransferForm({ ...transferForm, loteId: e.target.value })}
+                  >
+                    {lotes
+                      .filter((l) => l.productoId === transferForm.productoId)
+                      .map((l) => (
+                        <MenuItem key={l.id} value={l.id}>{l.numeroLote} (Disponible: {l.cantidadActual})</MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
 
-          <TextField
-            fullWidth
-            label="Cantidad a Transferir"
-            type="number"
-            size="small"
-            value={transferForm.cantidad}
-            onChange={(e) => setTransferForm({ ...transferForm, cantidad: e.target.value })}
-          />
+                <TextField
+                  fullWidth
+                  label="Cantidad a Transferir"
+                  type="number"
+                  size="small"
+                  value={transferForm.cantidad}
+                  onChange={(e) => setTransferForm({ ...transferForm, cantidad: e.target.value })}
+                  disabled={!transferForm.loteId}
+                />
+
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => {
+                    if (!transferForm.productoId || !transferForm.loteId || !transferForm.cantidad) return;
+                    const prodObj = productos.find(p => p.id === transferForm.productoId);
+                    const loteObj = lotes.find(l => l.id === transferForm.loteId);
+                    if (!prodObj || !loteObj) return;
+
+                    setTransferItems([
+                      ...transferItems,
+                      {
+                        productoId: transferForm.productoId,
+                        productoNombre: prodObj.descripcion,
+                        sku: prodObj.sku,
+                        loteId: transferForm.loteId,
+                        loteNumero: loteObj.numeroLote,
+                        cantidad: transferForm.cantidad,
+                      }
+                    ]);
+
+                    setTransferForm({
+                      ...transferForm,
+                      productoId: '',
+                      loteId: '',
+                      cantidad: '',
+                    });
+                  }}
+                  disabled={!transferForm.productoId || !transferForm.loteId || !transferForm.cantidad}
+                >
+                  Agregar al Traslado
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Lista de Ítems Agregados */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: 'text.secondary' }}>
+                Ítems a Transferir ({transferItems.length})
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2, minHeight: 300, display: 'flex', flexDirection: 'column', gap: 1, borderRadius: 2, bgcolor: 'background.default' }}>
+                {transferItems.length === 0 ? (
+                  <Box sx={{ m: 'auto', textAlign: 'center', color: 'text.secondary', p: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>No has agregado ítems todavía.</Typography>
+                    <Typography variant="caption">Selecciona un producto y lote a la izquierda y presiona "Agregar al Traslado".</Typography>
+                  </Box>
+                ) : (
+                  <List dense>
+                    {transferItems.map((item, index) => (
+                      <ListItem
+                        key={index}
+                        secondaryAction={
+                          <IconButton
+                            edge="end"
+                            aria-label="delete"
+                            color="error"
+                            size="small"
+                            onClick={() => {
+                              const newItems = [...transferItems];
+                              newItems.splice(index, 1);
+                              setTransferItems(newItems);
+                            }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        }
+                      >
+                        <ListItemText
+                          primary={item.productoNombre}
+                          secondary={`Lote: ${item.loteNumero} | Cantidad: ${item.cantidad}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Paper>
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenTransfer(false)}>Cancelar</Button>
-          <Button variant="contained" color="secondary" onClick={handleTransferSubmit}>Registrar Solicitud</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleTransferSubmit}
+            disabled={transferItems.length === 0 && (!transferForm.productoId || !transferForm.loteId || !transferForm.cantidad)}
+          >
+            Registrar Solicitud
+          </Button>
         </DialogActions>
       </Dialog>
 
