@@ -476,7 +476,7 @@ export class LogisticaController implements OnModuleInit {
 
     // Obtener productos de tipo PRODUCTO_TERMINADO
     const productos = await this.prisma.producto.findMany({
-      where: { estado: 'ACTIVO', tipoProducto: 'PRODUCTO_TERMINADO' },
+      where: { estado: 'ACTIVO', tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] } },
     });
 
     const propuestas: any[] = [];

@@ -633,7 +633,7 @@ PAUTAS DE RESPUESTA:
     const plantaPrincipal = sucursales.find((s) => s.codigo === 'SUC-001');
 
     const productos = await this.prisma.producto.findMany({
-      where: { estado: 'ACTIVO', tipoProducto: 'PRODUCTO_TERMINADO' },
+      where: { estado: 'ACTIVO', tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] } },
     });
 
     const propuestas: any[] = [];

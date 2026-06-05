@@ -174,10 +174,10 @@ export default function Logistica() {
       const sucs = await apiFetch('/sucursales');
       const prods = await apiFetch('/productos');
       setSucursales(sucs.filter((s: any) => s.estado === 'ACTIVO'));
-      setProductos(prods.filter((p: any) => p.estado === 'ACTIVO' && p.tipoProducto === 'PRODUCTO_TERMINADO'));
+      setProductos(prods.filter((p: any) => p.estado === 'ACTIVO' && (p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT')));
 
       if (sucs.length > 0) setForecastingSucursal(sucs[0].id);
-      const terminado = prods.find((p: any) => p.tipoProducto === 'PRODUCTO_TERMINADO');
+      const terminado = prods.find((p: any) => p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT');
       if (terminado) setForecastingProducto(terminado.id);
 
       // Cargar propuestas de reabastecimiento
