@@ -40,13 +40,17 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join-channel')
   handleJoinChannel(client: Socket, payload: { canalId: string }) {
     client.join(payload.canalId);
-    console.log(`Cliente ${client.id} se unió al canal de chat: ${payload.canalId}`);
+    console.log(
+      `Cliente ${client.id} se unió al canal de chat: ${payload.canalId}`,
+    );
   }
 
   @SubscribeMessage('leave-channel')
   handleLeaveChannel(client: Socket, payload: { canalId: string }) {
     client.leave(payload.canalId);
-    console.log(`Cliente ${client.id} salió del canal de chat: ${payload.canalId}`);
+    console.log(
+      `Cliente ${client.id} salió del canal de chat: ${payload.canalId}`,
+    );
   }
 
   // Enviar mensaje de chat a los suscriptores del canal

@@ -29,12 +29,18 @@ export class FinanzasController {
   async crearTerminoPago(@Request() req: any, @Body() body: any) {
     const { nombre, dias } = body;
     if (!nombre || dias == null) {
-      throw new BadRequestException('El nombre y los días de crédito son obligatorios.');
+      throw new BadRequestException(
+        'El nombre y los días de crédito son obligatorios.',
+      );
     }
 
-    const exist = await this.prisma.terminoPago.findUnique({ where: { nombre } });
+    const exist = await this.prisma.terminoPago.findUnique({
+      where: { nombre },
+    });
     if (exist) {
-      throw new BadRequestException('Ya existe un término de pago con este nombre.');
+      throw new BadRequestException(
+        'Ya existe un término de pago con este nombre.',
+      );
     }
 
     const tp = await this.prisma.terminoPago.create({
@@ -93,7 +99,9 @@ export class FinanzasController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Delete('terminos-pago/:id')
   async eliminarTerminoPago(@Param('id') id: string, @Request() req: any) {
-    const count = await this.prisma.proveedor.count({ where: { terminoPagoId: id } });
+    const count = await this.prisma.proveedor.count({
+      where: { terminoPagoId: id },
+    });
     if (count > 0) {
       throw new BadRequestException(
         'No se puede eliminar el término de pago porque hay proveedores asociados a él.',
@@ -119,7 +127,8 @@ export class FinanzasController {
   // --- FACTURAS DE COMPRA (Cuentas por Pagar) ---
   @Get('facturas')
   async listarFacturas(@Request() req: any) {
-    const isHQ = req.user.rol === 'ADMINISTRADOR' || req.user.rol === 'SUPERVISOR';
+    const isHQ =
+      req.user.rol === 'ADMINISTRADOR' || req.user.rol === 'SUPERVISOR';
     const filter: any = {};
 
     if (!isHQ) {
@@ -184,7 +193,9 @@ export class FinanzasController {
     // Calcular fecha de vencimiento
     const emision = new Date(fechaEmision);
     const diasCredito = proveedor.terminoPago?.dias || 0;
-    const vencimiento = new Date(emision.getTime() + diasCredito * 24 * 60 * 60 * 1000);
+    const vencimiento = new Date(
+      emision.getTime() + diasCredito * 24 * 60 * 60 * 1000,
+    );
 
     const factura = await this.prisma.$transaction(async (tx) => {
       // Verificar unicidad
@@ -277,7 +288,9 @@ export class FinanzasController {
     }
 
     if (factura.estado === 'PAGADA') {
-      throw new BadRequestException('La factura ya se encuentra totalmente pagada.');
+      throw new BadRequestException(
+        'La factura ya se encuentra totalmente pagada.',
+      );
     }
 
     const pagadoAnterior = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
@@ -316,7 +329,9 @@ export class FinanzasController {
           chequeNumero: metodoPago === 'CHEQUE' ? chequeNumero || null : null,
           chequeBanco: metodoPago === 'CHEQUE' ? chequeBanco || null : null,
           chequeVence:
-            metodoPago === 'CHEQUE' && chequeVence ? new Date(chequeVence) : null,
+            metodoPago === 'CHEQUE' && chequeVence
+              ? new Date(chequeVence)
+              : null,
           transfeCuenta,
         },
       });

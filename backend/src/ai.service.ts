@@ -49,7 +49,10 @@ export class AiService {
     const now = new Date();
     const nowString = now.toLocaleDateString('en-CA', { timeZone: timezone });
     const nowTimeStr = now.toLocaleTimeString('es-CL', { timeZone: timezone });
-    const dayOfWeek = now.toLocaleDateString('es-CL', { weekday: 'long', timeZone: timezone });
+    const dayOfWeek = now.toLocaleDateString('es-CL', {
+      weekday: 'long',
+      timeZone: timezone,
+    });
 
     // Enforce sucursal parameter if not admin or supervisor
     const isHQ = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR';
@@ -114,7 +117,8 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerDetalleSucursales',
-          description: 'Obtiene el listado completo de sucursales operativas en el sistema.',
+          description:
+            'Obtiene el listado completo de sucursales operativas en el sistema.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -122,11 +126,15 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerResumenInventario',
-          description: 'Obtiene un resumen y listado de existencias del inventario actual.',
+          description:
+            'Obtiene un resumen y listado de existencias del inventario actual.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
             },
           },
         },
@@ -135,11 +143,15 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerProductosCriticos',
-          description: 'Obtiene la lista de productos que están por debajo de su stock mínimo de seguridad.',
+          description:
+            'Obtiene la lista de productos que están por debajo de su stock mínimo de seguridad.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
             },
           },
         },
@@ -148,13 +160,23 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerReporteVentas',
-          description: 'Obtiene el resumen de ingresos y métodos de pago de ventas en un rango de fechas.',
+          description:
+            'Obtiene el resumen de ingresos y métodos de pago de ventas en un rango de fechas.',
           parameters: {
             type: 'object',
             properties: {
-              fechaInicio: { type: 'string', description: 'Fecha de inicio en formato YYYY-MM-DD.' },
-              fechaFin: { type: 'string', description: 'Fecha de fin en formato YYYY-MM-DD.' },
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
+              fechaInicio: {
+                type: 'string',
+                description: 'Fecha de inicio en formato YYYY-MM-DD.',
+              },
+              fechaFin: {
+                type: 'string',
+                description: 'Fecha de fin en formato YYYY-MM-DD.',
+              },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
             },
             required: ['fechaInicio', 'fechaFin'],
           },
@@ -164,12 +186,19 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerMermasRecientes',
-          description: 'Obtiene el registro de pérdidas, roturas y mermas de productos registradas en el sistema.',
+          description:
+            'Obtiene el registro de pérdidas, roturas y mermas de productos registradas en el sistema.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
-              limit: { type: 'number', description: 'Límite de registros a retornar.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
+              limit: {
+                type: 'number',
+                description: 'Límite de registros a retornar.',
+              },
             },
           },
         },
@@ -178,11 +207,15 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerAlertasFrioActivas',
-          description: 'Obtiene el listado de alertas térmicas activas en las neveras o freezers.',
+          description:
+            'Obtiene el listado de alertas térmicas activas en las neveras o freezers.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
             },
           },
         },
@@ -191,11 +224,15 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerOrdenesCompra',
-          description: 'Obtiene el listado de órdenes de compra del sistema y sus estados.',
+          description:
+            'Obtiene el listado de órdenes de compra del sistema y sus estados.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
             },
           },
         },
@@ -204,12 +241,20 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerLotesPorVencer',
-          description: 'Obtiene la lista de lotes activos (con existencias en stock) que están próximos a vencer o ya vencidos.',
+          description:
+            'Obtiene la lista de lotes activos (con existencias en stock) que están próximos a vencer o ya vencidos.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
-              diasLimite: { type: 'number', description: 'Límite de días hacia el futuro para considerar próximo a vencer. Por defecto es 15.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
+              diasLimite: {
+                type: 'number',
+                description:
+                  'Límite de días hacia el futuro para considerar próximo a vencer. Por defecto es 15.',
+              },
             },
           },
         },
@@ -218,7 +263,8 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerFlotaLogistica',
-          description: 'Obtiene el listado de camiones (placa, estado, coordenadas GPS, capacidades) y conductores registrados en el sistema de logística.',
+          description:
+            'Obtiene el listado de camiones (placa, estado, coordenadas GPS, capacidades) y conductores registrados en el sistema de logística.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -226,7 +272,8 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerRutasLogistica',
-          description: 'Obtiene el listado de rutas de distribución planificadas o en transito, incluyendo métricas y lecturas de telemetría de frío.',
+          description:
+            'Obtiene el listado de rutas de distribución planificadas o en transito, incluyendo métricas y lecturas de telemetría de frío.',
           parameters: { type: 'object', properties: {} },
         },
       },
@@ -234,11 +281,16 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerTransferenciasReabastecimiento',
-          description: 'Obtiene el listado de transferencias preventivas de stock del CD a sucursales.',
+          description:
+            'Obtiene el listado de transferencias preventivas de stock del CD a sucursales.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal (para filtrar origen o destino).' },
+              sucursalId: {
+                type: 'string',
+                description:
+                  'ID opcional de la sucursal (para filtrar origen o destino).',
+              },
             },
           },
         },
@@ -247,12 +299,20 @@ PAUTAS DE RESPUESTA:
         type: 'function',
         function: {
           name: 'obtenerPropuestasReabastecimiento',
-          description: 'Calcula y obtiene las propuestas sugeridas de reabastecimiento de productos para las sucursales, indicando el stock actual y la cantidad sugerida.',
+          description:
+            'Calcula y obtiene las propuestas sugeridas de reabastecimiento de productos para las sucursales, indicando el stock actual y la cantidad sugerida.',
           parameters: {
             type: 'object',
             properties: {
-              sucursalId: { type: 'string', description: 'ID opcional de la sucursal para filtrar.' },
-              useSafetyStockMin: { type: 'boolean', description: 'Si es true, utiliza el stock mínimo de seguridad como base mínima si supera la estimación de ventas.' },
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
+              useSafetyStockMin: {
+                type: 'boolean',
+                description:
+                  'Si es true, utiliza el stock mínimo de seguridad como base mínima si supera la estimación de ventas.',
+              },
             },
           },
         },
@@ -288,9 +348,13 @@ PAUTAS DE RESPUESTA:
             if (functionName === 'obtenerDetalleSucursales') {
               functionResult = await this.obtenerDetalleSucursales();
             } else if (functionName === 'obtenerResumenInventario') {
-              functionResult = await this.obtenerResumenInventario(rawArgs.sucursalId);
+              functionResult = await this.obtenerResumenInventario(
+                rawArgs.sucursalId,
+              );
             } else if (functionName === 'obtenerProductosCriticos') {
-              functionResult = await this.obtenerProductosCriticos(rawArgs.sucursalId);
+              functionResult = await this.obtenerProductosCriticos(
+                rawArgs.sucursalId,
+              );
             } else if (functionName === 'obtenerReporteVentas') {
               functionResult = await this.obtenerReporteVentas(
                 rawArgs.fechaInicio,
@@ -303,9 +367,13 @@ PAUTAS DE RESPUESTA:
                 rawArgs.limit,
               );
             } else if (functionName === 'obtenerAlertasFrioActivas') {
-              functionResult = await this.obtenerAlertasFrioActivas(rawArgs.sucursalId);
+              functionResult = await this.obtenerAlertasFrioActivas(
+                rawArgs.sucursalId,
+              );
             } else if (functionName === 'obtenerOrdenesCompra') {
-              functionResult = await this.obtenerOrdenesCompra(rawArgs.sucursalId);
+              functionResult = await this.obtenerOrdenesCompra(
+                rawArgs.sucursalId,
+              );
             } else if (functionName === 'obtenerLotesPorVencer') {
               functionResult = await this.obtenerLotesPorVencer(
                 rawArgs.sucursalId,
@@ -315,15 +383,26 @@ PAUTAS DE RESPUESTA:
               functionResult = await this.obtenerFlotaLogistica();
             } else if (functionName === 'obtenerRutasLogistica') {
               functionResult = await this.obtenerRutasLogistica();
-            } else if (functionName === 'obtenerTransferenciasReabastecimiento') {
-              functionResult = await this.obtenerTransferenciasReabastecimiento(rawArgs.sucursalId);
+            } else if (
+              functionName === 'obtenerTransferenciasReabastecimiento'
+            ) {
+              functionResult = await this.obtenerTransferenciasReabastecimiento(
+                rawArgs.sucursalId,
+              );
             } else if (functionName === 'obtenerPropuestasReabastecimiento') {
-              functionResult = await this.obtenerPropuestasReabastecimiento(rawArgs.sucursalId, rawArgs.useSafetyStockMin);
+              functionResult = await this.obtenerPropuestasReabastecimiento(
+                rawArgs.sucursalId,
+                rawArgs.useSafetyStockMin,
+              );
             } else {
-              functionResult = { error: `Función ${functionName} no implementada.` };
+              functionResult = {
+                error: `Función ${functionName} no implementada.`,
+              };
             }
           } catch (err: any) {
-            functionResult = { error: `Error ejecutando consulta: ${err.message}` };
+            functionResult = {
+              error: `Error ejecutando consulta: ${err.message}`,
+            };
           }
 
           messages.push({
@@ -345,7 +424,9 @@ PAUTAS DE RESPUESTA:
 
       return responseMessage.content || 'Sin respuesta.';
     } catch (e: any) {
-      throw new BadRequestException(`Error en la consulta del chatbot: ${e.message}`);
+      throw new BadRequestException(
+        `Error en la consulta del chatbot: ${e.message}`,
+      );
     }
   }
 
@@ -366,7 +447,12 @@ PAUTAS DE RESPUESTA:
       where: filter,
       include: {
         producto: {
-          select: { sku: true, descripcion: true, categoria: true, precioVenta: true },
+          select: {
+            sku: true,
+            descripcion: true,
+            categoria: true,
+            precioVenta: true,
+          },
         },
         sucursal: {
           select: { nombre: true },
@@ -381,13 +467,15 @@ PAUTAS DE RESPUESTA:
       0,
     );
 
-    const items = inventarios.map((i) => ({
-      producto: i.producto.descripcion,
-      sku: i.producto.sku,
-      categoria: i.producto.categoria,
-      sucursal: i.sucursal.nombre,
-      existencia: i.existencia,
-    })).slice(0, 50); // Limit to top 50 to avoid token overload
+    const items = inventarios
+      .map((i) => ({
+        producto: i.producto.descripcion,
+        sku: i.producto.sku,
+        categoria: i.producto.categoria,
+        sucursal: i.sucursal.nombre,
+        existencia: i.existencia,
+      }))
+      .slice(0, 50); // Limit to top 50 to avoid token overload
 
     return { totalProductos, stockTotal, valorEstimado, items };
   }
@@ -416,7 +504,11 @@ PAUTAS DE RESPUESTA:
       }));
   }
 
-  private async obtenerReporteVentas(fechaInicio: string, fechaFin: string, sucursalId?: string) {
+  private async obtenerReporteVentas(
+    fechaInicio: string,
+    fechaFin: string,
+    sucursalId?: string,
+  ) {
     const { offsetStr } = await getTimezoneOffsetMinutes(this.prisma);
     const filter: any = {
       fecha: {
@@ -436,7 +528,8 @@ PAUTAS DE RESPUESTA:
 
     const metodosPago: Record<string, number> = {};
     ventas.forEach((v) => {
-      metodosPago[v.metodoPago] = (metodosPago[v.metodoPago] || 0) + Number(v.total);
+      metodosPago[v.metodoPago] =
+        (metodosPago[v.metodoPago] || 0) + Number(v.total);
     });
 
     return { totalIngresos, totalTickets, promedioTicket, metodosPago };
@@ -520,7 +613,12 @@ PAUTAS DE RESPUESTA:
       },
       include: {
         producto: {
-          select: { sku: true, descripcion: true, costo: true, precioVenta: true },
+          select: {
+            sku: true,
+            descripcion: true,
+            costo: true,
+            precioVenta: true,
+          },
         },
       },
       orderBy: { fechaVencimiento: 'asc' },
@@ -532,14 +630,19 @@ PAUTAS DE RESPUESTA:
         where: { sucursalId, existencia: { gt: 0 } },
         select: { productoId: true },
       });
-      const productoIdsEnSucursal = new Set(inventarios.map((i) => i.productoId));
-      lotesFiltrados = lotes.filter((l) => productoIdsEnSucursal.has(l.productoId));
+      const productoIdsEnSucursal = new Set(
+        inventarios.map((i) => i.productoId),
+      );
+      lotesFiltrados = lotes.filter((l) =>
+        productoIdsEnSucursal.has(l.productoId),
+      );
     }
 
     const resultado = lotesFiltrados
       .map((l) => {
         const diasRestantes = Math.ceil(
-          (l.fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24),
+          (l.fechaVencimiento.getTime() - hoy.getTime()) /
+            (1000 * 60 * 60 * 24),
         );
         return {
           lote: l.numeroLote,
@@ -604,10 +707,7 @@ PAUTAS DE RESPUESTA:
   private async obtenerTransferenciasReabastecimiento(sucursalId?: string) {
     const filter: any = {};
     if (sucursalId) {
-      filter.OR = [
-        { origenId: sucursalId },
-        { destinoId: sucursalId },
-      ];
+      filter.OR = [{ origenId: sucursalId }, { destinoId: sucursalId }];
     }
     return this.prisma.transferencia.findMany({
       where: filter,
@@ -625,7 +725,10 @@ PAUTAS DE RESPUESTA:
     });
   }
 
-  private async obtenerPropuestasReabastecimiento(sucursalId?: string, useSafetyStockMin?: boolean) {
+  private async obtenerPropuestasReabastecimiento(
+    sucursalId?: string,
+    useSafetyStockMin?: boolean,
+  ) {
     const sucursales = await this.prisma.sucursal.findMany({
       where: { estado: 'ACTIVO' },
     });
@@ -633,7 +736,10 @@ PAUTAS DE RESPUESTA:
     const plantaPrincipal = sucursales.find((s) => s.codigo === 'SUC-001');
 
     const productos = await this.prisma.producto.findMany({
-      where: { estado: 'ACTIVO', tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] } },
+      where: {
+        estado: 'ACTIVO',
+        tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] },
+      },
     });
 
     const propuestas: any[] = [];
@@ -646,21 +752,27 @@ PAUTAS DE RESPUESTA:
 
       for (const prod of productos) {
         const inv = await this.prisma.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id } },
+          where: {
+            productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id },
+          },
         });
         const stockActual = inv ? inv.existencia : 0;
 
-        const transferenciasPendientes = await this.prisma.transferenciaDetalle.findMany({
-          where: {
-            productoId: prod.id,
-            transferencia: {
-              destinoId: suc.id,
-              estado: { in: ['PENDIENTE', 'EN_TRANSITO'] },
+        const transferenciasPendientes =
+          await this.prisma.transferenciaDetalle.findMany({
+            where: {
+              productoId: prod.id,
+              transferencia: {
+                destinoId: suc.id,
+                estado: { in: ['PENDIENTE', 'EN_TRANSITO'] },
+              },
             },
-          },
-          select: { cantidad: true },
-        });
-        const stockEnTransito = transferenciasPendientes.reduce((sum, item) => sum + item.cantidad, 0);
+            select: { cantidad: true },
+          });
+        const stockEnTransito = transferenciasPendientes.reduce(
+          (sum, item) => sum + item.cantidad,
+          0,
+        );
         const stockDisponible = stockActual + stockEnTransito;
 
         const ventasDetalle = await this.prisma.ventaDetalle.findMany({
@@ -675,10 +787,17 @@ PAUTAS DE RESPUESTA:
           select: { cantidad: true },
         });
 
-        const totalVendido = ventasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
-        const promedioVentasDiarias = totalVendido > 0 ? totalVendido / 30 : 2.0;
+        const totalVendido = ventasDetalle.reduce(
+          (sum, item) => sum + item.cantidad,
+          0,
+        );
+        const promedioVentasDiarias =
+          totalVendido > 0 ? totalVendido / 30 : 2.0;
 
-        const diasInventario = promedioVentasDiarias > 0 ? stockDisponible / promedioVentasDiarias : 0;
+        const diasInventario =
+          promedioVentasDiarias > 0
+            ? stockDisponible / promedioVentasDiarias
+            : 0;
 
         let diasObjetivo = 5;
         if (prod.categoria === 'YOGURT') diasObjetivo = 7;
@@ -698,13 +817,19 @@ PAUTAS DE RESPUESTA:
           // Buscar origen sugerido
           let tipoOrigen = 'CD';
           let origenSugeridoId = plantaPrincipal ? plantaPrincipal.id : null;
-          let origenSugeridoNombre = plantaPrincipal ? plantaPrincipal.nombre : 'Centro de Distribución';
+          let origenSugeridoNombre = plantaPrincipal
+            ? plantaPrincipal.nombre
+            : 'Centro de Distribución';
           let detalleRazon = 'Suministrado desde el Centro de Distribución';
 
           const otrosInventarios = await this.prisma.inventario.findMany({
             where: {
               productoId: prod.id,
-              sucursalId: { notIn: [suc.id, plantaPrincipal?.id].filter(Boolean) as string[] },
+              sucursalId: {
+                notIn: [suc.id, plantaPrincipal?.id].filter(
+                  Boolean,
+                ) as string[],
+              },
               existencia: { gt: 0 },
             },
             include: { sucursal: true },
@@ -714,12 +839,20 @@ PAUTAS DE RESPUESTA:
             const otroVentasDetalle = await this.prisma.ventaDetalle.findMany({
               where: {
                 productoId: prod.id,
-                venta: { sucursalId: otroInv.sucursalId, fecha: { gte: hace30Dias }, estado: 'COMPLETADA' },
+                venta: {
+                  sucursalId: otroInv.sucursalId,
+                  fecha: { gte: hace30Dias },
+                  estado: 'COMPLETADA',
+                },
               },
               select: { cantidad: true },
             });
-            const otroTotalVendido = otroVentasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
-            const otroPromedioVentas = otroTotalVendido > 0 ? otroTotalVendido / 30 : 2.0;
+            const otroTotalVendido = otroVentasDetalle.reduce(
+              (sum, item) => sum + item.cantidad,
+              0,
+            );
+            const otroPromedioVentas =
+              otroTotalVendido > 0 ? otroTotalVendido / 30 : 2.0;
             const otroStockObjetivo = otroPromedioVentas * diasObjetivo;
 
             const exceso = otroInv.existencia - otroStockObjetivo;
@@ -734,7 +867,12 @@ PAUTAS DE RESPUESTA:
 
           if (tipoOrigen === 'CD' && plantaPrincipal) {
             const CDInv = await this.prisma.inventario.findUnique({
-              where: { productoId_sucursalId: { productoId: prod.id, sucursalId: plantaPrincipal.id } },
+              where: {
+                productoId_sucursalId: {
+                  productoId: prod.id,
+                  sucursalId: plantaPrincipal.id,
+                },
+              },
             });
             const CDStock = CDInv ? CDInv.existencia : 0;
             if (CDStock < cantidadSugerida) {
@@ -742,12 +880,14 @@ PAUTAS DE RESPUESTA:
                 tipoOrigen = 'PRODUCCION';
                 origenSugeridoId = null;
                 origenSugeridoNombre = 'Línea de Producción Interna';
-                detalleRazon = 'Stock insuficiente en CD. Requiere programar orden de producción.';
+                detalleRazon =
+                  'Stock insuficiente en CD. Requiere programar orden de producción.';
               } else {
                 tipoOrigen = 'COMPRA';
                 origenSugeridoId = null;
                 origenSugeridoNombre = 'Proveedor Externo';
-                detalleRazon = 'Stock insuficiente en CD. Requiere generar orden de compra a proveedor.';
+                detalleRazon =
+                  'Stock insuficiente en CD. Requiere generar orden de compra a proveedor.';
               }
             }
           }

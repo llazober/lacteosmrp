@@ -42,11 +42,15 @@ export class PosController {
     const { montoApertura } = body;
 
     if (!user.sucursalId) {
-      throw new BadRequestException('El usuario debe estar asignado a una sucursal para abrir una caja.');
+      throw new BadRequestException(
+        'El usuario debe estar asignado a una sucursal para abrir una caja.',
+      );
     }
 
     if (montoApertura == null || parseFloat(montoApertura) < 0) {
-      throw new BadRequestException('El monto de apertura debe ser mayor o igual a cero.');
+      throw new BadRequestException(
+        'El monto de apertura debe ser mayor o igual a cero.',
+      );
     }
 
     // Verificar si ya tiene caja abierta
@@ -90,7 +94,9 @@ export class PosController {
     const { montoArqueo } = body; // Lo que realmente contó el cajero
 
     if (montoArqueo == null || parseFloat(montoArqueo) < 0) {
-      throw new BadRequestException('El monto de arqueo es obligatorio y debe ser mayor o igual a cero.');
+      throw new BadRequestException(
+        'El monto de arqueo es obligatorio y debe ser mayor o igual a cero.',
+      );
     }
 
     // Buscar caja abierta
@@ -102,7 +108,9 @@ export class PosController {
     });
 
     if (!caja) {
-      throw new BadRequestException('No se encontró ninguna caja abierta para este cajero.');
+      throw new BadRequestException(
+        'No se encontró ninguna caja abierta para este cajero.',
+      );
     }
 
     // Calcular ventas totales asociadas a esta caja
@@ -180,7 +188,8 @@ export class PosController {
       filter.sucursalId = user.sucursalId;
     }
 
-    const { offsetMinutes: tzOffset, offsetStr } = await getTimezoneOffsetMinutes(this.prisma);
+    const { offsetMinutes: tzOffset, offsetStr } =
+      await getTimezoneOffsetMinutes(this.prisma);
 
     // Date range filter
     if (fechaInicio || fechaFin) {
@@ -195,10 +204,24 @@ export class PosController {
     } else {
       // Default: current calendar month in local timezone context
       const nowLocal = new Date(new Date().getTime() + tzOffset * 60 * 1000);
-      
-      const firstDayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), 1, 0, 0, 0);
-      const lastDayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth() + 1, 0, 23, 59, 59);
-      
+
+      const firstDayLocal = new Date(
+        nowLocal.getFullYear(),
+        nowLocal.getMonth(),
+        1,
+        0,
+        0,
+        0,
+      );
+      const lastDayLocal = new Date(
+        nowLocal.getFullYear(),
+        nowLocal.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
       filter.fecha = {
         gte: new Date(firstDayLocal.getTime() - tzOffset * 60 * 1000),
         lte: new Date(lastDayLocal.getTime() - tzOffset * 60 * 1000),
@@ -223,11 +246,15 @@ export class PosController {
     // productos: [{ productoId, loteId, cantidad, precioUnitario }]
 
     if (!user.sucursalId) {
-      throw new BadRequestException('El cajero debe estar asignado a una sucursal para realizar ventas.');
+      throw new BadRequestException(
+        'El cajero debe estar asignado a una sucursal para realizar ventas.',
+      );
     }
 
     if (!metodoPago || !productos || productos.length === 0) {
-      throw new BadRequestException('El método de pago y la lista de productos son obligatorios.');
+      throw new BadRequestException(
+        'El método de pago y la lista de productos son obligatorios.',
+      );
     }
 
     // 1. Verificar si la caja está abierta
@@ -239,7 +266,9 @@ export class PosController {
     });
 
     if (!caja) {
-      throw new BadRequestException('No puede realizar ventas si no ha abierto su caja de control.');
+      throw new BadRequestException(
+        'No puede realizar ventas si no ha abierto su caja de control.',
+      );
     }
 
     // 2. Ejecutar transacción de venta
@@ -257,7 +286,9 @@ export class PosController {
         });
 
         if (!dbProd || dbProd.estado !== 'ACTIVO') {
-          throw new BadRequestException(`El producto con ID ${prod.productoId} no existe o no está activo.`);
+          throw new BadRequestException(
+            `El producto con ID ${prod.productoId} no existe o no está activo.`,
+          );
         }
 
         const dbLote = await tx.lote.findUnique({
@@ -265,7 +296,9 @@ export class PosController {
         });
 
         if (!dbLote || dbLote.estado !== 'APROBADO') {
-          throw new BadRequestException(`El lote no está disponible o no tiene calidad aprobada.`);
+          throw new BadRequestException(
+            `El lote no está disponible o no tiene calidad aprobada.`,
+          );
         }
 
         const cantNum = parseFloat(prod.cantidad);
@@ -276,7 +309,12 @@ export class PosController {
         }
 
         const inv = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: prod.productoId, sucursalId: user.sucursalId } },
+          where: {
+            productoId_sucursalId: {
+              productoId: prod.productoId,
+              sucursalId: user.sucursalId,
+            },
+          },
         });
 
         if (!inv || inv.existencia < cantNum) {
@@ -312,7 +350,12 @@ export class PosController {
 
         // 4. Descontar inventario sucursal
         await tx.inventario.update({
-          where: { productoId_sucursalId: { productoId: prod.productoId, sucursalId: user.sucursalId } },
+          where: {
+            productoId_sucursalId: {
+              productoId: prod.productoId,
+              sucursalId: user.sucursalId,
+            },
+          },
           data: { existencia: { decrement: cantNum } },
         });
 
@@ -370,7 +413,11 @@ export class PosController {
         usuarioNombre: user.nombre,
         accion: 'REGISTRAR_VENTA',
         modulo: 'POS',
-        detalles: JSON.stringify({ id: venta.id, ticket: venta.ticketNumero, total: venta.total }),
+        detalles: JSON.stringify({
+          id: venta.id,
+          ticket: venta.ticketNumero,
+          total: venta.total,
+        }),
       },
     });
 

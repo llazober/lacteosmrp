@@ -17,7 +17,10 @@ export class AlertasController {
   @Get()
   async listarAlertas(@Request() req: any) {
     const user = req.user;
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const filter: any = {};
     if (sucursalId) {
@@ -36,15 +39,23 @@ export class AlertasController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'GERENTE_TIENDA', 'CONTROL_CALIDAD')
   @Put(':id/resolver')
-  async resolverAlerta(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async resolverAlerta(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { notasAtencion } = body;
     if (!notasAtencion || notasAtencion.trim() === '') {
-      throw new BadRequestException('Debe ingresar notas de atención detallando la solución.');
+      throw new BadRequestException(
+        'Debe ingresar notas de atención detallando la solución.',
+      );
     }
 
     const alerta = await this.prisma.alerta.findUnique({ where: { id } });
     if (!alerta || alerta.estado !== 'ACTIVA') {
-      throw new BadRequestException('La alerta no existe o ya ha sido resuelta.');
+      throw new BadRequestException(
+        'La alerta no existe o ya ha sido resuelta.',
+      );
     }
 
     const updated = await this.prisma.alerta.update({
@@ -63,7 +74,12 @@ export class AlertasController {
         usuarioNombre: req.user.nombre,
         accion: 'RESOLVER_ALERTA',
         modulo: 'TELEMETRIA',
-        detalles: JSON.stringify({ id, tipo: alerta.tipo, mensaje: alerta.mensaje, notasAtencion }),
+        detalles: JSON.stringify({
+          id,
+          tipo: alerta.tipo,
+          mensaje: alerta.mensaje,
+          notasAtencion,
+        }),
       },
     });
 

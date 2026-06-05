@@ -43,18 +43,33 @@ export class ProductosController {
       vidaUtilDias,
     } = body;
 
-    if (!sku || !codigoBarras || !descripcion || !categoria || costo == null || precioVenta == null) {
-      throw new BadRequestException('Los campos sku, código de barras, descripción, categoría, costo y precio de venta son obligatorios.');
+    if (
+      !sku ||
+      !codigoBarras ||
+      !descripcion ||
+      !categoria ||
+      costo == null ||
+      precioVenta == null
+    ) {
+      throw new BadRequestException(
+        'Los campos sku, código de barras, descripción, categoría, costo y precio de venta son obligatorios.',
+      );
     }
 
     const existSku = await this.prisma.producto.findUnique({ where: { sku } });
     if (existSku) {
-      throw new BadRequestException('Ya existe un producto con el SKU ingresado.');
+      throw new BadRequestException(
+        'Ya existe un producto con el SKU ingresado.',
+      );
     }
 
-    const existBar = await this.prisma.producto.findUnique({ where: { codigoBarras } });
+    const existBar = await this.prisma.producto.findUnique({
+      where: { codigoBarras },
+    });
     if (existBar) {
-      throw new BadRequestException('Ya existe un producto con el código de barras ingresado.');
+      throw new BadRequestException(
+        'Ya existe un producto con el código de barras ingresado.',
+      );
     }
 
     const producto = await this.prisma.producto.create({
@@ -91,7 +106,11 @@ export class ProductosController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('productos/:id')
-  async actualizarProducto(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarProducto(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const {
       descripcion,
       categoria,
@@ -117,8 +136,10 @@ export class ProductosController {
         costo: costo != null ? parseFloat(costo) : undefined,
         precioVenta: precioVenta != null ? parseFloat(precioVenta) : undefined,
         iva: iva != null ? parseFloat(iva) : undefined,
-        temperaturaMin: temperaturaMin != null ? parseFloat(temperaturaMin) : undefined,
-        temperaturaMax: temperaturaMax != null ? parseFloat(temperaturaMax) : undefined,
+        temperaturaMin:
+          temperaturaMin != null ? parseFloat(temperaturaMin) : undefined,
+        temperaturaMax:
+          temperaturaMax != null ? parseFloat(temperaturaMax) : undefined,
         vidaUtilDias: vidaUtilDias != null ? parseInt(vidaUtilDias) : undefined,
         estado,
       },
@@ -166,7 +187,9 @@ export class ProductosController {
     } = body;
 
     if (!codigo || !nombre) {
-      throw new BadRequestException('El código y el nombre del proveedor son obligatorios.');
+      throw new BadRequestException(
+        'El código y el nombre del proveedor son obligatorios.',
+      );
     }
 
     const exist = await this.prisma.proveedor.findUnique({ where: { codigo } });
@@ -181,7 +204,9 @@ export class ProductosController {
         contacto: contacto || '',
         telefono: telefono || '',
         correo: correo || '',
-        certificaciones: certificaciones ? JSON.stringify(certificaciones) : '[]',
+        certificaciones: certificaciones
+          ? JSON.stringify(certificaciones)
+          : '[]',
         terminoPagoId: terminoPagoId || null,
         bancoNombre: bancoNombre || null,
         bancoTipoCuenta: bancoTipoCuenta || null,
@@ -207,7 +232,11 @@ export class ProductosController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('proveedores/:id')
-  async actualizarProveedor(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarProveedor(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const {
       nombre,
       contacto,
@@ -230,14 +259,22 @@ export class ProductosController {
         contacto,
         telefono,
         correo,
-        certificaciones: certificaciones ? JSON.stringify(certificaciones) : undefined,
+        certificaciones: certificaciones
+          ? JSON.stringify(certificaciones)
+          : undefined,
         estado,
-        terminoPagoId: terminoPagoId !== undefined ? (terminoPagoId || null) : undefined,
-        bancoNombre: bancoNombre !== undefined ? (bancoNombre || null) : undefined,
-        bancoTipoCuenta: bancoTipoCuenta !== undefined ? (bancoTipoCuenta || null) : undefined,
-        bancoNroCuenta: bancoNroCuenta !== undefined ? (bancoNroCuenta || null) : undefined,
-        bancoRutTitular: bancoRutTitular !== undefined ? (bancoRutTitular || null) : undefined,
-        bancoNomTitular: bancoNomTitular !== undefined ? (bancoNomTitular || null) : undefined,
+        terminoPagoId:
+          terminoPagoId !== undefined ? terminoPagoId || null : undefined,
+        bancoNombre:
+          bancoNombre !== undefined ? bancoNombre || null : undefined,
+        bancoTipoCuenta:
+          bancoTipoCuenta !== undefined ? bancoTipoCuenta || null : undefined,
+        bancoNroCuenta:
+          bancoNroCuenta !== undefined ? bancoNroCuenta || null : undefined,
+        bancoRutTitular:
+          bancoRutTitular !== undefined ? bancoRutTitular || null : undefined,
+        bancoNomTitular:
+          bancoNomTitular !== undefined ? bancoNomTitular || null : undefined,
       },
     });
 
@@ -263,12 +300,16 @@ export class ProductosController {
       throw new BadRequestException('El proveedor no existe.');
     }
 
-    const lotesCount = await this.prisma.lote.count({ where: { proveedorId: id } });
-    const ocCount = await this.prisma.ordenCompra.count({ where: { proveedorId: id } });
+    const lotesCount = await this.prisma.lote.count({
+      where: { proveedorId: id },
+    });
+    const ocCount = await this.prisma.ordenCompra.count({
+      where: { proveedorId: id },
+    });
 
     if (lotesCount > 0 || ocCount > 0) {
       throw new BadRequestException(
-        'No se puede eliminar el proveedor porque posee lotes u órdenes de compra asociadas en el historial.'
+        'No se puede eliminar el proveedor porque posee lotes u órdenes de compra asociadas en el historial.',
       );
     }
 
@@ -301,17 +342,21 @@ export class ProductosController {
   async crearCategoria(@Request() req: any, @Body() body: any) {
     const { nombre, tipoProducto } = body;
     if (!nombre) {
-      throw new BadRequestException('El nombre de la categoría es obligatorio.');
+      throw new BadRequestException(
+        'El nombre de la categoría es obligatorio.',
+      );
     }
 
     const normNombre = nombre.trim().toUpperCase();
-    const exist = await this.prisma.categoria.findUnique({ where: { nombre: normNombre } });
+    const exist = await this.prisma.categoria.findUnique({
+      where: { nombre: normNombre },
+    });
     if (exist) {
       throw new BadRequestException('Ya existe una categoría con ese nombre.');
     }
 
     const categoria = await this.prisma.categoria.create({
-      data: { 
+      data: {
         nombre: normNombre,
         tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
       },
@@ -333,14 +378,20 @@ export class ProductosController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('categorias/:id')
-  async actualizarCategoria(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarCategoria(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { nombre, tipoProducto } = body;
     if (!nombre) {
-      throw new BadRequestException('El nombre de la categoría es obligatorio.');
+      throw new BadRequestException(
+        'El nombre de la categoría es obligatorio.',
+      );
     }
 
     const normNombre = nombre.trim().toUpperCase();
-    
+
     // Verificar unicidad excluyendo la actual
     const exist = await this.prisma.categoria.findFirst({
       where: {
@@ -352,14 +403,16 @@ export class ProductosController {
       throw new BadRequestException('Ya existe otra categoría con ese nombre.');
     }
 
-    const oldCategoria = await this.prisma.categoria.findUnique({ where: { id } });
+    const oldCategoria = await this.prisma.categoria.findUnique({
+      where: { id },
+    });
     if (!oldCategoria) {
       throw new BadRequestException('La categoría no existe.');
     }
 
     const categoria = await this.prisma.categoria.update({
       where: { id },
-      data: { 
+      data: {
         nombre: normNombre,
         tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
       },
@@ -368,7 +421,7 @@ export class ProductosController {
     // Sincronizar todos los productos con el nuevo nombre de categoría y el nuevo tipoProducto
     await this.prisma.producto.updateMany({
       where: { categoria: oldCategoria.nombre },
-      data: { 
+      data: {
         categoria: normNombre,
         tipoProducto: tipoProducto || 'PRODUCTO_TERMINADO',
       },
@@ -400,7 +453,9 @@ export class ProductosController {
       where: { categoria: categoria.nombre },
     });
     if (prodCount > 0) {
-      throw new BadRequestException('No se puede eliminar la categoría porque hay productos asociados a ella.');
+      throw new BadRequestException(
+        'No se puede eliminar la categoría porque hay productos asociados a ella.',
+      );
     }
 
     await this.prisma.categoria.delete({
@@ -434,14 +489,20 @@ export class ProductosController {
   async crearUnidadMedida(@Request() req: any, @Body() body: any) {
     const { nombre, abreviacion } = body;
     if (!nombre || !abreviacion) {
-      throw new BadRequestException('El nombre y la abreviación son obligatorios.');
+      throw new BadRequestException(
+        'El nombre y la abreviación son obligatorios.',
+      );
     }
 
     const normNombre = nombre.trim().toUpperCase();
     const normAbrev = abreviacion.trim().toUpperCase();
-    const exist = await this.prisma.unidadMedida.findUnique({ where: { nombre: normNombre } });
+    const exist = await this.prisma.unidadMedida.findUnique({
+      where: { nombre: normNombre },
+    });
     if (exist) {
-      throw new BadRequestException('Ya existe una unidad de medida con ese nombre.');
+      throw new BadRequestException(
+        'Ya existe una unidad de medida con ese nombre.',
+      );
     }
 
     const unidad = await this.prisma.unidadMedida.create({
@@ -464,15 +525,21 @@ export class ProductosController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('productos/unidades-medida/:id')
-  async actualizarUnidadMedida(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarUnidadMedida(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { nombre, abreviacion } = body;
     if (!nombre || !abreviacion) {
-      throw new BadRequestException('El nombre y la abreviación son obligatorios.');
+      throw new BadRequestException(
+        'El nombre y la abreviación son obligatorios.',
+      );
     }
 
     const normNombre = nombre.trim().toUpperCase();
     const normAbrev = abreviacion.trim().toUpperCase();
-    
+
     // Verificar unicidad excluyendo la actual
     const exist = await this.prisma.unidadMedida.findFirst({
       where: {
@@ -481,10 +548,14 @@ export class ProductosController {
       },
     });
     if (exist) {
-      throw new BadRequestException('Ya existe otra unidad de medida con ese nombre.');
+      throw new BadRequestException(
+        'Ya existe otra unidad de medida con ese nombre.',
+      );
     }
 
-    const oldUnidad = await this.prisma.unidadMedida.findUnique({ where: { id } });
+    const oldUnidad = await this.prisma.unidadMedida.findUnique({
+      where: { id },
+    });
     if (!oldUnidad) {
       throw new BadRequestException('La unidad de medida no existe.');
     }
@@ -526,7 +597,9 @@ export class ProductosController {
       where: { unidadMedida: unidad.nombre },
     });
     if (prodCount > 0) {
-      throw new BadRequestException('No se puede eliminar la unidad de medida porque hay productos asociados a ella.');
+      throw new BadRequestException(
+        'No se puede eliminar la unidad de medida porque hay productos asociados a ella.',
+      );
     }
 
     await this.prisma.unidadMedida.delete({
@@ -560,25 +633,33 @@ export class ProductosController {
   async crearTipoProducto(@Request() req: any, @Body() body: any) {
     const { nombre, descripcion, metadata } = body;
     if (!nombre || !descripcion) {
-      throw new BadRequestException('El nombre y la descripción son obligatorios.');
+      throw new BadRequestException(
+        'El nombre y la descripción son obligatorios.',
+      );
     }
 
     const normNombre = nombre.trim().toUpperCase().replace(/\s+/g, '_');
-    const exist = await this.prisma.tipoProducto.findUnique({ where: { nombre: normNombre } });
+    const exist = await this.prisma.tipoProducto.findUnique({
+      where: { nombre: normNombre },
+    });
     if (exist) {
-      throw new BadRequestException('Ya existe un tipo de producto con ese nombre/código.');
+      throw new BadRequestException(
+        'Ya existe un tipo de producto con ese nombre/código.',
+      );
     }
 
     const tipo = await this.prisma.tipoProducto.create({
-      data: { 
-        nombre: normNombre, 
+      data: {
+        nombre: normNombre,
         descripcion,
         metadata: metadata || '',
       },
     });
 
     // Auditoría
-    const userExists = req.user?.id ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } }) : null;
+    const userExists = req.user?.id
+      ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } })
+      : null;
     await this.prisma.auditoria.create({
       data: {
         usuarioId: userExists ? req.user.id : null,
@@ -594,14 +675,20 @@ export class ProductosController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('productos/tipos/:id')
-  async actualizarTipoProducto(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarTipoProducto(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { nombre, descripcion, metadata } = body;
     if (!nombre || !descripcion) {
-      throw new BadRequestException('El nombre y la descripción son obligatorios.');
+      throw new BadRequestException(
+        'El nombre y la descripción son obligatorios.',
+      );
     }
 
     const normNombre = nombre.trim().toUpperCase().replace(/\s+/g, '_');
-    
+
     // Verificar unicidad excluyendo el actual
     const exist = await this.prisma.tipoProducto.findFirst({
       where: {
@@ -610,18 +697,22 @@ export class ProductosController {
       },
     });
     if (exist) {
-      throw new BadRequestException('Ya existe otro tipo de producto con ese nombre/código.');
+      throw new BadRequestException(
+        'Ya existe otro tipo de producto con ese nombre/código.',
+      );
     }
 
-    const oldTipo = await this.prisma.tipoProducto.findUnique({ where: { id } });
+    const oldTipo = await this.prisma.tipoProducto.findUnique({
+      where: { id },
+    });
     if (!oldTipo) {
       throw new BadRequestException('El tipo de producto no existe.');
     }
 
     const tipo = await this.prisma.tipoProducto.update({
       where: { id },
-      data: { 
-        nombre: normNombre, 
+      data: {
+        nombre: normNombre,
         descripcion,
         metadata: metadata || '',
       },
@@ -640,7 +731,9 @@ export class ProductosController {
     });
 
     // Auditoría
-    const userExists = req.user?.id ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } }) : null;
+    const userExists = req.user?.id
+      ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } })
+      : null;
     await this.prisma.auditoria.create({
       data: {
         usuarioId: userExists ? req.user.id : null,
@@ -669,7 +762,9 @@ export class ProductosController {
       where: { tipoProducto: tipo.nombre },
     });
     if (prodCount > 0 || catCount > 0) {
-      throw new BadRequestException('No se puede eliminar el tipo de producto porque está en uso por productos o categorías.');
+      throw new BadRequestException(
+        'No se puede eliminar el tipo de producto porque está en uso por productos o categorías.',
+      );
     }
 
     await this.prisma.tipoProducto.delete({
@@ -677,7 +772,9 @@ export class ProductosController {
     });
 
     // Auditoría
-    const userExists = req.user?.id ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } }) : null;
+    const userExists = req.user?.id
+      ? await this.prisma.usuario.findUnique({ where: { id: req.user.id } })
+      : null;
     await this.prisma.auditoria.create({
       data: {
         usuarioId: userExists ? req.user.id : null,

@@ -23,8 +23,8 @@ export class ProduccionController {
       include: {
         productoFinal: true,
         detalles: {
-          include: { producto: true }
-        }
+          include: { producto: true },
+        },
       },
       orderBy: { nombre: 'asc' },
     });
@@ -33,10 +33,25 @@ export class ProduccionController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post('recetas')
   async crearReceta(@Request() req: any, @Body() body: any) {
-    const { nombre, descripcion, productoFinalId, cantidadEsperada, costoEstimado, detalles } = body;
+    const {
+      nombre,
+      descripcion,
+      productoFinalId,
+      cantidadEsperada,
+      costoEstimado,
+      detalles,
+    } = body;
 
-    if (!nombre || !productoFinalId || !detalles || !Array.isArray(detalles) || detalles.length === 0) {
-      throw new BadRequestException('El nombre, el producto final y al menos un ingrediente/insumo son obligatorios.');
+    if (
+      !nombre ||
+      !productoFinalId ||
+      !detalles ||
+      !Array.isArray(detalles) ||
+      detalles.length === 0
+    ) {
+      throw new BadRequestException(
+        'El nombre, el producto final y al menos un ingrediente/insumo son obligatorios.',
+      );
     }
 
     const exist = await this.prisma.receta.findUnique({ where: { nombre } });
@@ -52,7 +67,7 @@ export class ProduccionController {
           productoFinalId,
           cantidadEsperada: parseFloat(cantidadEsperada || 1),
           costoEstimado: parseFloat(costoEstimado || 0),
-        }
+        },
       });
 
       for (const item of detalles) {
@@ -61,7 +76,7 @@ export class ProduccionController {
             recetaId: r.id,
             productoId: item.productoId,
             cantidadRequerida: parseFloat(item.cantidadRequerida),
-          }
+          },
         });
       }
 
@@ -84,8 +99,19 @@ export class ProduccionController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put('recetas/:id')
-  async actualizarReceta(@Param('id') id: string, @Request() req: any, @Body() body: any) {
-    const { nombre, descripcion, productoFinalId, cantidadEsperada, costoEstimado, detalles } = body;
+  async actualizarReceta(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    const {
+      nombre,
+      descripcion,
+      productoFinalId,
+      cantidadEsperada,
+      costoEstimado,
+      detalles,
+    } = body;
 
     const receta = await this.prisma.$transaction(async (tx) => {
       const r = await tx.receta.update({
@@ -94,9 +120,11 @@ export class ProduccionController {
           nombre,
           descripcion,
           productoFinalId,
-          cantidadEsperada: cantidadEsperada != null ? parseFloat(cantidadEsperada) : undefined,
-          costoEstimado: costoEstimado != null ? parseFloat(costoEstimado) : undefined,
-        }
+          cantidadEsperada:
+            cantidadEsperada != null ? parseFloat(cantidadEsperada) : undefined,
+          costoEstimado:
+            costoEstimado != null ? parseFloat(costoEstimado) : undefined,
+        },
       });
 
       if (detalles && Array.isArray(detalles)) {
@@ -108,7 +136,7 @@ export class ProduccionController {
               recetaId: id,
               productoId: item.productoId,
               cantidadRequerida: parseFloat(item.cantidadRequerida),
-            }
+            },
           });
         }
       }
@@ -133,9 +161,13 @@ export class ProduccionController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Delete('recetas/:id')
   async eliminarReceta(@Param('id') id: string, @Request() req: any) {
-    const check = await this.prisma.ordenProduccion.count({ where: { recetaId: id } });
+    const check = await this.prisma.ordenProduccion.count({
+      where: { recetaId: id },
+    });
     if (check > 0) {
-      throw new BadRequestException('No se puede eliminar la receta porque posee órdenes de producción asociadas.');
+      throw new BadRequestException(
+        'No se puede eliminar la receta porque posee órdenes de producción asociadas.',
+      );
     }
 
     const receta = await this.prisma.receta.findUnique({ where: { id } });
@@ -161,19 +193,19 @@ export class ProduccionController {
     return this.prisma.ordenProduccion.findMany({
       include: {
         receta: {
-          include: { productoFinal: true }
+          include: { productoFinal: true },
         },
         sucursal: true,
         creadoPor: true,
         responsable: true,
         detalles: {
-          include: { producto: true }
+          include: { producto: true },
         },
         mermas: {
-          include: { producto: true }
+          include: { producto: true },
         },
         inspecciones: true,
-        lotesProducidos: true
+        lotesProducidos: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -185,7 +217,9 @@ export class ProduccionController {
     const { recetaId, sucursalId, cantidadPlanificada, responsableId } = body;
 
     if (!recetaId || !sucursalId || !cantidadPlanificada || !responsableId) {
-      throw new BadRequestException('Todos los campos de la orden (receta, sucursal, cantidad planificada y responsable) son obligatorios.');
+      throw new BadRequestException(
+        'Todos los campos de la orden (receta, sucursal, cantidad planificada y responsable) son obligatorios.',
+      );
     }
 
     const count = await this.prisma.ordenProduccion.count();
@@ -200,7 +234,7 @@ export class ProduccionController {
         creadoPorId: req.user.id,
         responsableId,
         estado: 'PLANIFICADA',
-      }
+      },
     });
 
     // Auditoría
@@ -222,14 +256,16 @@ export class ProduccionController {
   async iniciarOrden(@Param('id') id: string, @Request() req: any) {
     const op = await this.prisma.ordenProduccion.findUnique({
       where: { id },
-      include: { receta: { include: { detalles: true } } }
+      include: { receta: { include: { detalles: true } } },
     });
 
     if (!op) {
       throw new BadRequestException('La orden de producción no existe.');
     }
     if (op.estado !== 'PLANIFICADA') {
-      throw new BadRequestException('Solo se pueden iniciar órdenes en estado PLANIFICADA.');
+      throw new BadRequestException(
+        'Solo se pueden iniciar órdenes en estado PLANIFICADA.',
+      );
     }
 
     const updated = await this.prisma.ordenProduccion.update({
@@ -237,7 +273,7 @@ export class ProduccionController {
       data: {
         estado: 'EN_PROCESO',
         fechaInicio: new Date(),
-      }
+      },
     });
 
     // Auditoría
@@ -256,11 +292,17 @@ export class ProduccionController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post('ordenes/:id/completar')
-  async completarOrden(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async completarOrden(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { cantidadProducida, loteNumero, mermas } = body;
 
     if (cantidadProducida == null || !loteNumero) {
-      throw new BadRequestException('La cantidad producida y el número de lote son obligatorios.');
+      throw new BadRequestException(
+        'La cantidad producida y el número de lote son obligatorios.',
+      );
     }
 
     const op = await this.prisma.ordenProduccion.findUnique({
@@ -270,30 +312,40 @@ export class ProduccionController {
           include: {
             productoFinal: true,
             detalles: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     if (!op) {
       throw new BadRequestException('La orden de producción no existe.');
     }
     if (op.estado !== 'EN_PROCESO') {
-      throw new BadRequestException('Solo se pueden completar órdenes en estado EN_PROCESO.');
+      throw new BadRequestException(
+        'Solo se pueden completar órdenes en estado EN_PROCESO.',
+      );
     }
 
     // Verificar si ya existe lote con ese número
-    const existLote = await this.prisma.lote.findUnique({ where: { numeroLote: loteNumero } });
+    const existLote = await this.prisma.lote.findUnique({
+      where: { numeroLote: loteNumero },
+    });
     if (existLote) {
-      throw new BadRequestException(`El número de lote "${loteNumero}" ya existe en el sistema.`);
+      throw new BadRequestException(
+        `El número de lote "${loteNumero}" ya existe en el sistema.`,
+      );
     }
 
     // Buscar proveedor interno o primer proveedor para asociar al lote producido
-    let proveedor = await this.prisma.proveedor.findFirst({ where: { codigo: 'INTERNO' } });
+    let proveedor = await this.prisma.proveedor.findFirst({
+      where: { codigo: 'INTERNO' },
+    });
     if (!proveedor) {
       proveedor = await this.prisma.proveedor.findFirst();
       if (!proveedor) {
-        throw new BadRequestException('Debe registrar al menos un proveedor en el sistema antes de generar lotes de producción.');
+        throw new BadRequestException(
+          'Debe registrar al menos un proveedor en el sistema antes de generar lotes de producción.',
+        );
       }
     }
 
@@ -322,12 +374,15 @@ export class ProduccionController {
         for (const lote of lotesDisponibles) {
           if (pendientePorDescontar <= 0) break;
 
-          const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+          const aDescontar = Math.min(
+            lote.cantidadActual,
+            pendientePorDescontar,
+          );
 
           // Descontar del lote
           await tx.lote.update({
             where: { id: lote.id },
-            data: { cantidadActual: { decrement: aDescontar } }
+            data: { cantidadActual: { decrement: aDescontar } },
           });
 
           // Registrar detalle consumido
@@ -337,7 +392,7 @@ export class ProduccionController {
               productoId: reqDetalle.productoId,
               loteId: lote.id,
               cantidadConsumida: aDescontar,
-            }
+            },
           });
 
           // Registrar Movimiento de inventario
@@ -350,7 +405,7 @@ export class ProduccionController {
               cantidad: aDescontar,
               motivo: `Consumo materia prima en Orden de Producción ${op.numeroOrden}`,
               usuarioId: req.user.id,
-            }
+            },
           });
 
           pendientePorDescontar -= aDescontar;
@@ -359,13 +414,18 @@ export class ProduccionController {
         // Si faltó stock y no se cubrió todo, descontar del inventario general (permitiendo negativos o lanzando error)
         // Para este ERP robusto, descontamos el total del Inventario de la sucursal
         const inv = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: reqDetalle.productoId, sucursalId: op.sucursalId } }
+          where: {
+            productoId_sucursalId: {
+              productoId: reqDetalle.productoId,
+              sucursalId: op.sucursalId,
+            },
+          },
         });
 
         if (inv) {
           await tx.inventario.update({
             where: { id: inv.id },
-            data: { existencia: { decrement: totalRequerido } }
+            data: { existencia: { decrement: totalRequerido } },
           });
         } else {
           await tx.inventario.create({
@@ -373,7 +433,7 @@ export class ProduccionController {
               productoId: reqDetalle.productoId,
               sucursalId: op.sucursalId,
               existencia: -totalRequerido,
-            }
+            },
           });
         }
       }
@@ -388,17 +448,22 @@ export class ProduccionController {
               cantidad: parseFloat(m.cantidad),
               motivo: m.motivo || 'PROCESO',
               responsableId: req.user.id,
-            }
+            },
           });
-          
+
           // Descontar inventario de la merma de materia prima si no se descontó en FEFO
           const invM = await tx.inventario.findUnique({
-            where: { productoId_sucursalId: { productoId: m.productoId, sucursalId: op.sucursalId } }
+            where: {
+              productoId_sucursalId: {
+                productoId: m.productoId,
+                sucursalId: op.sucursalId,
+              },
+            },
           });
           if (invM) {
             await tx.inventario.update({
               where: { id: invM.id },
-              data: { existencia: { decrement: parseFloat(m.cantidad) } }
+              data: { existencia: { decrement: parseFloat(m.cantidad) } },
             });
           }
         }
@@ -422,18 +487,23 @@ export class ProduccionController {
           cantidadActual: cantProd,
           estado: 'APROBADO', // Se aprueba inicialmente, o cuarentena si Calidad lo requiere
           ordenProduccionId: op.id,
-        }
+        },
       });
 
       // 4. Incrementar inventario del producto terminado
       const invFinal = await tx.inventario.findUnique({
-        where: { productoId_sucursalId: { productoId: op.receta.productoFinalId, sucursalId: op.sucursalId } }
+        where: {
+          productoId_sucursalId: {
+            productoId: op.receta.productoFinalId,
+            sucursalId: op.sucursalId,
+          },
+        },
       });
 
       if (invFinal) {
         await tx.inventario.update({
           where: { id: invFinal.id },
-          data: { existencia: { increment: cantProd } }
+          data: { existencia: { increment: cantProd } },
         });
       } else {
         await tx.inventario.create({
@@ -441,7 +511,7 @@ export class ProduccionController {
             productoId: op.receta.productoFinalId,
             sucursalId: op.sucursalId,
             existencia: cantProd,
-          }
+          },
         });
       }
 
@@ -455,7 +525,7 @@ export class ProduccionController {
           cantidad: cantProd,
           motivo: `Ingreso por Producción finalizada Orden ${op.numeroOrden}`,
           usuarioId: req.user.id,
-        }
+        },
       });
 
       // 5. Actualizar estado de la Orden de Producción
@@ -467,7 +537,7 @@ export class ProduccionController {
           rendimientoReal,
           variacion,
           fechaFin: new Date(),
-        }
+        },
       });
 
       return opUpdated;
@@ -495,7 +565,9 @@ export class ProduccionController {
       throw new BadRequestException('La orden de producción no existe.');
     }
     if (op.estado === 'COMPLETADA' || op.estado === 'CANCELADA') {
-      throw new BadRequestException('No se puede cancelar una orden ya completada o cancelada.');
+      throw new BadRequestException(
+        'No se puede cancelar una orden ya completada o cancelada.',
+      );
     }
 
     const updated = await this.prisma.ordenProduccion.update({
@@ -503,7 +575,7 @@ export class ProduccionController {
       data: {
         estado: 'CANCELADA',
         fechaFin: new Date(),
-      }
+      },
     });
 
     // Auditoría
@@ -538,7 +610,9 @@ export class ProduccionController {
   async crearMerma(@Request() req: any, @Body() body: any) {
     const { productoId, cantidad, motivo, sucursalId } = body;
     if (!productoId || !cantidad || !motivo || !sucursalId) {
-      throw new BadRequestException('El producto, la cantidad, el motivo y la sucursal son obligatorios.');
+      throw new BadRequestException(
+        'El producto, la cantidad, el motivo y la sucursal son obligatorios.',
+      );
     }
 
     const merma = await this.prisma.$transaction(async (tx) => {
@@ -548,18 +622,18 @@ export class ProduccionController {
           cantidad: parseFloat(cantidad),
           motivo,
           responsableId: req.user.id,
-        }
+        },
       });
 
       // Descontar inventario general de la sucursal
       const inv = await tx.inventario.findUnique({
-        where: { productoId_sucursalId: { productoId, sucursalId } }
+        where: { productoId_sucursalId: { productoId, sucursalId } },
       });
 
       if (inv) {
         await tx.inventario.update({
           where: { id: inv.id },
-          data: { existencia: { decrement: parseFloat(cantidad) } }
+          data: { existencia: { decrement: parseFloat(cantidad) } },
         });
       } else {
         await tx.inventario.create({
@@ -567,7 +641,7 @@ export class ProduccionController {
             productoId,
             sucursalId,
             existencia: -parseFloat(cantidad),
-          }
+          },
         });
       }
 
@@ -580,7 +654,7 @@ export class ProduccionController {
           cantidad: parseFloat(cantidad),
           motivo: `Registro de Merma: ${motivo}`,
           usuarioId: req.user.id,
-        }
+        },
       });
 
       return m;

@@ -26,7 +26,9 @@ export class AuthController {
   async login(@Body() body: any) {
     const { email, password } = body;
     if (!email || !password) {
-      throw new BadRequestException('El correo y la contraseña son requeridos.');
+      throw new BadRequestException(
+        'El correo y la contraseña son requeridos.',
+      );
     }
 
     const usuario = await this.prisma.usuario.findUnique({
@@ -121,7 +123,9 @@ export class AuthController {
     const user = req.user;
     const { oldPassword, newPassword } = body;
     if (!oldPassword || !newPassword) {
-      throw new BadRequestException('Contraseñas antigua y nueva son requeridas.');
+      throw new BadRequestException(
+        'Contraseñas antigua y nueva son requeridas.',
+      );
     }
 
     const dbUser = await this.prisma.usuario.findUnique({
@@ -202,13 +206,15 @@ export class AuthController {
     };
   }
 
-
   @Get('dashboard-metrics')
   async getDashboardMetrics(@Request() req: any) {
     const user = req.user;
     // Si el usuario tiene sucursal asignada (cajero, gerente, etc), filtramos por su sucursal,
     // de lo contrario (admin, supervisor) ve global.
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const queryFilter: any = {};
     if (sucursalId) {
@@ -216,8 +222,10 @@ export class AuthController {
     }
 
     // 1. Ventas Totales (Hoy, Semana, Mes)
-    const { offsetMinutes: tzOffset } = await getTimezoneOffsetMinutes(this.prisma);
-    
+    const { offsetMinutes: tzOffset } = await getTimezoneOffsetMinutes(
+      this.prisma,
+    );
+
     // Today in local timezone context
     const localToday = new Date(new Date().getTime() + tzOffset * 60 * 1000);
     localToday.setUTCHours(0, 0, 0, 0);
@@ -229,7 +237,11 @@ export class AuthController {
     const inicioSemana = new Date(localWeek.getTime() - tzOffset * 60 * 1000);
 
     // Start of month in local timezone context (1st of month)
-    const localMonth = new Date(localToday.getFullYear(), localToday.getMonth(), 1);
+    const localMonth = new Date(
+      localToday.getFullYear(),
+      localToday.getMonth(),
+      1,
+    );
     const inicioMes = new Date(localMonth.getTime() - tzOffset * 60 * 1000);
 
     const ventasHoy = await this.prisma.venta.aggregate({
@@ -277,7 +289,9 @@ export class AuthController {
     const freezers = await this.prisma.freezer.findMany({
       where: queryFilter,
     });
-    const freezersFueraRango = freezers.filter((f) => f.estado === 'ALERTA' || f.estado === 'DESCONECTADO').length;
+    const freezersFueraRango = freezers.filter(
+      (f) => f.estado === 'ALERTA' || f.estado === 'DESCONECTADO',
+    ).length;
 
     const alertasActivas = await this.prisma.alerta.count({
       where: {
@@ -376,7 +390,10 @@ export class AuthController {
         lote: l.numeroLote,
         fechaVencimiento: l.fechaVencimiento,
         cantidad: l.cantidadActual,
-        diasRestantes: Math.ceil((l.fechaVencimiento.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+        diasRestantes: Math.ceil(
+          (l.fechaVencimiento.getTime() - new Date().getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
       })),
     };
   }
@@ -392,7 +409,9 @@ export class AuthController {
       orderBy: { nombre: 'asc' },
     });
 
-    const { offsetMinutes: tzOffset } = await getTimezoneOffsetMinutes(this.prisma);
+    const { offsetMinutes: tzOffset } = await getTimezoneOffsetMinutes(
+      this.prisma,
+    );
     const localToday = new Date(new Date().getTime() + tzOffset * 60 * 1000);
     localToday.setUTCHours(0, 0, 0, 0);
     const hoy = new Date(localToday.getTime() - tzOffset * 60 * 1000);
@@ -428,7 +447,9 @@ export class AuthController {
       const freezers = await this.prisma.freezer.findMany({
         where: { sucursalId: suc.id },
       });
-      const freezersFueraRango = freezers.filter((f) => f.estado === 'ALERTA' || f.estado === 'DESCONECTADO').length;
+      const freezersFueraRango = freezers.filter(
+        (f) => f.estado === 'ALERTA' || f.estado === 'DESCONECTADO',
+      ).length;
 
       // 4. Alertas activas de la sucursal
       const alertasActivas = await this.prisma.alerta.count({
@@ -490,24 +511,60 @@ export class AuthController {
     // Fallback permissions based on standard roles
     if (rolNombre === 'ADMINISTRADOR' || rolNombre === 'SUPERVISOR') {
       return [
-        'VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_VENTAS', 'VER_FRIO',
-        'VER_TRAZABILIDAD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO',
-        'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_CALIDAD', 'GESTIONAR_CALIDAD',
-        'VER_COMPRAS', 'GESTIONAR_COMPRAS', 'VER_FINANZAS', 'GESTIONAR_FINANZAS',
-        'VER_AUDITORIA', 'VER_CHAT', 'USAR_ASISTENTE', 'VER_UTILIDADES', 'GESTIONAR_ROLES',
-        'VER_SUCURSALES', 'GESTIONAR_SUCURSALES', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
-        'VER_LOTES', 'GESTIONAR_LOTES'
+        'VER_DASHBOARD',
+        'VER_POS',
+        'REALIZAR_VENTAS',
+        'VER_VENTAS',
+        'VER_FRIO',
+        'VER_TRAZABILIDAD',
+        'VER_INVENTARIO',
+        'GESTIONAR_INVENTARIO',
+        'VER_PRODUCCION',
+        'GESTIONAR_PRODUCCION',
+        'VER_CALIDAD',
+        'GESTIONAR_CALIDAD',
+        'VER_COMPRAS',
+        'GESTIONAR_COMPRAS',
+        'VER_FINANZAS',
+        'GESTIONAR_FINANZAS',
+        'VER_AUDITORIA',
+        'VER_CHAT',
+        'USAR_ASISTENTE',
+        'VER_UTILIDADES',
+        'GESTIONAR_ROLES',
+        'VER_SUCURSALES',
+        'GESTIONAR_SUCURSALES',
+        'VER_PRODUCTOS',
+        'GESTIONAR_PRODUCTOS',
+        'VER_LOTES',
+        'GESTIONAR_LOTES',
       ];
     } else if (rolNombre === 'ALMACEN') {
       return [
-        'VER_DASHBOARD', 'VER_INVENTARIO', 'GESTIONAR_INVENTARIO', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
-        'VER_LOTES', 'GESTIONAR_LOTES', 'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_COMPRAS',
-        'GESTIONAR_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES'
+        'VER_DASHBOARD',
+        'VER_INVENTARIO',
+        'GESTIONAR_INVENTARIO',
+        'VER_PRODUCTOS',
+        'GESTIONAR_PRODUCTOS',
+        'VER_LOTES',
+        'GESTIONAR_LOTES',
+        'VER_PRODUCCION',
+        'GESTIONAR_PRODUCCION',
+        'VER_COMPRAS',
+        'GESTIONAR_COMPRAS',
+        'VER_CHAT',
+        'VER_UTILIDADES',
       ];
     } else if (rolNombre === 'CAJERO') {
       return ['VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
     } else if (rolNombre === 'CONTROL_CALIDAD') {
-      return ['VER_DASHBOARD', 'VER_CALIDAD', 'GESTIONAR_CALIDAD', 'VER_LOTES', 'VER_CHAT'];
+      return [
+        'VER_DASHBOARD',
+        'VER_CALIDAD',
+        'GESTIONAR_CALIDAD',
+        'VER_LOTES',
+        'VER_CHAT',
+      ];
     }
     return [];
   }

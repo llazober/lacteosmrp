@@ -58,7 +58,11 @@ export class SucursalesController {
 
   @Roles('ADMINISTRADOR')
   @Put('sucursales/:id')
-  async actualizarSucursal(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarSucursal(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { nombre, direccion, telefono, correo, estado } = body;
 
     const sucursal = await this.prisma.sucursal.update({
@@ -88,19 +92,31 @@ export class SucursalesController {
       throw new BadRequestException('La sucursal no existe.');
     }
 
-    const userCount = await this.prisma.usuario.count({ where: { sucursalId: id } });
+    const userCount = await this.prisma.usuario.count({
+      where: { sucursalId: id },
+    });
     if (userCount > 0) {
-      throw new BadRequestException('No se puede eliminar la sucursal porque tiene usuarios asociados.');
+      throw new BadRequestException(
+        'No se puede eliminar la sucursal porque tiene usuarios asociados.',
+      );
     }
 
-    const invCount = await this.prisma.inventario.count({ where: { sucursalId: id } });
+    const invCount = await this.prisma.inventario.count({
+      where: { sucursalId: id },
+    });
     if (invCount > 0) {
-      throw new BadRequestException('No se puede eliminar la sucursal porque tiene productos en stock.');
+      throw new BadRequestException(
+        'No se puede eliminar la sucursal porque tiene productos en stock.',
+      );
     }
 
-    const freezerCount = await this.prisma.freezer.count({ where: { sucursalId: id } });
+    const freezerCount = await this.prisma.freezer.count({
+      where: { sucursalId: id },
+    });
     if (freezerCount > 0) {
-      throw new BadRequestException('No se puede eliminar la sucursal porque tiene equipos de frío asociados.');
+      throw new BadRequestException(
+        'No se puede eliminar la sucursal porque tiene equipos de frío asociados.',
+      );
     }
 
     await this.prisma.sucursal.delete({ where: { id } });
@@ -134,12 +150,16 @@ export class SucursalesController {
   async crearUsuario(@Request() req: any, @Body() body: any) {
     const { email, password, nombre, rol, sucursalId } = body;
     if (!email || !password || !nombre || !rol) {
-      throw new BadRequestException('Correo, contraseña, nombre y rol son obligatorios.');
+      throw new BadRequestException(
+        'Correo, contraseña, nombre y rol son obligatorios.',
+      );
     }
 
     const exist = await this.prisma.usuario.findUnique({ where: { email } });
     if (exist) {
-      throw new BadRequestException('Ya existe un usuario con este correo electrónico.');
+      throw new BadRequestException(
+        'Ya existe un usuario con este correo electrónico.',
+      );
     }
 
     const salt = bcrypt.genSaltSync(10);
@@ -162,19 +182,37 @@ export class SucursalesController {
         usuarioNombre: req.user.nombre,
         accion: 'CREAR_USUARIO',
         modulo: 'AUTH',
-        detalles: JSON.stringify({ id: usuario.id, email: usuario.email, rol: usuario.rol }),
+        detalles: JSON.stringify({
+          id: usuario.id,
+          email: usuario.email,
+          rol: usuario.rol,
+        }),
       },
     });
 
-    return { id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol };
+    return {
+      id: usuario.id,
+      email: usuario.email,
+      nombre: usuario.nombre,
+      rol: usuario.rol,
+    };
   }
 
   @Roles('ADMINISTRADOR')
   @Put('usuarios/:id')
-  async actualizarUsuario(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarUsuario(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { nombre, rol, sucursalId, estado, password } = body;
 
-    const dataUpdate: any = { nombre, rol, sucursalId: sucursalId || null, estado };
+    const dataUpdate: any = {
+      nombre,
+      rol,
+      sucursalId: sucursalId || null,
+      estado,
+    };
 
     if (password && password.trim() !== '') {
       const salt = bcrypt.genSaltSync(10);
@@ -193,10 +231,21 @@ export class SucursalesController {
         usuarioNombre: req.user.nombre,
         accion: 'ACTUALIZAR_USUARIO',
         modulo: 'AUTH',
-        detalles: JSON.stringify({ id: usuario.id, email: usuario.email, rol: usuario.rol, estado: usuario.estado }),
+        detalles: JSON.stringify({
+          id: usuario.id,
+          email: usuario.email,
+          rol: usuario.rol,
+          estado: usuario.estado,
+        }),
       },
     });
 
-    return { id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol, estado: usuario.estado };
+    return {
+      id: usuario.id,
+      email: usuario.email,
+      nombre: usuario.nombre,
+      rol: usuario.rol,
+      estado: usuario.estado,
+    };
   }
 }

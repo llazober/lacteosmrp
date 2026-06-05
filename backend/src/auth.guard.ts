@@ -30,7 +30,9 @@ export class AuthGuard implements CanActivate {
     const authHeader = request.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Token de autenticación faltante o inválido.');
+      throw new UnauthorizedException(
+        'Token de autenticación faltante o inválido.',
+      );
     }
 
     const token = authHeader.split(' ')[1];
@@ -41,30 +43,43 @@ export class AuthGuard implements CanActivate {
       request.user = payload;
 
       // Verificar Roles si se requiere
-      const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
-        context.getHandler(),
-        context.getClass(),
-      ]);
+      const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+        'roles',
+        [context.getHandler(), context.getClass()],
+      );
 
       const className = context.getClass().name;
       const method = request.method;
       const isRead = method === 'GET';
 
       let requiredPermission = '';
-      if (className === 'ProductosController') requiredPermission = isRead ? 'VER_PRODUCTOS' : 'GESTIONAR_PRODUCTOS';
-      else if (className === 'SucursalesController') requiredPermission = isRead ? 'VER_SUCURSALES' : 'GESTIONAR_SUCURSALES';
-      else if (className === 'ProduccionController') requiredPermission = isRead ? 'VER_PRODUCCION' : 'GESTIONAR_PRODUCCION';
-      else if (className === 'PosController') requiredPermission = isRead ? 'VER_POS' : 'REALIZAR_VENTAS';
-      else if (className === 'LotesController') requiredPermission = isRead ? 'VER_LOTES' : 'GESTIONAR_LOTES';
-      else if (className === 'InventarioController') requiredPermission = isRead ? 'VER_INVENTARIO' : 'GESTIONAR_INVENTARIO';
-      else if (className === 'FreezersController') requiredPermission = isRead ? 'VER_FRIO' : 'GESTIONAR_FRIO';
-      else if (className === 'FinanzasController') requiredPermission = isRead ? 'VER_FINANZAS' : 'GESTIONAR_FINANZAS';
-      else if (className === 'ComprasController') requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
-      else if (className === 'CalidadController') requiredPermission = isRead ? 'VER_CALIDAD' : 'GESTIONAR_CALIDAD';
-      else if (className === 'AuditoriaController') requiredPermission = 'VER_AUDITORIA';
+      if (className === 'ProductosController')
+        requiredPermission = isRead ? 'VER_PRODUCTOS' : 'GESTIONAR_PRODUCTOS';
+      else if (className === 'SucursalesController')
+        requiredPermission = isRead ? 'VER_SUCURSALES' : 'GESTIONAR_SUCURSALES';
+      else if (className === 'ProduccionController')
+        requiredPermission = isRead ? 'VER_PRODUCCION' : 'GESTIONAR_PRODUCCION';
+      else if (className === 'PosController')
+        requiredPermission = isRead ? 'VER_POS' : 'REALIZAR_VENTAS';
+      else if (className === 'LotesController')
+        requiredPermission = isRead ? 'VER_LOTES' : 'GESTIONAR_LOTES';
+      else if (className === 'InventarioController')
+        requiredPermission = isRead ? 'VER_INVENTARIO' : 'GESTIONAR_INVENTARIO';
+      else if (className === 'FreezersController')
+        requiredPermission = isRead ? 'VER_FRIO' : 'GESTIONAR_FRIO';
+      else if (className === 'FinanzasController')
+        requiredPermission = isRead ? 'VER_FINANZAS' : 'GESTIONAR_FINANZAS';
+      else if (className === 'ComprasController')
+        requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
+      else if (className === 'CalidadController')
+        requiredPermission = isRead ? 'VER_CALIDAD' : 'GESTIONAR_CALIDAD';
+      else if (className === 'AuditoriaController')
+        requiredPermission = 'VER_AUDITORIA';
       else if (className === 'ChatController') requiredPermission = 'VER_CHAT';
-      else if (className === 'AiController') requiredPermission = 'USAR_ASISTENTE';
-      else if (className === 'RolesController') requiredPermission = 'GESTIONAR_ROLES';
+      else if (className === 'AiController')
+        requiredPermission = 'USAR_ASISTENTE';
+      else if (className === 'RolesController')
+        requiredPermission = 'GESTIONAR_ROLES';
 
       let hasPermission = false;
 
@@ -89,16 +104,30 @@ export class AuthGuard implements CanActivate {
           // Fallback permissions check for standard roles
           if (payload.rol === 'ALMACEN') {
             const almacenPerms = [
-              'VER_INVENTARIO', 'GESTIONAR_INVENTARIO', 'VER_PRODUCTOS', 'GESTIONAR_PRODUCTOS',
-              'VER_LOTES', 'GESTIONAR_LOTES', 'VER_PRODUCCION', 'GESTIONAR_PRODUCCION', 'VER_COMPRAS',
-              'GESTIONAR_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES'
+              'VER_INVENTARIO',
+              'GESTIONAR_INVENTARIO',
+              'VER_PRODUCTOS',
+              'GESTIONAR_PRODUCTOS',
+              'VER_LOTES',
+              'GESTIONAR_LOTES',
+              'VER_PRODUCCION',
+              'GESTIONAR_PRODUCCION',
+              'VER_COMPRAS',
+              'GESTIONAR_COMPRAS',
+              'VER_CHAT',
+              'VER_UTILIDADES',
             ];
             hasPermission = almacenPerms.includes(requiredPermission);
           } else if (payload.rol === 'CAJERO') {
             const cajeroPerms = ['VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
             hasPermission = cajeroPerms.includes(requiredPermission);
           } else if (payload.rol === 'CONTROL_CALIDAD') {
-            const calidadPerms = ['VER_CALIDAD', 'GESTIONAR_CALIDAD', 'VER_LOTES', 'VER_CHAT'];
+            const calidadPerms = [
+              'VER_CALIDAD',
+              'GESTIONAR_CALIDAD',
+              'VER_LOTES',
+              'VER_CHAT',
+            ];
             hasPermission = calidadPerms.includes(requiredPermission);
           }
         }
@@ -107,7 +136,10 @@ export class AuthGuard implements CanActivate {
         hasPermission = true;
       }
 
-      const hasRole = requiredRoles && requiredRoles.length > 0 ? requiredRoles.includes(payload.rol) : true;
+      const hasRole =
+        requiredRoles && requiredRoles.length > 0
+          ? requiredRoles.includes(payload.rol)
+          : true;
 
       if (!hasPermission && !hasRole) {
         throw new ForbiddenException(

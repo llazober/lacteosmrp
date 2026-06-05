@@ -678,7 +678,19 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
   @Post('transferencias/recepcion-grupal')
   async recepcionGrupal(@Request() req: any, @Body() body: any) {
-    const { transferenciaIds, recibidoPorNombre, firmaBase64 } = body;
+    const { transferenciaIds, recibidoPorNombre, firmaBase64, pin } = body;
+
+    if (!pin) {
+      throw new BadRequestException('El PIN de autorización es requerido.');
+    }
+
+    const dbUser = await this.prisma.usuario.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!dbUser || dbUser.pin !== pin) {
+      throw new BadRequestException('El PIN de autorización ingresado es incorrecto.');
+    }
 
     if (
       !transferenciaIds ||

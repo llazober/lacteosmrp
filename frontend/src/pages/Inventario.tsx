@@ -104,6 +104,7 @@ export default function Inventario() {
   const [recepcionDestinoNombre, setRecepcionDestinoNombre] = useState('');
   const [recepcionTransIds, setRecepcionTransIds] = useState<string[]>([]);
   const [recepcionNombre, setRecepcionNombre] = useState('');
+  const [recepcionPin, setRecepcionPin] = useState('');
 
   // CRUD Inventario Modales
   const [openAsociar, setOpenAsociar] = useState(false);
@@ -724,6 +725,7 @@ export default function Inventario() {
     setRecepcionDestinoNombre(destinoNombre);
     setRecepcionTransIds(pendingForDest.map((t) => t.id));
     setRecepcionNombre(usuario?.nombre || '');
+    setRecepcionPin('');
     setOpenRecepcionGrupal(true);
   };
 
@@ -736,6 +738,9 @@ export default function Inventario() {
       if (!recepcionNombre.trim()) {
         throw new Error('El nombre de quien recibe es obligatorio.');
       }
+      if (!recepcionPin || recepcionPin.length !== 4) {
+        throw new Error('Debe ingresar su PIN de autorización de 4 dígitos.');
+      }
 
       const canvas = canvasRef.current;
       let firmaBase64 = '';
@@ -747,6 +752,7 @@ export default function Inventario() {
         transferenciaIds: recepcionTransIds,
         recibidoPorNombre: recepcionNombre,
         firmaBase64,
+        pin: recepcionPin,
       };
 
       await apiFetch('/inventario/transferencias/recepcion-grupal', {
@@ -2139,6 +2145,27 @@ export default function Inventario() {
                 required
               />
 
+              <TextField
+                fullWidth
+                size="small"
+                type="password"
+                label="PIN de Autorización (4 dígitos)"
+                value={recepcionPin}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  if (val.length <= 4) setRecepcionPin(val);
+                }}
+                required
+                sx={{
+                  '& input': {
+                    textAlign: 'center',
+                    letterSpacing: '0.4em',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold'
+                  }
+                }}
+              />
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
@@ -2182,7 +2209,7 @@ export default function Inventario() {
             variant="contained"
             color="success"
             onClick={handleRecepcionGrupalSubmit}
-            disabled={recepcionTransIds.length === 0 || !recepcionNombre.trim()}
+            disabled={recepcionTransIds.length === 0 || !recepcionNombre.trim() || recepcionPin.length !== 4}
           >
             Confirmar y Recibir ({recepcionTransIds.length})
           </Button>

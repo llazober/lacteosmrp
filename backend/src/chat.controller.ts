@@ -22,14 +22,22 @@ export class ChatController {
     const user = req.user;
 
     if (!canalId) {
-      throw new BadRequestException('El identificador del canal (canalId) es requerido.');
+      throw new BadRequestException(
+        'El identificador del canal (canalId) es requerido.',
+      );
     }
 
     // Restricciones de acceso:
     // Los cajeros o encargados de almacén solo pueden ver '#general' o el canal de su propia sucursal.
-    if (canalId !== 'general' && user.rol !== 'ADMINISTRADOR' && user.rol !== 'SUPERVISOR') {
+    if (
+      canalId !== 'general' &&
+      user.rol !== 'ADMINISTRADOR' &&
+      user.rol !== 'SUPERVISOR'
+    ) {
       if (user.sucursalId !== canalId) {
-        throw new BadRequestException('No tiene permisos para acceder a este canal de chat.');
+        throw new BadRequestException(
+          'No tiene permisos para acceder a este canal de chat.',
+        );
       }
     }
 
@@ -69,17 +77,27 @@ export class ChatController {
     const { contenido, canalId } = body; // canalId es 'general' o sucursalId
 
     if (!canalId) {
-      throw new BadRequestException('El identificador del canal (canalId) es requerido.');
+      throw new BadRequestException(
+        'El identificador del canal (canalId) es requerido.',
+      );
     }
 
     if (!contenido || contenido.trim() === '') {
-      throw new BadRequestException('El contenido del mensaje no puede estar vacío.');
+      throw new BadRequestException(
+        'El contenido del mensaje no puede estar vacío.',
+      );
     }
 
     // Restricción de escritura:
-    if (canalId !== 'general' && user.rol !== 'ADMINISTRADOR' && user.rol !== 'SUPERVISOR') {
+    if (
+      canalId !== 'general' &&
+      user.rol !== 'ADMINISTRADOR' &&
+      user.rol !== 'SUPERVISOR'
+    ) {
       if (user.sucursalId !== canalId) {
-        throw new BadRequestException('No tiene permisos para enviar mensajes en este canal.');
+        throw new BadRequestException(
+          'No tiene permisos para enviar mensajes en este canal.',
+        );
       }
     }
 

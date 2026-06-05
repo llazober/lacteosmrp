@@ -15,7 +15,12 @@ import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
 
 // Función auxiliar para calcular distancia de Haversine
-function calcularDistanciaKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function calcularDistanciaKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371; // Radio de la Tierra en km
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -37,15 +42,21 @@ export class LogisticaController implements OnModuleInit {
 
   onModuleInit() {
     // Ejecutar reabastecimiento en segundo plano cada 5 minutos
-    setInterval(() => {
-      this.ejecutarReabastecimientoAutomaticoBackground().catch(err => {
-        console.error('Error en reabastecimiento automático en segundo plano:', err);
-      });
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        this.ejecutarReabastecimientoAutomaticoBackground().catch((err) => {
+          console.error(
+            'Error en reabastecimiento automático en segundo plano:',
+            err,
+          );
+        });
+      },
+      5 * 60 * 1000,
+    );
 
     // Y correr una ejecución inicial a los 10 segundos
     setTimeout(() => {
-      this.ejecutarReabastecimientoAutomaticoBackground().catch(err => {
+      this.ejecutarReabastecimientoAutomaticoBackground().catch((err) => {
         console.error('Error inicial de reabastecimiento automático:', err);
       });
     }, 10000);
@@ -53,11 +64,15 @@ export class LogisticaController implements OnModuleInit {
 
   async ejecutarReabastecimientoAutomaticoBackground() {
     if (!LogisticaController.autoReplenishEnabled) {
-      console.log('[LOGISTICA] Reabastecimiento automático en segundo plano desactivado.');
+      console.log(
+        '[LOGISTICA] Reabastecimiento automático en segundo plano desactivado.',
+      );
       return;
     }
 
-    console.log('[LOGISTICA] Iniciando cálculo automático de reabastecimiento en segundo plano...');
+    console.log(
+      '[LOGISTICA] Iniciando cálculo automático de reabastecimiento en segundo plano...',
+    );
     try {
       // Buscar al usuario administrador por defecto para registrar los movimientos/órdenes
       const adminUser = await this.prisma.usuario.findFirst({
@@ -65,14 +80,18 @@ export class LogisticaController implements OnModuleInit {
       });
 
       if (!adminUser) {
-        console.warn('[LOGISTICA] No se encontró ningún usuario ADMINISTRADOR. Cancelando reabastecimiento automático.');
+        console.warn(
+          '[LOGISTICA] No se encontró ningún usuario ADMINISTRADOR. Cancelando reabastecimiento automático.',
+        );
         return;
       }
 
       // Calcular propuestas
       const propuestas = await this.calcularReabastecimiento();
       if (propuestas.length === 0) {
-        console.log('[LOGISTICA] Todo abastecido. No se requiere reabastecimiento automático.');
+        console.log(
+          '[LOGISTICA] Todo abastecido. No se requiere reabastecimiento automático.',
+        );
         return;
       }
 
@@ -84,10 +103,18 @@ export class LogisticaController implements OnModuleInit {
         },
       };
 
-      const resultados = await this.procesarReabastecimiento(mockReq, { propuestas });
-      console.log('[LOGISTICA] Reabastecimiento automático ejecutado. Resultados:', resultados.length);
+      const resultados = await this.procesarReabastecimiento(mockReq, {
+        propuestas,
+      });
+      console.log(
+        '[LOGISTICA] Reabastecimiento automático ejecutado. Resultados:',
+        resultados.length,
+      );
     } catch (error) {
-      console.error('[LOGISTICA] Error al ejecutar reabastecimiento automático:', error);
+      console.error(
+        '[LOGISTICA] Error al ejecutar reabastecimiento automático:',
+        error,
+      );
     }
   }
 
@@ -120,9 +147,17 @@ export class LogisticaController implements OnModuleInit {
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Post('camiones')
   async crearCamion(@Request() req: any, @Body() body: any) {
-    const { placa, capacidadPeso, capacidadVolumen, temperaturaMin, temperaturaMax } = body;
+    const {
+      placa,
+      capacidadPeso,
+      capacidadVolumen,
+      temperaturaMin,
+      temperaturaMax,
+    } = body;
     if (!placa || capacidadPeso == null || capacidadVolumen == null) {
-      throw new BadRequestException('Placa, capacidad de peso y capacidad de volumen son requeridos.');
+      throw new BadRequestException(
+        'Placa, capacidad de peso y capacidad de volumen son requeridos.',
+      );
     }
 
     const exist = await this.prisma.camion.findUnique({ where: { placa } });
@@ -158,8 +193,21 @@ export class LogisticaController implements OnModuleInit {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Put('camiones/:id')
-  async actualizarCamion(@Param('id') id: string, @Request() req: any, @Body() body: any) {
-    const { placa, capacidadPeso, capacidadVolumen, temperaturaMin, temperaturaMax, estado, gpsLat, gpsLng } = body;
+  async actualizarCamion(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    const {
+      placa,
+      capacidadPeso,
+      capacidadVolumen,
+      temperaturaMin,
+      temperaturaMax,
+      estado,
+      gpsLat,
+      gpsLng,
+    } = body;
 
     const exist = await this.prisma.camion.findUnique({ where: { id } });
     if (!exist) {
@@ -168,10 +216,14 @@ export class LogisticaController implements OnModuleInit {
 
     const dataUpdate: any = {};
     if (placa !== undefined) dataUpdate.placa = placa;
-    if (capacidadPeso !== undefined) dataUpdate.capacidadPeso = parseFloat(capacidadPeso);
-    if (capacidadVolumen !== undefined) dataUpdate.capacidadVolumen = parseFloat(capacidadVolumen);
-    if (temperaturaMin !== undefined) dataUpdate.temperaturaMin = parseFloat(temperaturaMin);
-    if (temperaturaMax !== undefined) dataUpdate.temperaturaMax = parseFloat(temperaturaMax);
+    if (capacidadPeso !== undefined)
+      dataUpdate.capacidadPeso = parseFloat(capacidadPeso);
+    if (capacidadVolumen !== undefined)
+      dataUpdate.capacidadVolumen = parseFloat(capacidadVolumen);
+    if (temperaturaMin !== undefined)
+      dataUpdate.temperaturaMin = parseFloat(temperaturaMin);
+    if (temperaturaMax !== undefined)
+      dataUpdate.temperaturaMax = parseFloat(temperaturaMax);
     if (estado !== undefined) dataUpdate.estado = estado;
     if (gpsLat !== undefined) dataUpdate.gpsLat = parseFloat(gpsLat);
     if (gpsLng !== undefined) dataUpdate.gpsLng = parseFloat(gpsLng);
@@ -203,9 +255,13 @@ export class LogisticaController implements OnModuleInit {
     }
 
     // Verificar si tiene rutas asociadas
-    const rutasCount = await this.prisma.ruta.count({ where: { camionId: id } });
+    const rutasCount = await this.prisma.ruta.count({
+      where: { camionId: id },
+    });
     if (rutasCount > 0) {
-      throw new BadRequestException('No se puede eliminar el camión porque tiene rutas asociadas.');
+      throw new BadRequestException(
+        'No se puede eliminar el camión porque tiene rutas asociadas.',
+      );
     }
 
     await this.prisma.camion.delete({ where: { id } });
@@ -238,7 +294,9 @@ export class LogisticaController implements OnModuleInit {
   async crearConductor(@Request() req: any, @Body() body: any) {
     const { nombre, licencia, telefono } = body;
     if (!nombre || !licencia || !telefono) {
-      throw new BadRequestException('Nombre, licencia y teléfono son obligatorios.');
+      throw new BadRequestException(
+        'Nombre, licencia y teléfono son obligatorios.',
+      );
     }
 
     const conductor = await this.prisma.conductor.create({
@@ -260,7 +318,11 @@ export class LogisticaController implements OnModuleInit {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Put('conductores/:id')
-  async actualizarConductor(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarConductor(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { nombre, licencia, telefono, estado } = body;
 
     const exist = await this.prisma.conductor.findUnique({ where: { id } });
@@ -301,9 +363,13 @@ export class LogisticaController implements OnModuleInit {
     }
 
     // Verificar si tiene rutas asociadas
-    const rutasCount = await this.prisma.ruta.count({ where: { conductorId: id } });
+    const rutasCount = await this.prisma.ruta.count({
+      where: { conductorId: id },
+    });
     if (rutasCount > 0) {
-      throw new BadRequestException('No se puede eliminar el conductor porque tiene rutas asociadas.');
+      throw new BadRequestException(
+        'No se puede eliminar el conductor porque tiene rutas asociadas.',
+      );
     }
 
     await this.prisma.conductor.delete({ where: { id } });
@@ -371,20 +437,29 @@ export class LogisticaController implements OnModuleInit {
       select: { cantidad: true },
     });
 
-    const totalVendido30 = ventasDetalle30.reduce((sum, item) => sum + item.cantidad, 0);
-    const totalVendido90 = ventasDetalle90.reduce((sum, item) => sum + item.cantidad, 0);
+    const totalVendido30 = ventasDetalle30.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
+    const totalVendido90 = ventasDetalle90.reduce(
+      (sum, item) => sum + item.cantidad,
+      0,
+    );
 
     const promedioDiario30 = totalVendido30 / 30;
     const promedioDiario90 = totalVendido90 / 90;
 
     // Calcular demanda base ponderada (60% últimos 30 días, 40% últimos 90 días)
-    let demandaBase = (promedioDiario30 * 0.6) + (promedioDiario90 * 0.4);
+    let demandaBase = promedioDiario30 * 0.6 + promedioDiario90 * 0.4;
 
     // Si no hay ventas registradas, usamos una demanda base simbólica según la categoría
     if (demandaBase === 0) {
-      const prod = await this.prisma.producto.findUnique({ where: { id: productoId } });
+      const prod = await this.prisma.producto.findUnique({
+        where: { id: productoId },
+      });
       if (prod) {
-        if (prod.categoria === 'LECHE' || prod.categoria === 'YOGURT') demandaBase = 8.0;
+        if (prod.categoria === 'LECHE' || prod.categoria === 'YOGURT')
+          demandaBase = 8.0;
         else if (prod.categoria === 'QUESOS') demandaBase = 3.5;
         else demandaBase = 2.0;
       } else {
@@ -395,40 +470,61 @@ export class LogisticaController implements OnModuleInit {
     // --- FACTORES ---
     // 1. Día de la semana (Fines de semana incrementan demanda)
     let factorDiaSemana = 1.0;
-    if (dayOfWeek === 0 || dayOfWeek === 6) { // Sábado o Domingo
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      // Sábado o Domingo
       factorDiaSemana = 1.25;
-    } else if (dayOfWeek === 1) { // Lunes más flojo
+    } else if (dayOfWeek === 1) {
+      // Lunes más flojo
       factorDiaSemana = 0.85;
     }
 
     // 2. Estacionalidad (Meses de verano Dec-Feb vs invierno Jun-Aug)
     let factorEstacionalidad = 1.0;
-    const producto = await this.prisma.producto.findUnique({ where: { id: productoId } });
+    const producto = await this.prisma.producto.findUnique({
+      where: { id: productoId },
+    });
     if (producto) {
-      if (producto.categoria === 'HELADOS' || producto.categoria === 'POSTRES' || producto.categoria === 'YOGURT') {
-        if (month === 11 || month === 0 || month === 1) { // Verano hemisferio sur (Dic, Ene, Feb)
+      if (
+        producto.categoria === 'HELADOS' ||
+        producto.categoria === 'POSTRES' ||
+        producto.categoria === 'YOGURT'
+      ) {
+        if (month === 11 || month === 0 || month === 1) {
+          // Verano hemisferio sur (Dic, Ene, Feb)
           factorEstacionalidad = 1.35;
-        } else if (month === 5 || month === 6 || month === 7) { // Invierno (Jun, Jul, Ago)
+        } else if (month === 5 || month === 6 || month === 7) {
+          // Invierno (Jun, Jul, Ago)
           factorEstacionalidad = 0.75;
         }
-      } else if (producto.categoria === 'LECHE' || producto.categoria === 'MANTEQUILLA') {
-        if (month === 5 || month === 6 || month === 7) { // En invierno se consume más leche y mantequilla caliente
+      } else if (
+        producto.categoria === 'LECHE' ||
+        producto.categoria === 'MANTEQUILLA'
+      ) {
+        if (month === 5 || month === 6 || month === 7) {
+          // En invierno se consume más leche y mantequilla caliente
           factorEstacionalidad = 1.15;
         }
       }
     }
 
     // 3. Promociones
-    const factorPromocion = promocion === 'true' || promocion === '1' ? 1.30 : 1.0;
+    const factorPromocion =
+      promocion === 'true' || promocion === '1' ? 1.3 : 1.0;
 
     // 4. Festivos
-    const factorFestivo = festivo === 'true' || festivo === '1' ? 1.20 : 1.0;
+    const factorFestivo = festivo === 'true' || festivo === '1' ? 1.2 : 1.0;
 
     // 5. Eventos Especiales
     const factorEvento = evento === 'true' || evento === '1' ? 1.15 : 1.0;
 
     // --- CÁLCULO FINAL ---
-    const demandaEsperada = demandaBase * factorDiaSemana * factorEstacionalidad * factorPromocion * factorFestivo * factorEvento;
+    const demandaEsperada =
+      demandaBase *
+      factorDiaSemana *
+      factorEstacionalidad *
+      factorPromocion *
+      factorFestivo *
+      factorEvento;
     const demandaMinima = Math.max(0.5, demandaEsperada * 0.7);
     const demandaMaxima = demandaEsperada * 1.4;
 
@@ -464,7 +560,9 @@ export class LogisticaController implements OnModuleInit {
   // 4. CÁLCULO AUTOMÁTICO DE REABASTECIMIENTO Y REDISTRIBUCIÓN FEFO
   // ==========================================
   @Get('reabastecimiento/calcular')
-  async calcularReabastecimiento(@Query('useSafetyStockMin') useSafetyStockMin?: string) {
+  async calcularReabastecimiento(
+    @Query('useSafetyStockMin') useSafetyStockMin?: string,
+  ) {
     const useSafety = useSafetyStockMin === 'true';
 
     // Obtener todas las sucursales (excluyendo Planta de Producción Principal que actúa como el CD)
@@ -476,7 +574,10 @@ export class LogisticaController implements OnModuleInit {
 
     // Obtener productos de tipo PRODUCTO_TERMINADO
     const productos = await this.prisma.producto.findMany({
-      where: { estado: 'ACTIVO', tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] } },
+      where: {
+        estado: 'ACTIVO',
+        tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] },
+      },
     });
 
     const propuestas: any[] = [];
@@ -489,21 +590,27 @@ export class LogisticaController implements OnModuleInit {
       for (const prod of productos) {
         // 1. Obtener Inventario Actual y en Tránsito
         const inv = await this.prisma.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id } },
+          where: {
+            productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id },
+          },
         });
         const stockActual = inv ? inv.existencia : 0;
 
-        const transferenciasPendientes = await this.prisma.transferenciaDetalle.findMany({
-          where: {
-            productoId: prod.id,
-            transferencia: {
-              destinoId: suc.id,
-              estado: { in: ['PENDIENTE', 'EN_TRANSITO'] },
+        const transferenciasPendientes =
+          await this.prisma.transferenciaDetalle.findMany({
+            where: {
+              productoId: prod.id,
+              transferencia: {
+                destinoId: suc.id,
+                estado: { in: ['PENDIENTE', 'EN_TRANSITO'] },
+              },
             },
-          },
-          select: { cantidad: true },
-        });
-        const stockEnTransito = transferenciasPendientes.reduce((sum, item) => sum + item.cantidad, 0);
+            select: { cantidad: true },
+          });
+        const stockEnTransito = transferenciasPendientes.reduce(
+          (sum, item) => sum + item.cantidad,
+          0,
+        );
         const stockDisponible = stockActual + stockEnTransito;
 
         // 2. Calcular Promedio Ventas Diarias (últimos 30 días)
@@ -519,10 +626,17 @@ export class LogisticaController implements OnModuleInit {
           select: { cantidad: true },
         });
 
-        const totalVendido = ventasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
-        const promedioVentasDiarias = totalVendido > 0 ? totalVendido / 30 : 2.0; // Default 2 unidades al día si no hay ventas
+        const totalVendido = ventasDetalle.reduce(
+          (sum, item) => sum + item.cantidad,
+          0,
+        );
+        const promedioVentasDiarias =
+          totalVendido > 0 ? totalVendido / 30 : 2.0; // Default 2 unidades al día si no hay ventas
 
-        const diasInventario = promedioVentasDiarias > 0 ? stockDisponible / promedioVentasDiarias : 0;
+        const diasInventario =
+          promedioVentasDiarias > 0
+            ? stockDisponible / promedioVentasDiarias
+            : 0;
 
         // 3. Determinar Stock Objetivo según Configuración por Categoría
         let diasObjetivo = 5; // Default leche
@@ -544,14 +658,20 @@ export class LogisticaController implements OnModuleInit {
           // 5. Redistribución Inteligente (Buscar excesos o vencimientos en otras sucursales)
           let tipoOrigen = 'CD'; // Por defecto, se despacha del Centro de Distribución
           let origenSugeridoId = plantaPrincipal ? plantaPrincipal.id : null;
-          let origenSugeridoNombre = plantaPrincipal ? plantaPrincipal.nombre : 'Centro de Distribución';
+          let origenSugeridoNombre = plantaPrincipal
+            ? plantaPrincipal.nombre
+            : 'Centro de Distribución';
           let detalleRazon = 'Suministrado desde el Centro de Distribución';
 
           // Buscar en otras tiendas si tienen sobrestock o lotes cercanos a vencer (FEFO preventivo)
           const otrosInventarios = await this.prisma.inventario.findMany({
             where: {
               productoId: prod.id,
-              sucursalId: { notIn: [suc.id, plantaPrincipal?.id].filter(Boolean) as string[] },
+              sucursalId: {
+                notIn: [suc.id, plantaPrincipal?.id].filter(
+                  Boolean,
+                ) as string[],
+              },
               existencia: { gt: 0 },
             },
             include: { sucursal: true },
@@ -562,12 +682,20 @@ export class LogisticaController implements OnModuleInit {
             const otroVentasDetalle = await this.prisma.ventaDetalle.findMany({
               where: {
                 productoId: prod.id,
-                venta: { sucursalId: otroInv.sucursalId, fecha: { gte: hace30Dias }, estado: 'COMPLETADA' },
+                venta: {
+                  sucursalId: otroInv.sucursalId,
+                  fecha: { gte: hace30Dias },
+                  estado: 'COMPLETADA',
+                },
               },
               select: { cantidad: true },
             });
-            const otroTotalVendido = otroVentasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
-            const otroPromedioVentas = otroTotalVendido > 0 ? otroTotalVendido / 30 : 2.0;
+            const otroTotalVendido = otroVentasDetalle.reduce(
+              (sum, item) => sum + item.cantidad,
+              0,
+            );
+            const otroPromedioVentas =
+              otroTotalVendido > 0 ? otroTotalVendido / 30 : 2.0;
             const otroStockObjetivo = otroPromedioVentas * diasObjetivo;
 
             // Opción A: Exceso de stock en la otra sucursal
@@ -584,7 +712,12 @@ export class LogisticaController implements OnModuleInit {
           // Si sigue siendo CD, verificar si el CD tiene existencias
           if (tipoOrigen === 'CD' && plantaPrincipal) {
             const CDInv = await this.prisma.inventario.findUnique({
-              where: { productoId_sucursalId: { productoId: prod.id, sucursalId: plantaPrincipal.id } },
+              where: {
+                productoId_sucursalId: {
+                  productoId: prod.id,
+                  sucursalId: plantaPrincipal.id,
+                },
+              },
             });
             const CDStock = CDInv ? CDInv.existencia : 0;
             if (CDStock < cantidadSugerida) {
@@ -593,12 +726,14 @@ export class LogisticaController implements OnModuleInit {
                 tipoOrigen = 'PRODUCCION';
                 origenSugeridoId = null;
                 origenSugeridoNombre = 'Línea de Producción Interna';
-                detalleRazon = 'Stock insuficiente en CD. Requiere programar orden de producción.';
+                detalleRazon =
+                  'Stock insuficiente en CD. Requiere programar orden de producción.';
               } else {
                 tipoOrigen = 'COMPRA';
                 origenSugeridoId = null;
                 origenSugeridoNombre = 'Proveedor Externo';
-                detalleRazon = 'Stock insuficiente en CD. Requiere generar orden de compra a proveedor.';
+                detalleRazon =
+                  'Stock insuficiente en CD. Requiere generar orden de compra a proveedor.';
               }
             }
           }
@@ -669,7 +804,7 @@ export class LogisticaController implements OnModuleInit {
 
         // Crear registro de Transferencia
         const codigoTrans = `TR-AUTO-${Date.now().toString().substring(6)}-${Math.floor(Math.random() * 100)}`;
-        
+
         await this.prisma.$transaction(async (tx) => {
           const trans = await tx.transferencia.create({
             data: {
@@ -695,7 +830,9 @@ export class LogisticaController implements OnModuleInit {
           // O simplemente deducir y realizar el movimiento
           // Para mantener el estándar del ERP, actualizamos Inventario
           const invOrigen = await tx.inventario.findUnique({
-            where: { productoId_sucursalId: { productoId, sucursalId: origenId } },
+            where: {
+              productoId_sucursalId: { productoId, sucursalId: origenId },
+            },
           });
 
           if (invOrigen) {
@@ -732,11 +869,10 @@ export class LogisticaController implements OnModuleInit {
           estado: 'OK',
           mensaje: `Transferencia ${codigoTrans} creada por ${aTransferir} unidades utilizando lote ${loteSeleccionado.numeroLote}.`,
         });
-
       } else if (prop.tipoOrigen === 'PRODUCCION') {
         // Generar sugerencia de orden de producción
         const codigoOP = `OP-SUG-${Date.now().toString().substring(8)}`;
-        
+
         // Buscar receta
         const receta = await this.prisma.receta.findFirst({
           where: { productoFinalId: prop.productoId },
@@ -747,7 +883,8 @@ export class LogisticaController implements OnModuleInit {
             sku: prop.productoSku,
             destino: prop.sucursalNombre,
             estado: 'ERROR',
-            mensaje: 'No existe receta configurada para este producto. No se pudo programar producción.',
+            mensaje:
+              'No existe receta configurada para este producto. No se pudo programar producción.',
           });
           continue;
         }
@@ -770,11 +907,10 @@ export class LogisticaController implements OnModuleInit {
           estado: 'OK',
           mensaje: `Orden de Producción Sugerida ${codigoOP} creada bajo estado PLANIFICADA.`,
         });
-
       } else if (prop.tipoOrigen === 'COMPRA') {
         // Generar Solicitud de Reabastecimiento de Compra
         const codigoReq = `REQ-${Date.now().toString().substring(7)}`;
-        
+
         const solicitud = await this.prisma.solicitudReabastecimiento.create({
           data: {
             codigo: codigoReq,
@@ -807,9 +943,13 @@ export class LogisticaController implements OnModuleInit {
   @Get('rutas/sugerir')
   async sugerirRutas() {
     // 1. Obtener todas las transferencias PENDIENTES que salen del Centro de Distribución (SUC-001)
-    const cd = await this.prisma.sucursal.findFirst({ where: { codigo: 'SUC-001' } });
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
     if (!cd) {
-      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+      throw new BadRequestException(
+        'No se encontró la Planta de Producción/Centro de Distribución (SUC-001).',
+      );
     }
 
     const transferencias = await this.prisma.transferencia.findMany({
@@ -824,17 +964,24 @@ export class LogisticaController implements OnModuleInit {
 
     if (transferencias.length === 0) {
       return {
-        mensaje: 'No hay transferencias pendientes desde el Centro de Distribución para planificar rutas.',
+        mensaje:
+          'No hay transferencias pendientes desde el Centro de Distribución para planificar rutas.',
         rutasSugeridas: [],
       };
     }
 
     // 2. Obtener vehículos (camiones) disponibles y conductores activos
-    const camiones = await this.prisma.camion.findMany({ where: { estado: 'DISPONIBLE' } });
-    const conductores = await this.prisma.conductor.findMany({ where: { estado: 'ACTIVO' } });
+    const camiones = await this.prisma.camion.findMany({
+      where: { estado: 'DISPONIBLE' },
+    });
+    const conductores = await this.prisma.conductor.findMany({
+      where: { estado: 'ACTIVO' },
+    });
 
     if (camiones.length === 0 || conductores.length === 0) {
-      throw new BadRequestException('Se necesitan camiones DISPONIBLES y choferes ACTIVOS para planificar rutas.');
+      throw new BadRequestException(
+        'Se necesitan camiones DISPONIBLES y choferes ACTIVOS para planificar rutas.',
+      );
     }
 
     // Calcular peso y volumen de cada transferencia
@@ -892,7 +1039,10 @@ export class LogisticaController implements OnModuleInit {
     // Agrupamos paradas por compatibilidad de temperatura y capacidad de carga
     let transferenciasPorAsignar = [...transCargas];
 
-    while (transferenciasPorAsignar.length > 0 && camionIndex < camiones.length) {
+    while (
+      transferenciasPorAsignar.length > 0 &&
+      camionIndex < camiones.length
+    ) {
       const camion = camiones[camionIndex];
       const conductor = conductores[conductorIndex % conductores.length];
 
@@ -903,7 +1053,11 @@ export class LogisticaController implements OnModuleInit {
       // Filtrar transferencias que sean compatibles con el rango de temperatura del camión
       const compatibles = transferenciasPorAsignar.filter((t) => {
         if (t.requiereCongelado && camion.temperaturaMin > -18) return false;
-        if (t.requiereFrio && (camion.temperaturaMin > 6 || camion.temperaturaMax < 2)) return false;
+        if (
+          t.requiereFrio &&
+          (camion.temperaturaMin > 6 || camion.temperaturaMax < 2)
+        )
+          return false;
         return true;
       });
 
@@ -914,7 +1068,10 @@ export class LogisticaController implements OnModuleInit {
       }
 
       for (const t of compatibles) {
-        if (pesoActual + t.peso <= camion.capacidadPeso && volumenActual + t.volumen <= camion.capacidadVolumen) {
+        if (
+          pesoActual + t.peso <= camion.capacidadPeso &&
+          volumenActual + t.volumen <= camion.capacidadVolumen
+        ) {
           cargaAsignada.push(t);
           pesoActual += t.peso;
           volumenActual += t.volumen;
@@ -924,7 +1081,10 @@ export class LogisticaController implements OnModuleInit {
       if (cargaAsignada.length > 0) {
         // Quitar de la lista de pendientes
         transferenciasPorAsignar = transferenciasPorAsignar.filter(
-          (t) => !cargaAsignada.some((ca) => ca.transferencia.id === t.transferencia.id)
+          (t) =>
+            !cargaAsignada.some(
+              (ca) => ca.transferencia.id === t.transferencia.id,
+            ),
         );
 
         // Resolver TSP para los puntos asignados (Nearest Neighbor)
@@ -948,7 +1108,10 @@ export class LogisticaController implements OnModuleInit {
             }
           });
 
-          const paradaSiguiente = paradasPorVisitar.splice(masCercanoIndex, 1)[0];
+          const paradaSiguiente = paradasPorVisitar.splice(
+            masCercanoIndex,
+            1,
+          )[0];
           actualLat = paradaSiguiente.destino.latitud || 13.9785;
           actualLng = paradaSiguiente.destino.longitud || -89.5398;
           paradasOrdenadas.push(paradaSiguiente);
@@ -968,7 +1131,12 @@ export class LogisticaController implements OnModuleInit {
         });
 
         // Sumar retorno al CD
-        kilometros += calcularDistanciaKm(prevLat, prevLng, cd.latitud || 13.9785, cd.longitud || -89.5398);
+        kilometros += calcularDistanciaKm(
+          prevLat,
+          prevLng,
+          cd.latitud || 13.9785,
+          cd.longitud || -89.5398,
+        );
 
         // Añadir factor de ruta urbana (curvas, calles reales vs línea recta: +30%)
         kilometros = parseFloat((kilometros * 1.3).toFixed(2));
@@ -976,15 +1144,19 @@ export class LogisticaController implements OnModuleInit {
         // Calcular tiempo estimado: velocidad promedio 40 km/h + 20 min descarga por parada
         const tiempoManejoMins = (kilometros / 40) * 60;
         const tiempoDescargaMins = paradasOrdenadas.length * 20;
-        const tiempoEstimado = parseFloat((tiempoManejoMins + tiempoDescargaMins).toFixed(0));
+        const tiempoEstimado = parseFloat(
+          (tiempoManejoMins + tiempoDescargaMins).toFixed(0),
+        );
 
         // Consumo Estimado (ej. camión consume 0.15 litros por km)
         const consumoEstimado = parseFloat((kilometros * 0.15).toFixed(1));
 
         // Costo de Entrega (combustible $1.30/L + chofer $6.00/hora + amortización)
-        const costoCombustible = consumoEstimado * 1.30;
-        const costoChofer = (tiempoEstimado / 60) * 6.00;
-        const costoEntrega = parseFloat((costoCombustible + costoChofer + 15.00).toFixed(2)); // $15.00 fijos de desgaste
+        const costoCombustible = consumoEstimado * 1.3;
+        const costoChofer = (tiempoEstimado / 60) * 6.0;
+        const costoEntrega = parseFloat(
+          (costoCombustible + costoChofer + 15.0).toFixed(2),
+        ); // $15.00 fijos de desgaste
 
         rutasSugeridas.push({
           codigoSugerido: `RUT-SUG-${Date.now().toString().substring(8)}-${camionIndex + 1}`,
@@ -1016,7 +1188,8 @@ export class LogisticaController implements OnModuleInit {
     }
 
     return {
-      mensaje: 'Rutas planificadas de forma automática mediante algoritmo VRP/TSP.',
+      mensaje:
+        'Rutas planificadas de forma automática mediante algoritmo VRP/TSP.',
       rutasSugeridas,
       transferenciasSinAsignar: transferenciasPorAsignar.map((t) => ({
         codigo: t.transferencia.codigo,
@@ -1031,19 +1204,38 @@ export class LogisticaController implements OnModuleInit {
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Post('rutas')
   async guardarRuta(@Request() req: any, @Body() body: any) {
-    const { codigo, camionId, conductorId, puntos, kilometros, tiempoEstimado, consumoEstimado, costoEntrega } = body;
-    if (!codigo || !camionId || !conductorId || !puntos || puntos.length === 0) {
+    const {
+      codigo,
+      camionId,
+      conductorId,
+      puntos,
+      kilometros,
+      tiempoEstimado,
+      consumoEstimado,
+      costoEntrega,
+    } = body;
+    if (
+      !codigo ||
+      !camionId ||
+      !conductorId ||
+      !puntos ||
+      puntos.length === 0
+    ) {
       throw new BadRequestException('Faltan datos obligatorios de la ruta.');
     }
 
-    const cd = await this.prisma.sucursal.findFirst({ where: { codigo: 'SUC-001' } });
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
     if (!cd) {
       throw new BadRequestException('Centro de Distribución no encontrado.');
     }
 
     const exist = await this.prisma.ruta.findUnique({ where: { codigo } });
     if (exist) {
-      throw new BadRequestException('Ya existe una ruta registrada con ese código.');
+      throw new BadRequestException(
+        'Ya existe una ruta registrada con ese código.',
+      );
     }
 
     const ruta = await this.prisma.$transaction(async (tx) => {
@@ -1170,7 +1362,11 @@ export class LogisticaController implements OnModuleInit {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Put('rutas/:id/estado')
-  async actualizarEstadoRuta(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async actualizarEstadoRuta(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { estado, temperaturaSalida, temperaturaRecepcion } = body;
     if (!estado) {
       throw new BadRequestException('El nuevo estado es obligatorio.');
@@ -1185,8 +1381,10 @@ export class LogisticaController implements OnModuleInit {
     }
 
     const dataUpdate: any = { estado };
-    if (temperaturaSalida !== undefined) dataUpdate.temperaturaSalida = parseFloat(temperaturaSalida);
-    if (temperaturaRecepcion !== undefined) dataUpdate.temperaturaRecepcion = parseFloat(temperaturaRecepcion);
+    if (temperaturaSalida !== undefined)
+      dataUpdate.temperaturaSalida = parseFloat(temperaturaSalida);
+    if (temperaturaRecepcion !== undefined)
+      dataUpdate.temperaturaRecepcion = parseFloat(temperaturaRecepcion);
 
     const ruta = await this.prisma.$transaction(async (tx) => {
       const r = await tx.ruta.update({

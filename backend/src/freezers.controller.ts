@@ -23,7 +23,10 @@ export class FreezersController {
   @Get()
   async listarFreezers(@Request() req: any) {
     const user = req.user;
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const filter: any = {};
     if (sucursalId) {
@@ -49,10 +52,25 @@ export class FreezersController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Post()
   async crearFreezer(@Request() req: any, @Body() body: any) {
-    const { codigo, nombre, sucursalId, ubicacion, temperaturaMin, temperaturaMax } = body;
+    const {
+      codigo,
+      nombre,
+      sucursalId,
+      ubicacion,
+      temperaturaMin,
+      temperaturaMax,
+    } = body;
 
-    if (!codigo || !nombre || !sucursalId || temperaturaMin == null || temperaturaMax == null) {
-      throw new BadRequestException('Código, nombre, sucursal y temperaturas son obligatorios.');
+    if (
+      !codigo ||
+      !nombre ||
+      !sucursalId ||
+      temperaturaMin == null ||
+      temperaturaMax == null
+    ) {
+      throw new BadRequestException(
+        'Código, nombre, sucursal y temperaturas son obligatorios.',
+      );
     }
 
     const exist = await this.prisma.freezer.findUnique({ where: { codigo } });
@@ -88,11 +106,31 @@ export class FreezersController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
   @Put(':id')
-  async actualizarFreezer(@Param('id') id: string, @Request() req: any, @Body() body: any) {
-    const { codigo, nombre, sucursalId, ubicacion, temperaturaMin, temperaturaMax, estado } = body;
+  async actualizarFreezer(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    const {
+      codigo,
+      nombre,
+      sucursalId,
+      ubicacion,
+      temperaturaMin,
+      temperaturaMax,
+      estado,
+    } = body;
 
-    if (!codigo || !nombre || !sucursalId || temperaturaMin == null || temperaturaMax == null) {
-      throw new BadRequestException('Código, nombre, sucursal y temperaturas son obligatorios.');
+    if (
+      !codigo ||
+      !nombre ||
+      !sucursalId ||
+      temperaturaMin == null ||
+      temperaturaMax == null
+    ) {
+      throw new BadRequestException(
+        'Código, nombre, sucursal y temperaturas son obligatorios.',
+      );
     }
 
     const exist = await this.prisma.freezer.findFirst({
@@ -166,7 +204,9 @@ export class FreezersController {
     const { codigo, temperatura, humedad } = body;
 
     if (!codigo || temperatura == null) {
-      throw new BadRequestException('El código del equipo y la temperatura son obligatorios.');
+      throw new BadRequestException(
+        'El código del equipo y la temperatura son obligatorios.',
+      );
     }
 
     const tempNum = parseFloat(temperatura);
@@ -179,7 +219,9 @@ export class FreezersController {
     });
 
     if (!freezer) {
-      throw new BadRequestException(`El equipo con código "${codigo}" no existe en el sistema.`);
+      throw new BadRequestException(
+        `El equipo con código "${codigo}" no existe en el sistema.`,
+      );
     }
 
     // Verificar si la temperatura está fuera de rango
@@ -250,7 +292,8 @@ export class FreezersController {
           where: { id: alerta.id },
           data: {
             estado: 'RESUELTA',
-            notasAtencion: 'Resuelta automáticamente: Telemetría indica retorno a rango normal.',
+            notasAtencion:
+              'Resuelta automáticamente: Telemetría indica retorno a rango normal.',
           },
         });
         this.socketGateway.sendAlert(resolvedAlert); // Enviar estado actualizado

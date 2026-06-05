@@ -21,7 +21,9 @@ export class AiController {
   async chat(@Request() req: any, @Body() body: any) {
     const { historial } = body;
     if (!historial || !Array.isArray(historial)) {
-      throw new BadRequestException('El historial de chat es obligatorio y debe ser una lista.');
+      throw new BadRequestException(
+        'El historial de chat es obligatorio y debe ser una lista.',
+      );
     }
     return {
       respuesta: await this.aiService.procesarConsulta(req.user, historial),
@@ -44,7 +46,7 @@ export class AiController {
     const activeModel = modelConfig?.valor || 'gpt-4o-mini';
     const key = keyConfig?.valor || process.env.OPENAI_API_KEY || '';
     const timezone = timezoneConfig?.valor || 'America/El_Salvador';
-    
+
     // Mask key sk-proj-...1234
     let maskedKey = '';
     if (key) {
@@ -102,7 +104,9 @@ export class AiController {
   async testConfig(@Body() body: any) {
     const { apiKey } = body;
     if (!apiKey) {
-      throw new BadRequestException('API Key es requerida para probar la conexión.');
+      throw new BadRequestException(
+        'API Key es requerida para probar la conexión.',
+      );
     }
 
     let realKey = apiKey;
@@ -115,7 +119,9 @@ export class AiController {
     }
 
     if (!realKey) {
-      throw new BadRequestException('No hay una clave configurada para probar.');
+      throw new BadRequestException(
+        'No hay una clave configurada para probar.',
+      );
     }
 
     const success = await this.aiService.testConnection(realKey);

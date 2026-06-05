@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Habilitar CORS para permitir llamadas desde el frontend
   app.enableCors({
     origin: '*',
@@ -15,6 +15,8 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`Servidor de Lácteos ERP ejecutándose en: http://localhost:${port}/api`);
+  console.log(
+    `Servidor de Lácteos ERP ejecutándose en: http://localhost:${port}/api`,
+  );
 }
 bootstrap();

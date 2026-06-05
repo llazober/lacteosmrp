@@ -39,13 +39,24 @@ export class LotesController {
       cantidadInicial,
     } = body;
 
-    if (!numeroLote || !productoId || !fechaProduccion || !fechaVencimiento || !proveedorId || cantidadInicial == null) {
-      throw new BadRequestException('Los campos numeroLote, productoId, fechaProduccion, fechaVencimiento, proveedorId y cantidadInicial son obligatorios.');
+    if (
+      !numeroLote ||
+      !productoId ||
+      !fechaProduccion ||
+      !fechaVencimiento ||
+      !proveedorId ||
+      cantidadInicial == null
+    ) {
+      throw new BadRequestException(
+        'Los campos numeroLote, productoId, fechaProduccion, fechaVencimiento, proveedorId y cantidadInicial son obligatorios.',
+      );
     }
 
     const exist = await this.prisma.lote.findUnique({ where: { numeroLote } });
     if (exist) {
-      throw new BadRequestException('Ya existe un lote registrado con ese número.');
+      throw new BadRequestException(
+        'Ya existe un lote registrado con ese número.',
+      );
     }
 
     const lote = await this.prisma.lote.create({
@@ -80,7 +91,11 @@ export class LotesController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'CONTROL_CALIDAD')
   @Put(':id/estado')
-  async cambiarEstadoLote(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async cambiarEstadoLote(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { estado } = body;
     if (!estado) {
       throw new BadRequestException('El nuevo estado es requerido.');
@@ -107,7 +122,11 @@ export class LotesController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'CONTROL_CALIDAD', 'ALMACEN')
   @Put(':id')
-  async editarLote(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async editarLote(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const {
       numeroLote,
       productoId,
@@ -130,21 +149,34 @@ export class LotesController {
     if (numeroLote && numeroLote !== loteExistente.numeroLote) {
       const dupe = await this.prisma.lote.findUnique({ where: { numeroLote } });
       if (dupe) {
-        throw new BadRequestException('Ya existe otro lote registrado con ese número.');
+        throw new BadRequestException(
+          'Ya existe otro lote registrado con ese número.',
+        );
       }
     }
 
     const dataToUpdate: any = {};
     if (numeroLote !== undefined) dataToUpdate.numeroLote = numeroLote;
     if (productoId !== undefined) dataToUpdate.productoId = productoId;
-    if (fechaProduccion !== undefined) dataToUpdate.fechaProduccion = new Date(fechaProduccion);
-    if (fechaVencimiento !== undefined) dataToUpdate.fechaVencimiento = new Date(fechaVencimiento);
+    if (fechaProduccion !== undefined)
+      dataToUpdate.fechaProduccion = new Date(fechaProduccion);
+    if (fechaVencimiento !== undefined)
+      dataToUpdate.fechaVencimiento = new Date(fechaVencimiento);
     if (proveedorId !== undefined) dataToUpdate.proveedorId = proveedorId;
-    if (certificadoUrl !== undefined) dataToUpdate.certificadoUrl = certificadoUrl || null;
-    if (temperaturaRequeridaMin !== undefined) dataToUpdate.temperaturaRequeridaMin = parseFloat(temperaturaRequeridaMin);
-    if (temperaturaRequeridaMax !== undefined) dataToUpdate.temperaturaRequeridaMax = parseFloat(temperaturaRequeridaMax);
-    if (cantidadInicial !== undefined) dataToUpdate.cantidadInicial = parseFloat(cantidadInicial);
-    if (cantidadActual !== undefined) dataToUpdate.cantidadActual = parseFloat(cantidadActual);
+    if (certificadoUrl !== undefined)
+      dataToUpdate.certificadoUrl = certificadoUrl || null;
+    if (temperaturaRequeridaMin !== undefined)
+      dataToUpdate.temperaturaRequeridaMin = parseFloat(
+        temperaturaRequeridaMin,
+      );
+    if (temperaturaRequeridaMax !== undefined)
+      dataToUpdate.temperaturaRequeridaMax = parseFloat(
+        temperaturaRequeridaMax,
+      );
+    if (cantidadInicial !== undefined)
+      dataToUpdate.cantidadInicial = parseFloat(cantidadInicial);
+    if (cantidadActual !== undefined)
+      dataToUpdate.cantidadActual = parseFloat(cantidadActual);
     if (estado !== undefined) dataToUpdate.estado = estado;
 
     const loteActualizado = await this.prisma.lote.update({
@@ -158,7 +190,10 @@ export class LotesController {
         usuarioNombre: req.user.nombre,
         accion: 'EDITAR_LOTE',
         modulo: 'INVENTARIO',
-        detalles: JSON.stringify({ antes: loteExistente, despues: loteActualizado }),
+        detalles: JSON.stringify({
+          antes: loteExistente,
+          despues: loteActualizado,
+        }),
       },
     });
 
@@ -173,13 +208,19 @@ export class LotesController {
       throw new BadRequestException('Lote no encontrado.');
     }
 
-    const countVentas = await this.prisma.ventaDetalle.count({ where: { loteId: id } });
-    const countTransferencias = await this.prisma.transferenciaDetalle.count({ where: { loteId: id } });
-    const countMovimientos = await this.prisma.movimientoInventario.count({ where: { loteId: id } });
+    const countVentas = await this.prisma.ventaDetalle.count({
+      where: { loteId: id },
+    });
+    const countTransferencias = await this.prisma.transferenciaDetalle.count({
+      where: { loteId: id },
+    });
+    const countMovimientos = await this.prisma.movimientoInventario.count({
+      where: { loteId: id },
+    });
 
     if (countVentas > 0 || countTransferencias > 0 || countMovimientos > 0) {
       throw new BadRequestException(
-        'No se puede eliminar el lote porque posee registros históricos de movimientos, transferencias o ventas asociadas.'
+        'No se puede eliminar el lote porque posee registros históricos de movimientos, transferencias o ventas asociadas.',
       );
     }
 
@@ -225,20 +266,21 @@ export class LotesController {
     });
 
     // Buscar detalles de transferencias que involucran a este lote
-    const transferenciasDetalles = await this.prisma.transferenciaDetalle.findMany({
-      where: { loteId: lote.id },
-      include: {
-        transferencia: {
-          include: {
-            origen: true,
-            destino: true,
-            creadoPor: true,
-            recibidoPor: true,
+    const transferenciasDetalles =
+      await this.prisma.transferenciaDetalle.findMany({
+        where: { loteId: lote.id },
+        include: {
+          transferencia: {
+            include: {
+              origen: true,
+              destino: true,
+              creadoPor: true,
+              recibidoPor: true,
+            },
           },
         },
-      },
-      orderBy: { transferencia: { fechaEnvio: 'asc' } },
-    });
+        orderBy: { transferencia: { fechaEnvio: 'asc' } },
+      });
 
     // Buscar detalles de ventas que involucran a este lote
     const ventasDetalles = await this.prisma.ventaDetalle.findMany({
@@ -273,8 +315,17 @@ export class LotesController {
     for (const mov of movimientos) {
       timelineEvents.push({
         id: `mov-${mov.id}`,
-        titulo: mov.tipo === 'ENTRADA' ? 'Ingreso de Stock' : mov.tipo === 'SALIDA' ? 'Egreso de Stock' : 'Ajuste de Stock',
-        subtitulo: mov.sucursalDestino ? mov.sucursalDestino.nombre : mov.sucursalOrigen ? mov.sucursalOrigen.nombre : 'Ajuste Interno',
+        titulo:
+          mov.tipo === 'ENTRADA'
+            ? 'Ingreso de Stock'
+            : mov.tipo === 'SALIDA'
+              ? 'Egreso de Stock'
+              : 'Ajuste de Stock',
+        subtitulo: mov.sucursalDestino
+          ? mov.sucursalDestino.nombre
+          : mov.sucursalOrigen
+            ? mov.sucursalOrigen.nombre
+            : 'Ajuste Interno',
         fecha: mov.fecha,
         descripcion: `Cantidad: ${mov.cantidad} ${lote.producto.unidadMedida}. Motivo: ${mov.motivo}. Operador: ${mov.usuario.nombre}.`,
         tipo: mov.tipo,
@@ -314,7 +365,9 @@ export class LotesController {
     }
 
     // Ordenar la línea de tiempo cronológicamente
-    timelineEvents.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    timelineEvents.sort(
+      (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+    );
 
     return {
       lote: {
@@ -348,7 +401,10 @@ export class LotesController {
     const seguros: any[] = [];
 
     for (const lote of lotes) {
-      const diasRestantes = Math.ceil((lote.fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+      const diasRestantes = Math.ceil(
+        (lote.fechaVencimiento.getTime() - hoy.getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
       const loteData = {
         id: lote.id,
         numeroLote: lote.numeroLote,

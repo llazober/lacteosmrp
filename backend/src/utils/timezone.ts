@@ -1,12 +1,14 @@
 import { PrismaService } from '../prisma.service';
 
-export async function getTimezoneOffsetMinutes(prisma: PrismaService): Promise<{ offsetMinutes: number; offsetStr: string; timezone: string }> {
+export async function getTimezoneOffsetMinutes(
+  prisma: PrismaService,
+): Promise<{ offsetMinutes: number; offsetStr: string; timezone: string }> {
   const config = await prisma.configuracion.findUnique({
     where: { clave: 'system_timezone' },
   });
   const tz = config?.valor || 'America/El_Salvador';
   let tzOffset = -360; // default UTC-6 (El Salvador)
-  
+
   try {
     const now = new Date();
     const tzString = now.toLocaleString('en-US', { timeZone: tz });

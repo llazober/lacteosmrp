@@ -19,7 +19,10 @@ export class ComprasController {
   @Get()
   async obtenerOrdenesCompra(@Request() req: any) {
     const user = req.user;
-    const sucursalId = user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR' ? null : user.sucursalId;
+    const sucursalId =
+      user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR'
+        ? null
+        : user.sucursalId;
 
     const filter: any = {};
     if (sucursalId) {
@@ -48,7 +51,9 @@ export class ComprasController {
     const { proveedorId, sucursalId, productos, fechaEntrega } = body; // productos: [{ productoId, cantidad, costoUnitario }]
 
     if (!proveedorId || !sucursalId || !productos || productos.length === 0) {
-      throw new BadRequestException('El proveedor, la sucursal y la lista de productos son obligatorios.');
+      throw new BadRequestException(
+        'El proveedor, la sucursal y la lista de productos son obligatorios.',
+      );
     }
 
     // Generar número de orden único
@@ -107,7 +112,9 @@ export class ComprasController {
   async aprobarOrdenCompra(@Param('id') id: string, @Request() req: any) {
     const oc = await this.prisma.ordenCompra.findUnique({ where: { id } });
     if (!oc || oc.estado !== 'PENDIENTE') {
-      throw new BadRequestException('La orden de compra no existe o no se encuentra pendiente de aprobación.');
+      throw new BadRequestException(
+        'La orden de compra no existe o no se encuentra pendiente de aprobación.',
+      );
     }
 
     const updated = await this.prisma.ordenCompra.update({
@@ -131,7 +138,11 @@ export class ComprasController {
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Put(':id/recepcion')
-  async registrarRecepcion(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async registrarRecepcion(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     // body: { lotes: [{ productoId, numeroLote, fechaProduccion, fechaVencimiento, tempMin, tempMax, cantidadRecibida }] }
     const { lotes } = body;
 
@@ -141,11 +152,15 @@ export class ComprasController {
     });
 
     if (!oc || (oc.estado !== 'APROBADA' && oc.estado !== 'PARCIAL')) {
-      throw new BadRequestException('La orden de compra no existe o no se encuentra en un estado válido para recibir mercadería (APROBADA o PARCIAL).');
+      throw new BadRequestException(
+        'La orden de compra no existe o no se encuentra en un estado válido para recibir mercadería (APROBADA o PARCIAL).',
+      );
     }
 
     if (!lotes || lotes.length === 0) {
-      throw new BadRequestException('Debe registrar la información de lotes y cantidades recibidas.');
+      throw new BadRequestException(
+        'Debe registrar la información de lotes y cantidades recibidas.',
+      );
     }
 
     // Registrar ingreso e inventario
@@ -161,13 +176,19 @@ export class ComprasController {
         });
 
         if (existLote) {
-          throw new BadRequestException(`El número de lote "${loteInfo.numeroLote}" ya existe en el sistema.`);
+          throw new BadRequestException(
+            `El número de lote "${loteInfo.numeroLote}" ya existe en el sistema.`,
+          );
         }
 
         // Buscar el detalle correspondiente de la Orden de Compra para actualizar la cantidad recibida
-        const detalle = oc.detalles.find((d) => d.productoId === loteInfo.productoId);
+        const detalle = oc.detalles.find(
+          (d) => d.productoId === loteInfo.productoId,
+        );
         if (!detalle) {
-          throw new BadRequestException(`El producto con ID ${loteInfo.productoId} no pertenece a esta orden de compra.`);
+          throw new BadRequestException(
+            `El producto con ID ${loteInfo.productoId} no pertenece a esta orden de compra.`,
+          );
         }
 
         // Actualizar la cantidad recibida en el detalle
@@ -196,7 +217,12 @@ export class ComprasController {
 
         // Upsert en inventario
         await tx.inventario.upsert({
-          where: { productoId_sucursalId: { productoId: loteInfo.productoId, sucursalId: oc.sucursalId } },
+          where: {
+            productoId_sucursalId: {
+              productoId: loteInfo.productoId,
+              sucursalId: oc.sucursalId,
+            },
+          },
           update: { existencia: { increment: cantidadRecibidaAhora } },
           create: {
             productoId: loteInfo.productoId,
@@ -252,17 +278,23 @@ export class ComprasController {
       },
     });
 
-    return { message: 'Mercadería recibida y lotes registrados en stock exitosamente.' };
+    return {
+      message: 'Mercadería recibida y lotes registrados en stock exitosamente.',
+    };
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
   @Put(':id')
-  async editarOrdenCompra(@Param('id') id: string, @Request() req: any, @Body() body: any) {
+  async editarOrdenCompra(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
     const { proveedorId, sucursalId, productos, fechaEntrega } = body;
 
     const oc = await this.prisma.ordenCompra.findUnique({
       where: { id },
-      include: { detalles: true }
+      include: { detalles: true },
     });
 
     if (!oc) {
@@ -270,7 +302,9 @@ export class ComprasController {
     }
 
     if (oc.estado === 'RECIBIDA' || oc.estado === 'PARCIAL') {
-      throw new BadRequestException('No se puede editar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.');
+      throw new BadRequestException(
+        'No se puede editar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.',
+      );
     }
 
     let total = oc.total;
@@ -287,7 +321,12 @@ export class ComprasController {
         data: {
           proveedorId: proveedorId !== undefined ? proveedorId : oc.proveedorId,
           sucursalId: sucursalId !== undefined ? sucursalId : oc.sucursalId,
-          fechaEntrega: fechaEntrega !== undefined ? (fechaEntrega ? new Date(fechaEntrega) : null) : oc.fechaEntrega,
+          fechaEntrega:
+            fechaEntrega !== undefined
+              ? fechaEntrega
+                ? new Date(fechaEntrega)
+                : null
+              : oc.fechaEntrega,
           total,
         },
       });
@@ -337,7 +376,9 @@ export class ComprasController {
     }
 
     if (oc.estado === 'RECIBIDA' || oc.estado === 'PARCIAL') {
-      throw new BadRequestException('No se puede eliminar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.');
+      throw new BadRequestException(
+        'No se puede eliminar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -360,6 +401,9 @@ export class ComprasController {
       },
     });
 
-    return { success: true, message: 'Orden de compra eliminada exitosamente.' };
+    return {
+      success: true,
+      message: 'Orden de compra eliminada exitosamente.',
+    };
   }
 }

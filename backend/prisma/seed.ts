@@ -206,6 +206,7 @@ async function main() {
     data: {
       email: 'admin@lacteoserp.cl',
       password: passwordHash,
+      pin: '1234',
       nombre: 'Carlos Mendoza (Admin)',
       rol: 'ADMINISTRADOR',
       sucursalId: s1.id,
@@ -216,6 +217,7 @@ async function main() {
     data: {
       email: 'supervisor@lacteoserp.cl',
       password: passwordHash,
+      pin: '1234',
       nombre: 'María José Rojas',
       rol: 'SUPERVISOR',
       sucursalId: s1.id,
@@ -226,6 +228,7 @@ async function main() {
     data: {
       email: 'gerente@lacteoserp.cl',
       password: passwordHash,
+      pin: '1234',
       nombre: 'Roberto Gómez',
       rol: 'GERENTE_TIENDA',
       sucursalId: s2.id,
@@ -236,6 +239,7 @@ async function main() {
     data: {
       email: 'cajero@lacteoserp.cl',
       password: passwordHash,
+      pin: '1234',
       nombre: 'Ana Laura Silva',
       rol: 'CAJERO',
       sucursalId: s2.id,
@@ -246,6 +250,7 @@ async function main() {
     data: {
       email: 'almacen@lacteoserp.cl',
       password: passwordHash,
+      pin: '1234',
       nombre: 'Juan Perez',
       rol: 'ALMACEN',
       sucursalId: s1.id,
@@ -256,6 +261,7 @@ async function main() {
     data: {
       email: 'calidad@lacteoserp.cl',
       password: passwordHash,
+      pin: '1234',
       nombre: 'Dra. Elena Vázquez',
       rol: 'CALIDAD',
       sucursalId: s1.id,
