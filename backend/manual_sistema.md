@@ -61,6 +61,10 @@ Permite controlar las existencias de productos lácteos y perecederos respetando
     *   Cada ingreso de mercancía crea un lote con su respectiva **fecha de producción** y **fecha de vencimiento**.
     *   El POS descuenta automáticamente del lote más próximo a vencer para reducir pérdidas.
 *   **Registro de Mermas**: Opción de dar de baja productos dañados, rotos o vencidos para mantener el stock real al día.
+*   **Traslados Inter-Sucursales**:
+    *   Permite registrar transferencias de múltiples productos y lotes en una sola solicitud.
+    *   **Recepción Grupal:** Al hacer clic en el nombre de la sucursal de destino en la tabla de transferencias activas, se abre una ventana modal que agrupa todos los traslados pendientes hacia ese destino.
+    *   **Firma Digital y Checkboxes:** El encargado de tienda puede marcar mediante checkboxes qué transferencias está recibiendo físicamente y firmar a mano alzada en un lienzo digital interactivo, guardándose el nombre y la firma en Base64 en la bitácora de auditoría.
 
 ---
 
