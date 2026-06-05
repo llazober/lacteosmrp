@@ -204,6 +204,14 @@ function MainLayout() {
   const filteredMenuItems = menuItems.filter((item) => {
     if (!usuario) return false;
     if (usuario.rol === 'ADMINISTRADOR' || usuario.rol === 'SUPERVISOR') return true;
+
+    // Permitir ver inventario si tiene el permiso general o el permiso de traslado
+    if (item.path === '/inventario') {
+      const tieneVerInventario = usuario.permisos?.includes('VER_INVENTARIO');
+      const tieneVerTraslados = usuario.permisos?.includes('VER_TRASLADO_INTERSUCURSALES');
+      return tieneVerInventario || tieneVerTraslados;
+    }
+
     if (usuario.permisos && item.permission) {
       return usuario.permisos.includes(item.permission);
     }

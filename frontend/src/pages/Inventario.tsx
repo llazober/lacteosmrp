@@ -53,7 +53,16 @@ export default function Inventario() {
     usuario?.rol === 'ADMINISTRADOR' ||
     usuario?.rol === 'SUPERVISOR' ||
     usuario?.permisos?.includes('VER_TRASLADO_INTERSUCURSALES');
-  const [activeTab, setActiveTab] = useState(0);
+  const tienePermisoInventario =
+    usuario?.rol === 'ADMINISTRADOR' ||
+    usuario?.rol === 'SUPERVISOR' ||
+    usuario?.permisos?.includes('VER_INVENTARIO');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (!tienePermisoInventario && tienePermisoTraslados) {
+      return 2;
+    }
+    return 0;
+  });
 
   // Pagination states
   const [pageStock, setPageStock] = useState(0);
@@ -1047,16 +1056,16 @@ export default function Inventario() {
           '& .MuiTab-root': { fontWeight: 700 },
         }}
       >
-        <Tab label="Stock Actual por Sucursal" />
-        <Tab label="Historial de Movimientos (Kardex)" />
+        <Tab label="Stock Actual por Sucursal" style={tienePermisoInventario ? {} : { display: 'none' }} />
+        <Tab label="Historial de Movimientos (Kardex)" style={tienePermisoInventario ? {} : { display: 'none' }} />
         <Tab label="Traslados Inter-Sucursales" style={tienePermisoTraslados ? {} : { display: 'none' }} />
-        <Tab label="Catálogo de Productos" />
-        <Tab label="Gestión de Lotes" />
-        <Tab label="Mermas y Pérdidas" />
+        <Tab label="Catálogo de Productos" style={tienePermisoInventario ? {} : { display: 'none' }} />
+        <Tab label="Gestión de Lotes" style={tienePermisoInventario ? {} : { display: 'none' }} />
+        <Tab label="Mermas y Pérdidas" style={tienePermisoInventario ? {} : { display: 'none' }} />
       </Tabs>
 
       {/* TAB 0: EXISTENCIAS */}
-      {activeTab === 0 && (
+      {activeTab === 0 && tienePermisoInventario && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
             <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -1202,7 +1211,7 @@ export default function Inventario() {
       )}
 
       {/* TAB 1: KARDEX */}
-      {activeTab === 1 && (
+      {activeTab === 1 && tienePermisoInventario && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
             <TextField
@@ -1407,7 +1416,7 @@ export default function Inventario() {
       )}
 
       {/* TAB 3: CATÁLOGO DE PRODUCTOS */}
-      {activeTab === 3 && (
+      {activeTab === 3 && tienePermisoInventario && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
             <TextField
@@ -1542,7 +1551,7 @@ export default function Inventario() {
       )}
 
       {/* TAB 4: GESTIÓN DE LOTES */}
-      {activeTab === 4 && (
+      {activeTab === 4 && tienePermisoInventario && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
@@ -1699,7 +1708,7 @@ export default function Inventario() {
       )}
 
       {/* TAB 5: MERMAS Y PÉRDIDAS */}
-      {activeTab === 5 && (
+      {activeTab === 5 && tienePermisoInventario && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Box>
@@ -1814,6 +1823,12 @@ export default function Inventario() {
               </TableBody>
             </Table>
           </Box>
+        </Paper>
+      )}
+
+      {((activeTab === 0 || activeTab === 1 || activeTab === 3 || activeTab === 4 || activeTab === 5) && !tienePermisoInventario) && (
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Alert severity="error">No tiene permisos para acceder a esta sección del inventario.</Alert>
         </Paper>
       )}
 
