@@ -323,7 +323,7 @@ export default function Auditoria() {
       {/* REGISTRAR USUARIO DIALOG */}
       <Dialog open={openUser} onClose={() => setOpenUser(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>Registrar Personal / Cajero</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2, maxHeight: '60vh', overflowY: 'auto' }}>
           <TextField
             fullWidth
             label="Nombre Completo"
@@ -398,7 +398,7 @@ export default function Auditoria() {
         <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
           <VerifiedUser color="primary" /> Editar Personal: {selectedUser?.nombre}
         </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2, maxHeight: '60vh', overflowY: 'auto' }}>
           <TextField
             fullWidth
             label="Nombre Completo"
