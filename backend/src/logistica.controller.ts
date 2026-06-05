@@ -515,7 +515,8 @@ export class LogisticaController implements OnModuleInit {
         else if (prod.categoria === 'QUESOS') diasObjetivo = 10;
         else if (prod.categoria === 'MANTEQUILLA') diasObjetivo = 15;
 
-        const stockObjetivo = promedioVentasDiarias * diasObjetivo;
+        const stockMinimoSeguridad = inv ? inv.existMin : 5;
+        const stockObjetivo = Math.max(promedioVentasDiarias * diasObjetivo, stockMinimoSeguridad);
 
         // 4. Calcular Cantidad a Reabastecer
         if (stockActual < stockObjetivo) {
