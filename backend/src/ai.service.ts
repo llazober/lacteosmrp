@@ -69,7 +69,7 @@ export class AiService {
     }
 
     const systemPrompt = `Eres "Vaquita AI", el asistente inteligente de operaciones oficial de la cadena de lácteos "La Vaquita".
-Tienes acceso a consultas en tiempo real sobre la base de datos del sistema para ayudar a responder las preguntas del usuario.
+Tienes acceso a consultas en tiempo real sobre la base de datos del sistema (incluyendo inventario, ventas, compras, mermas, cadena de frío y ahora el nuevo módulo de LOGÍSTICA, RUTAS e inventario de REABASTECIMIENTO) para ayudar a responder las preguntas del usuario.
 Usa las funciones de herramientas (tools) disponibles para obtener los datos necesarios.
 
 Además de los datos dinámicos de la base de datos, cuentas con el MANUAL OPERATIVO DEL SISTEMA para responder cualquier pregunta del usuario sobre cómo funciona la aplicación, flujos operativos (como recibir lotes por OC, abrir caja, mermas, etc.), roles y permisos.
@@ -214,6 +214,35 @@ PAUTAS DE RESPUESTA:
           },
         },
       },
+      {
+        type: 'function',
+        function: {
+          name: 'obtenerFlotaLogistica',
+          description: 'Obtiene el listado de camiones (placa, estado, coordenadas GPS, capacidades) y conductores registrados en el sistema de logística.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'obtenerRutasLogistica',
+          description: 'Obtiene el listado de rutas de distribución planificadas o en transito, incluyendo métricas y lecturas de telemetría de frío.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'obtenerTransferenciasReabastecimiento',
+          description: 'Obtiene el listado de transferencias preventivas de stock del CD a sucursales.',
+          parameters: {
+            type: 'object',
+            properties: {
+              sucursalId: { type: 'string', description: 'ID opcional de la sucursal (para filtrar origen o destino).' },
+            },
+          },
+        },
+      },
     ];
 
     try {
@@ -268,6 +297,12 @@ PAUTAS DE RESPUESTA:
                 rawArgs.sucursalId,
                 rawArgs.diasLimite,
               );
+            } else if (functionName === 'obtenerFlotaLogistica') {
+              functionResult = await this.obtenerFlotaLogistica();
+            } else if (functionName === 'obtenerRutasLogistica') {
+              functionResult = await this.obtenerRutasLogistica();
+            } else if (functionName === 'obtenerTransferenciasReabastecimiento') {
+              functionResult = await this.obtenerTransferenciasReabastecimiento(rawArgs.sucursalId);
             } else {
               functionResult = { error: `Función ${functionName} no implementada.` };
             }
@@ -505,5 +540,72 @@ PAUTAS DE RESPUESTA:
       .filter((l) => l.diasRestantes <= diasLimite);
 
     return resultado;
+  }
+
+  private async obtenerFlotaLogistica() {
+    const camiones = await this.prisma.camion.findMany({
+      select: {
+        placa: true,
+        capacidadPeso: true,
+        capacidadVolumen: true,
+        temperaturaMin: true,
+        temperaturaMax: true,
+        estado: true,
+        gpsLat: true,
+        gpsLng: true,
+      },
+    });
+    const conductores = await this.prisma.conductor.findMany({
+      select: {
+        nombre: true,
+        licencia: true,
+        telefono: true,
+        estado: true,
+      },
+    });
+    return { camiones, conductores };
+  }
+
+  private async obtenerRutasLogistica() {
+    return this.prisma.ruta.findMany({
+      include: {
+        camion: { select: { placa: true } },
+        conductor: { select: { nombre: true } },
+        puntos: {
+          include: { sucursal: { select: { nombre: true } } },
+          orderBy: { ordenVisita: 'asc' },
+        },
+        temperaturas: {
+          orderBy: { fecha: 'desc' },
+          take: 5,
+        },
+      },
+      orderBy: { fecha: 'desc' },
+      take: 20,
+    });
+  }
+
+  private async obtenerTransferenciasReabastecimiento(sucursalId?: string) {
+    const filter: any = {};
+    if (sucursalId) {
+      filter.OR = [
+        { origenId: sucursalId },
+        { destinoId: sucursalId },
+      ];
+    }
+    return this.prisma.transferencia.findMany({
+      where: filter,
+      include: {
+        origen: { select: { nombre: true } },
+        destino: { select: { nombre: true } },
+        detalles: {
+          include: {
+            producto: { select: { sku: true, descripcion: true } },
+          },
+        },
+      },
+      orderBy: { fechaEnvio: 'desc' },
+      take: 20,
+    });
   }
 }
