@@ -55,6 +55,7 @@ export class RolesController {
             'GESTIONAR_PRODUCTOS',
             'VER_LOTES',
             'GESTIONAR_LOTES',
+            'VER_TRASLADO_INTERSUCURSALES',
           ]),
         },
         {
@@ -89,6 +90,7 @@ export class RolesController {
             'GESTIONAR_PRODUCTOS',
             'VER_LOTES',
             'GESTIONAR_LOTES',
+            'VER_TRASLADO_INTERSUCURSALES',
           ]),
         },
         {
@@ -109,6 +111,7 @@ export class RolesController {
             'VER_UTILIDADES',
             'VER_PRODUCTOS',
             'VER_LOTES',
+            'VER_TRASLADO_INTERSUCURSALES',
           ]),
         },
         {
@@ -139,6 +142,7 @@ export class RolesController {
             'GESTIONAR_COMPRAS',
             'VER_CHAT',
             'VER_UTILIDADES',
+            'VER_TRASLADO_INTERSUCURSALES',
           ]),
         },
         {

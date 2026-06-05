@@ -49,6 +49,10 @@ import { apiFetch, useAuthStore } from '../store/useAuthStore';
 export default function Inventario() {
   const usuario = useAuthStore((state) => state.usuario);
   const systemTimezone = useAuthStore((state) => state.systemTimezone);
+  const tienePermisoTraslados =
+    usuario?.rol === 'ADMINISTRADOR' ||
+    usuario?.rol === 'SUPERVISOR' ||
+    usuario?.permisos?.includes('VER_TRASLADO_INTERSUCURSALES');
   const [activeTab, setActiveTab] = useState(0);
 
   // Pagination states
@@ -998,7 +1002,7 @@ export default function Inventario() {
             </Button>
           )}
 
-          {(activeTab === 0 || activeTab === 2) && (
+          {(activeTab === 0 || activeTab === 2) && tienePermisoTraslados && (
             <Button
               variant="contained"
               color="primary"
@@ -1045,7 +1049,7 @@ export default function Inventario() {
       >
         <Tab label="Stock Actual por Sucursal" />
         <Tab label="Historial de Movimientos (Kardex)" />
-        <Tab label="Traslados Inter-Sucursales" />
+        <Tab label="Traslados Inter-Sucursales" style={tienePermisoTraslados ? {} : { display: 'none' }} />
         <Tab label="Catálogo de Productos" />
         <Tab label="Gestión de Lotes" />
         <Tab label="Mermas y Pérdidas" />
@@ -1278,7 +1282,7 @@ export default function Inventario() {
       )}
 
       {/* TAB 2: TRASLADOS */}
-      {activeTab === 2 && (
+      {activeTab === 2 && tienePermisoTraslados && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
@@ -1393,6 +1397,12 @@ export default function Inventario() {
               </TableBody>
             </Table>
           </Box>
+        </Paper>
+      )}
+
+      {activeTab === 2 && !tienePermisoTraslados && (
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Alert severity="error">No tiene permisos para acceder a la sección de traslados inter-sucursales.</Alert>
         </Paper>
       )}
 

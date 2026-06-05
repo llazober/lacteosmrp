@@ -148,7 +148,7 @@ export class SucursalesController {
   @Roles('ADMINISTRADOR')
   @Post('usuarios')
   async crearUsuario(@Request() req: any, @Body() body: any) {
-    const { email, password, nombre, rol, sucursalId } = body;
+    const { email, password, pin, nombre, rol, sucursalId } = body;
     if (!email || !password || !nombre || !rol) {
       throw new BadRequestException(
         'Correo, contraseña, nombre y rol son obligatorios.',
@@ -169,6 +169,7 @@ export class SucursalesController {
       data: {
         email,
         password: passwordHash,
+        pin: pin || null,
         nombre,
         rol,
         sucursalId: sucursalId || null,
@@ -186,6 +187,7 @@ export class SucursalesController {
           id: usuario.id,
           email: usuario.email,
           rol: usuario.rol,
+          pin: usuario.pin ? 'CONFIGURADO' : 'NO_CONFIGURADO',
         }),
       },
     });
@@ -205,7 +207,7 @@ export class SucursalesController {
     @Request() req: any,
     @Body() body: any,
   ) {
-    const { nombre, rol, sucursalId, estado, password } = body;
+    const { nombre, rol, sucursalId, estado, password, pin } = body;
 
     const dataUpdate: any = {
       nombre,
@@ -217,6 +219,10 @@ export class SucursalesController {
     if (password && password.trim() !== '') {
       const salt = bcrypt.genSaltSync(10);
       dataUpdate.password = bcrypt.hashSync(password, salt);
+    }
+
+    if (pin !== undefined) {
+      dataUpdate.pin = pin || null;
     }
 
     const usuario = await this.prisma.usuario.update({
@@ -236,6 +242,7 @@ export class SucursalesController {
           email: usuario.email,
           rol: usuario.rol,
           estado: usuario.estado,
+          pin: usuario.pin ? 'CONFIGURADO' : 'NO_CONFIGURADO',
         }),
       },
     });

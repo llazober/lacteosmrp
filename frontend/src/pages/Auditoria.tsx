@@ -51,6 +51,7 @@ export default function Auditoria() {
     nombre: '',
     email: '',
     password: '',
+    pin: '',
     rol: 'CAJERO',
     sucursalId: '',
   });
@@ -63,6 +64,7 @@ export default function Auditoria() {
     sucursalId: '',
     estado: 'ACTIVO',
     password: '',
+    pin: '',
   });
 
   // Notificaciones
@@ -115,6 +117,7 @@ export default function Auditoria() {
       sucursalId: user.sucursalId || '',
       estado: user.estado,
       password: '',
+      pin: user.pin || '',
     });
     setOpenEditUser(true);
   };
@@ -157,6 +160,7 @@ export default function Auditoria() {
                 nombre: '',
                 email: '',
                 password: '',
+                pin: '',
                 rol: 'CAJERO',
                 sucursalId: '',
               });
@@ -343,6 +347,18 @@ export default function Auditoria() {
             value={userForm.password}
             onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
           />
+          <TextField
+            fullWidth
+            label="PIN de Autorización (4 dígitos)"
+            size="small"
+            type="password"
+            value={userForm.pin}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+              setUserForm({ ...userForm, pin: val });
+            }}
+            helperText="PIN personal de 4 dígitos para firmar y recibir traslados"
+          />
 
           <FormControl fullWidth size="small">
             <InputLabel>Rol</InputLabel>
@@ -445,6 +461,18 @@ export default function Auditoria() {
             type="password"
             value={editUserForm.password}
             onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            label="PIN de Autorización (4 dígitos)"
+            size="small"
+            type="password"
+            value={editUserForm.pin}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+              setEditUserForm({ ...editUserForm, pin: val });
+            }}
+            helperText="PIN personal de 4 dígitos para firmar y recibir traslados"
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>

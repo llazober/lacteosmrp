@@ -538,6 +538,7 @@ export class AuthController {
         'GESTIONAR_PRODUCTOS',
         'VER_LOTES',
         'GESTIONAR_LOTES',
+        'VER_TRASLADO_INTERSUCURSALES',
       ];
     } else if (rolNombre === 'ALMACEN') {
       return [
@@ -554,6 +555,7 @@ export class AuthController {
         'GESTIONAR_COMPRAS',
         'VER_CHAT',
         'VER_UTILIDADES',
+        'VER_TRASLADO_INTERSUCURSALES',
       ];
     } else if (rolNombre === 'CAJERO') {
       return ['VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
