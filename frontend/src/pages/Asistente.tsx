@@ -70,18 +70,39 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel(); // cancel any ongoing speech
 
-      // Clean the text to make it natural to read out loud
+      // Clean the text to make it natural to read out loud, removing markdown, symbols, hashes, ampersands, dashes, etc.
       const clean = text
         .replace(/```[\s\S]*?```/g, '') // remove code blocks
         .replace(/\|[\s\S]*?\|/g, '')   // remove markdown tables
-        .replace(/\*\*|`|\*/g, '')      // remove bold/italic/inline code
-        .replace(/\n\s*\n/g, '\n')      // remove extra lines
+        .replace(/[-+|#*`~&=_<>[\]{}()]/g, ' ') // remove special symbols, hashes, ampersands, dashes
+        .replace(/\$/g, ' dólares ')   // speak dollars naturally
+        .replace(/\s+/g, ' ')           // normalize spaces
         .trim();
 
       if (!clean) return;
 
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'es-CL';
+
+      // Female voice selection
+      const voices = window.speechSynthesis.getVoices();
+      const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
+      
+      // Look for a female voice first by checking common names and keywords
+      const femaleKeywords = ['sabina', 'helena', 'laura', 'daria', 'paula', 'elena', 'maria', 'francisca', 'yolanda', 'google español', 'siri', 'female', 'mujer', 'zira'];
+      let selectedVoice = esVoices.find(v => 
+        femaleKeywords.some(kw => v.name.toLowerCase().includes(kw))
+      );
+
+      // Fallback to any Spanish voice
+      if (!selectedVoice && esVoices.length > 0) {
+        selectedVoice = esVoices[0];
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
       window.speechSynthesis.speak(utterance);
     }
   };
