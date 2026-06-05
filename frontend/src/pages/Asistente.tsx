@@ -15,7 +15,7 @@ import {
   TableRow,
   CircularProgress,
 } from '@mui/material';
-import { Send, SmartToy, Person } from '@mui/icons-material';
+import { Send, SmartToy, Person, Mic, MicOff } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 interface Mensaje {
@@ -57,7 +57,59 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   });
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'es-CL';
+
+      rec.onstart = () => {
+        setIsRecording(true);
+      };
+
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+
+      rec.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        setIsRecording(false);
+      };
+
+      rec.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript.trim()) {
+          setInput(transcript);
+        }
+      };
+
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const handleToggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Tu navegador no soporta el reconocimiento de voz (Web Speech API). Te recomendamos usar Google Chrome o Microsoft Edge.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+    } else {
+      setInput('');
+      recognitionRef.current.start();
+    }
+  };
 
   // Save history to localStorage when it changes
   useEffect(() => {
@@ -90,6 +142,10 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
 
   const handleEnviar = async (texto: string) => {
     if (!texto.trim() || cargando) return;
+
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
 
     const mensajeUsuario: Mensaje = {
       role: 'user',
@@ -561,7 +617,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
               fullWidth
               multiline
               maxRows={3}
-              placeholder="Pregúntale al asistente... (ej. ¿cuánto vendió la sucursal Norte ayer?)"
+              placeholder={isRecording ? "Escuchando... Habla ahora" : "Pregúntale al asistente... (ej. ¿cuánto vendió la sucursal Norte ayer?)"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
@@ -570,14 +626,41 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '12px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: isRecording ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.03)',
+                  border: isRecording ? '1px solid rgba(239, 68, 68, 0.3)' : 'inherit',
+                  transition: 'all 0.3s ease',
                 },
               }}
             />
             <IconButton
+              onClick={handleToggleListening}
+              disabled={cargando}
+              sx={{
+                p: 1.5,
+                borderRadius: '50%',
+                backgroundColor: isRecording ? '#ef4444' : 'rgba(255,255,255,0.05)',
+                color: isRecording ? '#fff' : 'primary.main',
+                border: '1px solid',
+                borderColor: isRecording ? '#ef4444' : 'rgba(255,255,255,0.1)',
+                '&:hover': {
+                  backgroundColor: isRecording ? '#dc2626' : 'rgba(255,255,255,0.1)',
+                },
+                ...(isRecording && {
+                  animation: 'pulse-mic 1.5s infinite',
+                  '@keyframes pulse-mic': {
+                    '0%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.5)' },
+                    '70%': { boxShadow: '0 0 0 10px rgba(239, 68, 68, 0)' },
+                    '100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' }
+                  }
+                })
+              }}
+            >
+              {isRecording ? <MicOff sx={{ fontSize: '1.1rem' }} /> : <Mic sx={{ fontSize: '1.1rem' }} />}
+            </IconButton>
+            <IconButton
               color="primary"
               onClick={() => handleEnviar(input)}
-              disabled={!input.trim() || cargando}
+              disabled={!input.trim() || cargando || isRecording}
               sx={{
                 p: 1.5,
                 background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
