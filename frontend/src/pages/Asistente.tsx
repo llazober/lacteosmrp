@@ -62,12 +62,8 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Refs to avoid stale closures in event listeners
-  const inputRef = useRef('');
+  const transcriptRef = useRef('');
   const handleEnviarRef = useRef<(texto: string) => Promise<void>>(async () => {});
-
-  useEffect(() => {
-    inputRef.current = input;
-  }, [input]);
 
   // Clean and speak text out loud using Web Speech Synthesis
   const speakText = (text: string) => {
@@ -109,15 +105,23 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       rec.onend = () => {
         setIsRecording(false);
         // Automatically send voice query when recording finishes
-        const currentText = inputRef.current;
+        const currentText = transcriptRef.current;
         if (currentText.trim()) {
           handleEnviarRef.current(currentText);
+          transcriptRef.current = ''; // Reset after sending
         }
       };
 
       rec.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
         setIsRecording(false);
+        if (event.error === 'not-allowed') {
+          alert('Permiso de micrófono denegado. Por favor, permite el acceso al micrófono en la barra de direcciones de tu navegador.');
+        } else if (event.error === 'no-speech') {
+          console.log('No speech detected');
+        } else {
+          alert(`Error de reconocimiento de voz: ${event.error}`);
+        }
       };
 
       rec.onresult = (event: any) => {
@@ -126,6 +130,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           transcript += event.results[i][0].transcript;
         }
         if (transcript.trim()) {
+          transcriptRef.current = transcript;
           setInput(transcript);
         }
       };
@@ -144,6 +149,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       recognitionRef.current.stop();
     } else {
       setInput('');
+      transcriptRef.current = '';
       recognitionRef.current.start();
     }
   };
