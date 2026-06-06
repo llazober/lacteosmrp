@@ -574,6 +574,7 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
       auditoria: { permission: 'VER_AUDITORIA', path: '/auditoria' },
       chat: { permission: 'VER_CHAT', path: '/chat' },
       logistica: { permission: 'VER_LOGISTICA', path: '/logistica' },
+      consolidado: { permission: 'VER_CONSOLIDADO', path: '/consolidado' },
       asistente: { permission: 'USAR_ASISTENTE', path: '/asistente' },
       utilidades: { permission: 'VER_UTILIDADES', path: '/utilidades' },
 
@@ -632,6 +633,12 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
       'personal': 'personal',
       'rutas': 'rutas',
       'asistente ai': 'asistente',
+      'consolidado': 'consolidado',
+      'consolidado global': 'consolidado',
+      'reporte consolidado': 'consolidado',
+      'totales consolidados': 'consolidado',
+      'consolidado_global': 'consolidado',
+      'reporte_consolidado': 'consolidado',
 
       // Calidad
       'recepcion leche': 'recepcion_leche',
