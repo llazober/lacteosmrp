@@ -1124,12 +1124,12 @@ export default function Inventario() {
           '& .MuiTab-root': { fontWeight: 700 },
         }}
       >
-        <Tab label="Stock Actual por Sucursal" style={tienePermisoInventario ? {} : { display: 'none' }} />
-        <Tab label="Historial de Movimientos (Kardex)" style={tienePermisoInventario ? {} : { display: 'none' }} />
-        <Tab label="Traslados Inter-Sucursales" style={tienePermisoTraslados ? {} : { display: 'none' }} />
-        <Tab label="Catálogo de Productos" style={tienePermisoInventario ? {} : { display: 'none' }} />
-        <Tab label="Gestión de Lotes" style={tienePermisoInventario ? {} : { display: 'none' }} />
-        <Tab label="Mermas y Pérdidas" style={tienePermisoInventario ? {} : { display: 'none' }} />
+        {tienePermisoInventario && <Tab label="Stock Actual por Sucursal" value={0} />}
+        {tienePermisoInventario && <Tab label="Historial de Movimientos (Kardex)" value={1} />}
+        {tienePermisoTraslados && <Tab label="Traslados Inter-Sucursales" value={2} />}
+        {tienePermisoInventario && <Tab label="Catálogo de Productos" value={3} />}
+        {tienePermisoInventario && <Tab label="Gestión de Lotes" value={4} />}
+        {tienePermisoInventario && <Tab label="Mermas y Pérdidas" value={5} />}
       </Tabs>
 
       {/* TAB 0: EXISTENCIAS */}
