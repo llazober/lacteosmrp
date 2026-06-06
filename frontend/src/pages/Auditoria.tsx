@@ -221,6 +221,8 @@ export default function Auditoria() {
       <Tabs
         value={activeTab}
         onChange={(_, val) => handleTabChange(val)}
+        variant="scrollable"
+        scrollButtons="auto"
         sx={{
           borderBottom: 1,
           borderColor: 'divider',

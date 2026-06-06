@@ -651,6 +651,8 @@ export default function Logistica() {
       <Tabs
         value={activeTab}
         onChange={(_, val) => handleTabChange(val)}
+        variant="scrollable"
+        scrollButtons="auto"
         sx={{ mb: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <Tab icon={<Restore />} label="Reabastecimiento y FEFO" iconPosition="start" />

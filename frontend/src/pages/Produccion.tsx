@@ -514,6 +514,8 @@ export default function Produccion() {
           onChange={(_, val) => handleTabChange(val)}
           textColor="primary"
           indicatorColor="primary"
+          variant="scrollable"
+          scrollButtons="auto"
           sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}
         >
           <Tab label="Recetario Maestro" />

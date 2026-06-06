@@ -387,6 +387,8 @@ export default function CuentasPorPagar() {
       <Tabs
         value={activeTab}
         onChange={(_, val) => handleTabChange(val)}
+        variant="scrollable"
+        scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
       >
         <Tab label="Facturas por Pagar" icon={<ReceiptLong />} iconPosition="start" />
