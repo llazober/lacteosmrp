@@ -80,6 +80,7 @@ export default function Login() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'radial-gradient(circle at 10% 20%, rgba(2, 132, 199, 0.15) 0%, rgba(15, 23, 42, 0) 60%), radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.15) 0%, rgba(11, 15, 25, 0) 60%)',
@@ -87,6 +88,20 @@ export default function Login() {
         p: 2,
       }}
     >
+      <Typography
+        variant="h3"
+        sx={{
+          fontWeight: 800,
+          background: 'linear-gradient(90deg, #3b82f6 0%, #10b981 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          mb: 4,
+          textAlign: 'center',
+          letterSpacing: '-0.02em',
+        }}
+      >
+        Powered by Inteligencia Artificial
+      </Typography>
       <Card
         className="glass-panel"
         sx={{
