@@ -49,6 +49,8 @@ export default function Auditoria() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -58,12 +60,14 @@ export default function Auditoria() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['bitacora', 'personal'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -255,32 +259,47 @@ export default function Auditoria() {
                     <TableCell colSpan={6} align="center">No hay registros de auditoría.</TableCell>
                   </TableRow>
                 ) : (
-                  logs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{new Date(log.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{log.usuarioNombre}</TableCell>
-                      <TableCell><Chip label={log.usuario.rol} size="small" variant="outlined" /></TableCell>
-                      <TableCell sx={{ fontWeight: 800 }}>{log.accion}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={log.modulo}
-                          color={
-                            log.modulo === 'POS'
-                              ? 'secondary'
-                              : log.modulo === 'INVENTARIO'
-                              ? 'warning'
-                              : log.modulo === 'TELEMETRIA'
-                              ? 'info'
-                              : 'default'
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.8rem', fontFamily: 'monospace', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {log.detalles}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  logs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((log) => {
+                    const isSelected = selectedRowId === log.id;
+                    return (
+                      <TableRow
+                        key={log.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : log.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell>{new Date(log.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{log.usuarioNombre}</TableCell>
+                        <TableCell><Chip label={log.usuario.rol} size="small" variant="outlined" /></TableCell>
+                        <TableCell sx={{ fontWeight: 800 }}>{log.accion}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={log.modulo}
+                            color={
+                              log.modulo === 'POS'
+                                ? 'secondary'
+                                : log.modulo === 'INVENTARIO'
+                                ? 'warning'
+                                : log.modulo === 'TELEMETRIA'
+                                ? 'info'
+                                : 'default'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem', fontFamily: 'monospace', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {log.detalles}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -321,34 +340,49 @@ export default function Auditoria() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {usuarios.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell sx={{ fontWeight: 700 }}>{user.nombre}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Chip label={user.rol} color="primary" size="small" sx={{ fontWeight: 700 }} />
-                    </TableCell>
-                    <TableCell>{user.sucursal?.nombre || 'Acceso Global'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.estado}
-                        color={user.estado === 'ACTIVO' ? 'success' : 'error'}
-                        size="small"
-                        sx={{ fontWeight: 700 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<Badge />}
-                        onClick={() => handleAbrirEditarUsuario(user)}
-                      >
-                        Editar Rol/Clave
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {usuarios.map((user) => {
+                  const isSelected = selectedRowId === user.id;
+                  return (
+                    <TableRow
+                      key={user.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : user.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: 700 }}>{user.nombre}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Chip label={user.rol} color="primary" size="small" sx={{ fontWeight: 700 }} />
+                      </TableCell>
+                      <TableCell>{user.sucursal?.nombre || 'Acceso Global'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.estado}
+                          color={user.estado === 'ACTIVO' ? 'success' : 'error'}
+                          size="small"
+                          sx={{ fontWeight: 700 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<Badge />}
+                          onClick={(e) => { e.stopPropagation(); handleAbrirEditarUsuario(user); }}
+                        >
+                          Editar Rol/Clave
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Box>

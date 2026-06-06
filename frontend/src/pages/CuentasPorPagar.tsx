@@ -58,6 +58,8 @@ export default function CuentasPorPagar() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -67,12 +69,14 @@ export default function CuentasPorPagar() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['facturas', 'pagos'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -424,9 +428,26 @@ export default function CuentasPorPagar() {
                     const pagado = f.pagos.reduce((sum: number, p: any) => sum + p.monto, 0);
                     const saldo = f.total - pagado;
                     const esVencida = new Date(f.fechaVencimiento) < new Date() && f.estado !== 'PAGADA';
+                    const isSelected = selectedRowId === f.id;
 
                     return (
-                      <TableRow key={f.id} sx={{ backgroundColor: esVencida ? 'rgba(239, 68, 68, 0.03)' : 'transparent' }}>
+                      <TableRow
+                        key={f.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : f.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected
+                            ? 'rgba(59, 130, 246, 0.15)'
+                            : esVencida
+                            ? 'rgba(239, 68, 68, 0.03)'
+                            : 'transparent',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
                         <TableCell sx={{ fontWeight: 700 }}>{f.numeroFactura}</TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -472,7 +493,8 @@ export default function CuentasPorPagar() {
                             <Tooltip title="Ver detalles y auditoría">
                               <IconButton
                                 size="small"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSelectedFactura(f);
                                   setOpenVerDetalles(true);
                                 }}
@@ -486,7 +508,8 @@ export default function CuentasPorPagar() {
                                 color="success"
                                 size="small"
                                 startIcon={<Paid />}
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSelectedFactura(f);
                                   setPagoForm({
                                     monto: String(saldo),
@@ -537,44 +560,59 @@ export default function CuentasPorPagar() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  facturas
-                    .flatMap((f) => (f.pagos || []).map((p: any) => ({ ...p, factura: f })))
-                    .sort((a, b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime())
-                    .map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell>{new Date(p.fechaPago).toLocaleDateString('es-CL')}</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>{p.factura?.numeroFactura}</TableCell>
-                        <TableCell>{p.factura?.proveedor?.nombre}</TableCell>
-                        <TableCell>
-                          <Chip label={p.metodoPago} size="small" color="primary" variant="outlined" />
-                        </TableCell>
-                        <TableCell>
-                          {p.metodoPago === 'CHEQUE' && (
-                            <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                              Cheque N° {p.chequeNumero} - Banco: {p.chequeBanco}
-                            </Typography>
-                          )}
-                          {(p.metodoPago === 'TRANSFERENCIA' || p.metodoPago === 'DEPOSITO') && (
-                            <Typography variant="body2" sx={{ fontSize: '0.85rem', color: 'info.main' }}>
-                              {p.transfeCuenta || p.referencia || 'Transferencia'}
-                            </Typography>
-                          )}
-                          {p.metodoPago === 'EFECTIVO' && (
-                            <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                              Efectivo en Caja
-                            </Typography>
-                          )}
-                          {p.referencia && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              Ref: {p.referencia}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>
-                          {formatCurrency(p.monto)}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                      facturas
+                        .flatMap((f) => (f.pagos || []).map((p: any) => ({ ...p, factura: f })))
+                        .sort((a, b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime())
+                        .map((p) => {
+                          const isSelected = selectedRowId === p.id;
+                          return (
+                            <TableRow
+                              key={p.id}
+                              hover
+                              onClick={() => setSelectedRowId(isSelected ? null : p.id)}
+                              sx={{
+                                cursor: 'pointer',
+                                bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                                '&:hover': {
+                                  bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                                },
+                                transition: 'background-color 0.2s ease',
+                              }}
+                            >
+                              <TableCell>{new Date(p.fechaPago).toLocaleDateString('es-CL')}</TableCell>
+                              <TableCell sx={{ fontWeight: 700 }}>{p.factura?.numeroFactura}</TableCell>
+                              <TableCell>{p.factura?.proveedor?.nombre}</TableCell>
+                              <TableCell>
+                                <Chip label={p.metodoPago} size="small" color="primary" variant="outlined" />
+                              </TableCell>
+                              <TableCell>
+                                {p.metodoPago === 'CHEQUE' && (
+                                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                                    Cheque N° {p.chequeNumero} - Banco: {p.chequeBanco}
+                                  </Typography>
+                                )}
+                                {(p.metodoPago === 'TRANSFERENCIA' || p.metodoPago === 'DEPOSITO') && (
+                                  <Typography variant="body2" sx={{ fontSize: '0.85rem', color: 'info.main' }}>
+                                    {p.transfeCuenta || p.referencia || 'Transferencia'}
+                                  </Typography>
+                                )}
+                                {p.metodoPago === 'EFECTIVO' && (
+                                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                                    Efectivo en Caja
+                                  </Typography>
+                                )}
+                                {p.referencia && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                    Ref: {p.referencia}
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>
+                                {formatCurrency(p.monto)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                 )}
               </TableBody>
             </Table>

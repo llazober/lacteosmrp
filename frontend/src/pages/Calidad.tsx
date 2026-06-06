@@ -55,6 +55,8 @@ export default function Calidad() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -65,12 +67,14 @@ export default function Calidad() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['recepcion', 'auditorias', 'incidencias'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -568,34 +572,49 @@ export default function Calidad() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  controlesLeche.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>{new Date(c.fecha).toLocaleString()}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{c.loteId || 'Leche Directa Silo'}</TableCell>
-                      <TableCell sx={{ color: c.temperatura > 4.5 ? 'error.main' : 'inherit' }}>
-                        {c.temperatura} °C
-                      </TableCell>
-                      <TableCell>{c.grasa}%</TableCell>
-                      <TableCell>{c.proteina}%</TableCell>
-                      <TableCell>{c.acidez} °D</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={c.antibioticos ? 'DETECTADO' : 'LIBRE'}
-                          color={c.antibioticos ? 'error' : 'success'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={c.resultado}
-                          color={c.resultado === 'APROBADO' ? 'success' : c.resultado === 'CUARENTENA' ? 'warning' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{c.inspector.nombre}</TableCell>
-                      <TableCell>{c.observaciones || '-'}</TableCell>
-                    </TableRow>
-                  ))
+                  controlesLeche.map((c) => {
+                    const isSelected = selectedRowId === c.id;
+                    return (
+                      <TableRow
+                        key={c.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : c.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell>{new Date(c.fecha).toLocaleString()}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{c.loteId || 'Leche Directa Silo'}</TableCell>
+                        <TableCell sx={{ color: c.temperatura > 4.5 ? 'error.main' : 'inherit' }}>
+                          {c.temperatura} °C
+                        </TableCell>
+                        <TableCell>{c.grasa}%</TableCell>
+                        <TableCell>{c.proteina}%</TableCell>
+                        <TableCell>{c.acidez} °D</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={c.antibioticos ? 'DETECTADO' : 'LIBRE'}
+                            color={c.antibioticos ? 'error' : 'success'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={c.resultado}
+                            color={c.resultado === 'APROBADO' ? 'success' : c.resultado === 'CUARENTENA' ? 'warning' : 'error'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>{c.inspector.nombre}</TableCell>
+                        <TableCell>{c.observaciones || '-'}</TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -628,32 +647,47 @@ export default function Calidad() {
                   </TableCell>
                 </TableRow>
               ) : (
-                inspecciones.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell>{new Date(i.fecha).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Chip label={i.tipo} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      {i.ordenProduccion ? `OP: ${i.ordenProduccion.numeroOrden}` : ''}
-                      {i.loteId ? ` | Lote: ${i.loteId}` : ''}
-                    </TableCell>
-                    <TableCell>{i.temperatura != null ? `${i.temperatura} °C` : '-'}</TableCell>
-                    <TableCell>{i.ph != null ? i.ph : '-'}</TableCell>
-                    <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {i.parametrosCriticos}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={i.resultado}
-                        color={i.resultado === 'APROBADO' ? 'success' : i.resultado === 'CUARENTENA' ? 'warning' : 'error'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{i.inspector.nombre}</TableCell>
-                    <TableCell>{i.observaciones || '-'}</TableCell>
-                  </TableRow>
-                ))
+                inspecciones.map((i) => {
+                  const isSelected = selectedRowId === i.id;
+                  return (
+                    <TableRow
+                      key={i.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : i.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <TableCell>{new Date(i.fecha).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Chip label={i.tipo} size="small" variant="outlined" />
+                      </TableCell>
+                      <TableCell>
+                        {i.ordenProduccion ? `OP: ${i.ordenProduccion.numeroOrden}` : ''}
+                        {i.loteId ? ` | Lote: ${i.loteId}` : ''}
+                      </TableCell>
+                      <TableCell>{i.temperatura != null ? `${i.temperatura} °C` : '-'}</TableCell>
+                      <TableCell>{i.ph != null ? i.ph : '-'}</TableCell>
+                      <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {i.parametrosCriticos}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={i.resultado}
+                          color={i.resultado === 'APROBADO' ? 'success' : i.resultado === 'CUARENTENA' ? 'warning' : 'error'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{i.inspector.nombre}</TableCell>
+                      <TableCell>{i.observaciones || '-'}</TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

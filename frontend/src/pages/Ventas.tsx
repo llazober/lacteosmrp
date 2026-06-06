@@ -51,6 +51,8 @@ export default function Ventas() {
   const usuario = useAuthStore((state) => state.usuario);
   const systemTimezone = useAuthStore((state) => state.systemTimezone);
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   // States for voiding sales
   const [openAnular, setOpenAnular] = useState(false);
   const [ventaAAnular, setVentaAAnular] = useState<any>(null);
@@ -122,6 +124,7 @@ export default function Ventas() {
 
   const cargarVentas = async () => {
     setLoading(true);
+    setSelectedRowId(null);
     try {
       let query = `?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
       if (isHQ && sucursalId) {
@@ -282,81 +285,97 @@ export default function Ventas() {
                   <TableCell colSpan={9} align="center">No se encontraron ventas para los filtros seleccionados.</TableCell>
                 </TableRow>
               ) : (
-                ventas.map((v) => (
-                  <TableRow
-                    key={v.id}
-                    sx={{
-                      opacity: v.estado === 'ANULADA' ? 0.6 : 1,
-                      backgroundColor: v.estado === 'ANULADA' ? 'rgba(239, 68, 68, 0.03)' : 'inherit',
-                    }}
-                  >
-                    <TableCell sx={{ fontWeight: 700 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Storefront sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        {v.sucursal.nombre}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {v.detalles.map((det: any) => (
-                        <div key={det.id} style={{ fontWeight: 600 }}>
-                          {det.producto.descripcion}
-                        </div>
-                      ))}
-                    </TableCell>
-                    <TableCell align="right">
-                      {v.detalles.map((det: any) => (
-                        <div key={det.id}>
-                          {det.cantidad}
-                        </div>
-                      ))}
-                    </TableCell>
-                    <TableCell align="right">
-                      {v.detalles.map((det: any) => (
-                        <div key={det.id}>
-                          {formatCurrency(det.precioUnitario)}
-                        </div>
-                      ))}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarMonth sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        {new Date(v.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{v.metodoPago}</TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={v.estado === 'ANULADA' ? 'Anulada' : 'Completada'}
-                        color={v.estado === 'ANULADA' ? 'error' : 'success'}
-                        size="small"
-                        sx={{ fontWeight: 700 }}
-                      />
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800 }}>{formatCurrency(v.total)}</TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                        <IconButton
+                ventas.map((v) => {
+                  const isSelected = selectedRowId === v.id;
+                  return (
+                    <TableRow
+                      key={v.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : v.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        opacity: v.estado === 'ANULADA' ? 0.6 : 1,
+                        bgcolor: isSelected
+                          ? 'rgba(59, 130, 246, 0.15)'
+                          : v.estado === 'ANULADA'
+                          ? 'rgba(239, 68, 68, 0.03)'
+                          : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected
+                            ? 'rgba(59, 130, 246, 0.25) !important'
+                            : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: 700 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Storefront sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          {v.sucursal.nombre}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        {v.detalles.map((det: any) => (
+                          <div key={det.id} style={{ fontWeight: 600 }}>
+                            {det.producto.descripcion}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell align="right">
+                        {v.detalles.map((det: any) => (
+                          <div key={det.id}>
+                            {det.cantidad}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell align="right">
+                        {v.detalles.map((det: any) => (
+                          <div key={det.id}>
+                            {formatCurrency(det.precioUnitario)}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CalendarMonth sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          {new Date(v.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{v.metodoPago}</TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={v.estado === 'ANULADA' ? 'Anulada' : 'Completada'}
+                          color={v.estado === 'ANULADA' ? 'error' : 'success'}
                           size="small"
-                          color="primary"
-                          onClick={() => handleOpenDetail(v)}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                        {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'GERENTE_TIENDA') && (
+                          sx={{ fontWeight: 700 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800 }}>{formatCurrency(v.total)}</TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                           <IconButton
                             size="small"
-                            color="error"
-                            disabled={v.estado === 'ANULADA'}
-                            onClick={() => handleOpenAnular(v)}
-                            title="Anular Venta"
+                            color="primary"
+                            onClick={(e) => { e.stopPropagation(); handleOpenDetail(v); }}
                           >
-                            <Block fontSize="small" />
+                            <Visibility fontSize="small" />
                           </IconButton>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'GERENTE_TIENDA') && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={v.estado === 'ANULADA'}
+                              onClick={(e) => { e.stopPropagation(); handleOpenAnular(v); }}
+                              title="Anular Venta"
+                            >
+                              <Block fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

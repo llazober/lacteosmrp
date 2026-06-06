@@ -76,12 +76,14 @@ export default function Compras() {
 
   // Buscador de órdenes de compra
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
   const cargarDatos = async () => {
+    setSelectedRowId(null);
     try {
       const data = await apiFetch('/compras');
       setCompras(data);
@@ -305,7 +307,10 @@ export default function Compras() {
           label="Buscar por Número de OC o Proveedor"
           variant="outlined"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setSelectedRowId(null);
+          }}
           sx={{ width: 350, backgroundColor: 'rgba(255,255,255,0.03)' }}
         />
       </Box>
@@ -343,91 +348,106 @@ export default function Compras() {
                   );
                 }
 
-                return filtered.map((oc) => (
-                  <TableRow key={oc.id}>
-                    <TableCell sx={{ fontWeight: 700 }}>{oc.numeroOrden}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{oc.proveedor.nombre}</TableCell>
-                    <TableCell>{oc.sucursal.nombre}</TableCell>
-                    <TableCell>
-                      {oc.detalles.map((det: any) => (
-                        <div key={det.id}>
-                          {det.producto.descripcion} (Recibido: {det.cantidadRecibida || 0} / {det.cantidad})
-                        </div>
-                      ))}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 800 }}>{formatCurrency(oc.total)}</TableCell>
-                    <TableCell>{new Date(oc.createdAt).toLocaleDateString('es-CO')}</TableCell>
-                    <TableCell sx={{ color: oc.fechaEntrega && new Date(oc.fechaEntrega) < new Date() && oc.estado !== 'RECIBIDA' ? 'error.main' : 'inherit' }}>
-                      {oc.fechaEntrega ? new Date(oc.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={oc.estado}
-                        color={
-                          oc.estado === 'RECIBIDA'
-                            ? 'success'
-                            : oc.estado === 'APROBADA'
-                            ? 'warning'
-                            : oc.estado === 'PENDIENTE'
-                            ? 'primary'
-                            : 'default'
-                        }
-                        size="small"
-                        sx={{ fontWeight: 700 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        {oc.estado === 'PENDIENTE' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            color="success"
-                            startIcon={<Check />}
-                            onClick={() => handleAprobarOC(oc.id)}
-                          >
-                            Aprobar
-                          </Button>
-                        )}
-                        {(oc.estado === 'APROBADA' || oc.estado === 'PARCIAL') && (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            color="secondary"
-                            startIcon={<LocalShipping />}
-                            onClick={() => handleAbrirRecepcion(oc)}
-                          >
-                            Recibir Lotes
-                          </Button>
-                        )}
-
-                        {oc.estado !== 'RECIBIDA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' || usuario?.rol === 'GERENTE_TIENDA') && (
-                          <Tooltip title="Editar Orden de Compra">
-                            <IconButton
+                return filtered.map((oc) => {
+                  const isSelected = selectedRowId === oc.id;
+                  return (
+                    <TableRow
+                      key={oc.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : oc.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: 700 }}>{oc.numeroOrden}</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>{oc.proveedor.nombre}</TableCell>
+                      <TableCell>{oc.sucursal.nombre}</TableCell>
+                      <TableCell>
+                        {oc.detalles.map((det: any) => (
+                          <div key={det.id}>
+                            {det.producto.descripcion} (Recibido: {det.cantidadRecibida || 0} / {det.cantidad})
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>{formatCurrency(oc.total)}</TableCell>
+                      <TableCell>{new Date(oc.createdAt).toLocaleDateString('es-CO')}</TableCell>
+                      <TableCell sx={{ color: oc.fechaEntrega && new Date(oc.fechaEntrega) < new Date() && oc.estado !== 'RECIBIDA' ? 'error.main' : 'inherit' }}>
+                        {oc.fechaEntrega ? new Date(oc.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={oc.estado}
+                          color={
+                            oc.estado === 'RECIBIDA'
+                              ? 'success'
+                              : oc.estado === 'APROBADA'
+                              ? 'warning'
+                              : oc.estado === 'PENDIENTE'
+                              ? 'primary'
+                              : 'default'
+                          }
+                          size="small"
+                          sx={{ fontWeight: 700 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                          {oc.estado === 'PENDIENTE' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+                            <Button
+                              variant="outlined"
                               size="small"
-                              color="info"
-                              onClick={() => handleOpenEditarOC(oc)}
+                              color="success"
+                              startIcon={<Check />}
+                              onClick={(e) => { e.stopPropagation(); handleAprobarOC(oc.id); }}
                             >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-
-                        {oc.estado !== 'RECIBIDA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
-                          <Tooltip title="Eliminar Orden de Compra">
-                            <IconButton
+                              Aprobar
+                            </Button>
+                          )}
+                          {(oc.estado === 'APROBADA' || oc.estado === 'PARCIAL') && (
+                            <Button
+                              variant="contained"
                               size="small"
-                              color="error"
-                              onClick={() => handleOpenEliminarOC(oc)}
+                              color="secondary"
+                              startIcon={<LocalShipping />}
+                              onClick={(e) => { e.stopPropagation(); handleAbrirRecepcion(oc); }}
                             >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
+                              Recibir Lotes
+                            </Button>
+                          )}
+
+                          {oc.estado !== 'RECIBIDA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' || usuario?.rol === 'GERENTE_TIENDA') && (
+                            <Tooltip title="Editar Orden de Compra">
+                              <IconButton
+                                size="small"
+                                color="info"
+                                onClick={(e) => { e.stopPropagation(); handleOpenEditarOC(oc); }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+
+                          {oc.estado !== 'RECIBIDA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+                            <Tooltip title="Eliminar Orden de Compra">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => { e.stopPropagation(); handleOpenEliminarOC(oc); }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               })()}
             </TableBody>
           </Table>

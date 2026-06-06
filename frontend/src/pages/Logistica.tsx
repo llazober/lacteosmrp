@@ -111,6 +111,8 @@ export default function Logistica() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -123,12 +125,14 @@ export default function Logistica() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['reabastecimiento', 'pronostico', 'rutas', 'monitoreo', 'conductores'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -757,40 +761,55 @@ export default function Logistica() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {propuestas.map((prop, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell sx={{ fontWeight: 700 }}>{prop.sucursalNombre}</TableCell>
-                        <TableCell>
-                          <strong>{prop.productoSku}</strong> - {prop.productoNombre}
-                        </TableCell>
-                        <TableCell align="right">{prop.stockActual}</TableCell>
-                        <TableCell align="right">{prop.promedioVentasDiarias}</TableCell>
-                        <TableCell align="right">{prop.stockObjetivo}</TableCell>
-                        <TableCell align="right" sx={{ color: '#10b981', fontWeight: 800 }}>
-                          +{prop.cantidadSugerida}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={prop.origenSugeridoNombre}
-                            color={prop.tipoOrigen === 'TRANSFERENCIA' ? 'warning' : 'primary'}
-                            size="small"
-                            sx={{ fontWeight: 700 }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: 'text.secondary' }}>
-                          {prop.detalleRazon}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            icon={prop.alertaRiesgo === 'CRITICO' ? <ErrorIcon /> : <Warning />}
-                            label={prop.alertaRiesgo}
-                            color={prop.alertaRiesgo === 'CRITICO' ? 'error' : 'warning'}
-                            size="small"
-                            sx={{ fontWeight: 700 }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {propuestas.map((prop, idx) => {
+                      const isSelected = selectedRowId === `prop-${idx}`;
+                      return (
+                        <TableRow
+                          key={idx}
+                          hover
+                          onClick={() => setSelectedRowId(isSelected ? null : `prop-${idx}`)}
+                          sx={{
+                            cursor: 'pointer',
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                            '&:hover': {
+                              bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                            },
+                            transition: 'background-color 0.2s ease',
+                          }}
+                        >
+                          <TableCell sx={{ fontWeight: 700 }}>{prop.sucursalNombre}</TableCell>
+                          <TableCell>
+                            <strong>{prop.productoSku}</strong> - {prop.productoNombre}
+                          </TableCell>
+                          <TableCell align="right">{prop.stockActual}</TableCell>
+                          <TableCell align="right">{prop.promedioVentasDiarias}</TableCell>
+                          <TableCell align="right">{prop.stockObjetivo}</TableCell>
+                          <TableCell align="right" sx={{ color: '#10b981', fontWeight: 800 }}>
+                            +{prop.cantidadSugerida}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={prop.origenSugeridoNombre}
+                              color={prop.tipoOrigen === 'TRANSFERENCIA' ? 'warning' : 'primary'}
+                              size="small"
+                              sx={{ fontWeight: 700 }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>
+                            {prop.detalleRazon}
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              icon={prop.alertaRiesgo === 'CRITICO' ? <ErrorIcon /> : <Warning />}
+                              label={prop.alertaRiesgo}
+                              color={prop.alertaRiesgo === 'CRITICO' ? 'error' : 'warning'}
+                              size="small"
+                              sx={{ fontWeight: 700 }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -1191,21 +1210,36 @@ export default function Logistica() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {camiones.map((cam) => (
-                      <TableRow key={cam.id}>
-                        <TableCell sx={{ fontWeight: 700 }}>{cam.placa}</TableCell>
-                        <TableCell>{cam.capacidadPeso} kg</TableCell>
-                        <TableCell>{cam.capacidadVolumen} m³</TableCell>
-                        <TableCell>{cam.temperaturaMin}°C a {cam.temperaturaMax}°C</TableCell>
-                        <TableCell>
-                          <Chip label={cam.estado} color={cam.estado === 'DISPONIBLE' ? 'success' : 'warning'} size="small" />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton onClick={() => { setCamionEdit(cam); setOpenCamionDialog(true); }}><Edit /></IconButton>
-                          <IconButton onClick={() => handleDeleteCamion(cam.id)} color="error"><Delete /></IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {camiones.map((cam) => {
+                      const isSelected = selectedRowId === cam.id;
+                      return (
+                        <TableRow
+                          key={cam.id}
+                          hover
+                          onClick={() => setSelectedRowId(isSelected ? null : cam.id)}
+                          sx={{
+                            cursor: 'pointer',
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                            '&:hover': {
+                              bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                            },
+                            transition: 'background-color 0.2s ease',
+                          }}
+                        >
+                          <TableCell sx={{ fontWeight: 700 }}>{cam.placa}</TableCell>
+                          <TableCell>{cam.capacidadPeso} kg</TableCell>
+                          <TableCell>{cam.capacidadVolumen} m³</TableCell>
+                          <TableCell>{cam.temperaturaMin}°C a {cam.temperaturaMax}°C</TableCell>
+                          <TableCell>
+                            <Chip label={cam.estado} color={cam.estado === 'DISPONIBLE' ? 'success' : 'warning'} size="small" />
+                          </TableCell>
+                          <TableCell align="center">
+                            <IconButton onClick={(e) => { e.stopPropagation(); setCamionEdit(cam); setOpenCamionDialog(true); }}><Edit /></IconButton>
+                            <IconButton onClick={(e) => { e.stopPropagation(); handleDeleteCamion(cam.id); }} color="error"><Delete /></IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -1232,20 +1266,35 @@ export default function Logistica() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {conductores.map((cond) => (
-                      <TableRow key={cond.id}>
-                        <TableCell sx={{ fontWeight: 700 }}>{cond.nombre}</TableCell>
-                        <TableCell>{cond.licencia}</TableCell>
-                        <TableCell>{cond.telefono}</TableCell>
-                        <TableCell>
-                          <Chip label={cond.estado} color={cond.estado === 'ACTIVO' ? 'success' : 'warning'} size="small" />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton onClick={() => { setConductorEdit(cond); setOpenConductorDialog(true); }}><Edit /></IconButton>
-                          <IconButton onClick={() => handleDeleteConductor(cond.id)} color="error"><Delete /></IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {conductores.map((cond) => {
+                      const isSelected = selectedRowId === cond.id;
+                      return (
+                        <TableRow
+                          key={cond.id}
+                          hover
+                          onClick={() => setSelectedRowId(isSelected ? null : cond.id)}
+                          sx={{
+                            cursor: 'pointer',
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                            '&:hover': {
+                              bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                            },
+                            transition: 'background-color 0.2s ease',
+                          }}
+                        >
+                          <TableCell sx={{ fontWeight: 700 }}>{cond.nombre}</TableCell>
+                          <TableCell>{cond.licencia}</TableCell>
+                          <TableCell>{cond.telefono}</TableCell>
+                          <TableCell>
+                            <Chip label={cond.estado} color={cond.estado === 'ACTIVO' ? 'success' : 'warning'} size="small" />
+                          </TableCell>
+                          <TableCell align="center">
+                            <IconButton onClick={(e) => { e.stopPropagation(); setConductorEdit(cond); setOpenConductorDialog(true); }}><Edit /></IconButton>
+                            <IconButton onClick={(e) => { e.stopPropagation(); handleDeleteConductor(cond.id); }} color="error"><Delete /></IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>

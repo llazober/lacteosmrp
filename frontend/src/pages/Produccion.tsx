@@ -61,6 +61,8 @@ export default function Produccion() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -71,12 +73,14 @@ export default function Produccion() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['recetas', 'ordenes', 'mermas'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -622,98 +626,113 @@ export default function Produccion() {
                   </TableCell>
                 </TableRow>
               ) : (
-                ordenes.map((op) => (
-                  <TableRow key={op.id}>
-                    <TableCell sx={{ fontWeight: 700 }}>{op.numeroOrden}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{op.receta.nombre}</Typography>
-                      <Typography variant="caption" color="text.secondary">{op.receta.productoFinal.descripcion}</Typography>
-                    </TableCell>
-                    <TableCell>{op.sucursal.nombre}</TableCell>
-                    <TableCell>{op.responsable.nombre}</TableCell>
-                    <TableCell>{op.cantidadPlanificada}</TableCell>
-                    <TableCell>{op.cantidadProducida || '-'}</TableCell>
-                    <TableCell>
-                      {op.estado === 'COMPLETADA' ? (
+                ordenes.map((op) => {
+                  const isSelected = selectedRowId === op.id;
+                  return (
+                    <TableRow
+                      key={op.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : op.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <TableCell sx={{ fontWeight: 700 }}>{op.numeroOrden}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{op.receta.nombre}</Typography>
+                        <Typography variant="caption" color="text.secondary">{op.receta.productoFinal.descripcion}</Typography>
+                      </TableCell>
+                      <TableCell>{op.sucursal.nombre}</TableCell>
+                      <TableCell>{op.responsable.nombre}</TableCell>
+                      <TableCell>{op.cantidadPlanificada}</TableCell>
+                      <TableCell>{op.cantidadProducida || '-'}</TableCell>
+                      <TableCell>
+                        {op.estado === 'COMPLETADA' ? (
+                          <Chip
+                            label={`${op.rendimientoReal.toFixed(1)}%`}
+                            color={op.rendimientoReal >= 95 ? 'success' : 'warning'}
+                            size="small"
+                          />
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
                         <Chip
-                          label={`${op.rendimientoReal.toFixed(1)}%`}
-                          color={op.rendimientoReal >= 95 ? 'success' : 'warning'}
+                          label={op.estado}
                           size="small"
+                          color={
+                            op.estado === 'COMPLETADA'
+                              ? 'success'
+                              : op.estado === 'EN_PROCESO'
+                              ? 'primary'
+                              : op.estado === 'PLANIFICADA'
+                              ? 'warning'
+                              : 'error'
+                          }
                         />
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={op.estado}
-                        size="small"
-                        color={
-                          op.estado === 'COMPLETADA'
-                            ? 'success'
-                            : op.estado === 'EN_PROCESO'
-                            ? 'primary'
-                            : op.estado === 'PLANIFICADA'
-                            ? 'warning'
-                            : 'error'
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="caption" component="div">
-                        Plan: {new Date(op.createdAt).toLocaleDateString()}
-                      </Typography>
-                      {op.fechaInicio && (
-                        <Typography variant="caption" component="div" color="text.secondary">
-                          Inicio: {new Date(op.fechaInicio).toLocaleTimeString()}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" component="div">
+                          Plan: {new Date(op.createdAt).toLocaleDateString()}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                        {op.estado === 'PLANIFICADA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                          <>
-                            <Tooltip title="Iniciar Producción">
-                              <IconButton color="primary" onClick={() => handleIniciarOrden(op.id)}>
-                                <PlayArrow />
+                        {op.fechaInicio && (
+                          <Typography variant="caption" component="div" color="text.secondary">
+                            Inicio: {new Date(op.fechaInicio).toLocaleTimeString()}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                          {op.estado === 'PLANIFICADA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                            <>
+                              <Tooltip title="Iniciar Producción">
+                                <IconButton color="primary" onClick={(e) => { e.stopPropagation(); handleIniciarOrden(op.id); }}>
+                                  <PlayArrow />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Cancelar Orden">
+                                <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
+                                  <Close />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                          {op.estado === 'EN_PROCESO' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                            <>
+                              <Tooltip title="Registrar Completada">
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  color="success"
+                                  startIcon={<Check />}
+                                  onClick={(e) => { e.stopPropagation(); handleOpenCompletar(op); }}
+                                >
+                                  Completar
+                                </Button>
+                              </Tooltip>
+                              <Tooltip title="Cancelar Orden">
+                                <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
+                                  <Close />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                          {op.estado === 'COMPLETADA' && (
+                            <Tooltip title="Ver detalles de consumos">
+                              <IconButton color="info" onClick={(e) => e.stopPropagation()}>
+                                <Visibility />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Cancelar Orden">
-                              <IconButton color="error" onClick={() => handleCancelarOrden(op.id)}>
-                                <Close />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                        {op.estado === 'EN_PROCESO' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                          <>
-                            <Tooltip title="Registrar Completada">
-                              <Button
-                                size="small"
-                                variant="contained"
-                                color="success"
-                                startIcon={<Check />}
-                                onClick={() => handleOpenCompletar(op)}
-                              >
-                                Completar
-                              </Button>
-                            </Tooltip>
-                            <Tooltip title="Cancelar Orden">
-                              <IconButton color="error" onClick={() => handleCancelarOrden(op.id)}>
-                                <Close />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                        {op.estado === 'COMPLETADA' && (
-                          <Tooltip title="Ver detalles de consumos">
-                            <IconButton color="info">
-                              <Visibility />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          )}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -743,31 +762,46 @@ export default function Produccion() {
                   </TableCell>
                 </TableRow>
               ) : (
-                mermas.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>{new Date(m.fecha).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.producto.descripcion}</Typography>
-                      <Typography variant="caption" color="text.secondary">{m.producto.sku}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={m.producto.categoria === 'MATERIA_PRIMA' || m.producto.categoria === 'INSUMOS' ? 'Materia Prima' : 'Producto Terminado'}
-                        color={m.producto.categoria === 'MATERIA_PRIMA' || m.producto.categoria === 'INSUMOS' ? 'warning' : 'success'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: 'error.main' }}>
-                      -{m.cantidad} {m.producto.unidadMedida}
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={m.motivo} size="small" />
-                    </TableCell>
-                    <TableCell>{m.responsable.nombre}</TableCell>
-                    <TableCell>{m.ordenProduccion ? m.ordenProduccion.numeroOrden : 'Registro Directo'}</TableCell>
-                  </TableRow>
-                ))
+                mermas.map((m) => {
+                  const isSelected = selectedRowId === m.id;
+                  return (
+                    <TableRow
+                      key={m.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : m.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
+                      <TableCell>{new Date(m.fecha).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.producto.descripcion}</Typography>
+                        <Typography variant="caption" color="text.secondary">{m.producto.sku}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={m.producto.categoria === 'MATERIA_PRIMA' || m.producto.categoria === 'INSUMOS' ? 'Materia Prima' : 'Producto Terminado'}
+                          color={m.producto.categoria === 'MATERIA_PRIMA' || m.producto.categoria === 'INSUMOS' ? 'warning' : 'success'}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: 'error.main' }}>
+                        -{m.cantidad} {m.producto.unidadMedida}
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={m.motivo} size="small" />
+                      </TableCell>
+                      <TableCell>{m.responsable.nombre}</TableCell>
+                      <TableCell>{m.ordenProduccion ? m.ordenProduccion.numeroOrden : 'Registro Directo'}</TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
