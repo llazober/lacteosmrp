@@ -40,7 +40,55 @@ export class LogisticaController implements OnModuleInit {
 
   constructor(private prisma: PrismaService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    // Limpieza automática de alertas de temperatura duplicadas al iniciar el servidor
+    try {
+      const alertasActivas = await this.prisma.alerta.findMany({
+        where: {
+          estado: 'ACTIVA',
+          tipo: 'TEMPERATURA',
+        },
+        orderBy: { fecha: 'desc' },
+      });
+
+      const vistas = new Set<string>();
+      const aResolver: string[] = [];
+
+      for (const alerta of alertasActivas) {
+        let clave = alerta.mensaje;
+        
+        // Identificar si es alerta de ruta o freezer y agruparlas por su código/nombre
+        const matchRuta = alerta.mensaje.match(/Ruta\s+([A-Z0-9-]+)/i);
+        const matchFreezer = alerta.mensaje.match(/Freezer\s+"([^"]+)"|equipo\s+"([^"]+)"/i);
+
+        if (matchRuta) {
+          clave = `ruta-${matchRuta[1]}`;
+        } else if (matchFreezer) {
+          const name = matchFreezer[1] || matchFreezer[2];
+          clave = `freezer-${name}`;
+        }
+
+        if (vistas.has(clave)) {
+          aResolver.push(alerta.id);
+        } else {
+          vistas.add(clave);
+        }
+      }
+
+      if (aResolver.length > 0) {
+        await this.prisma.alerta.updateMany({
+          where: { id: { in: aResolver } },
+          data: {
+            estado: 'RESUELTA',
+            notasAtencion: 'Resuelta automáticamente: Limpieza de duplicados al iniciar el servidor.',
+          },
+        });
+        console.log(`[Startup Cleanup] Se resolvieron automáticamente ${aResolver.length} alertas de temperatura duplicadas.`);
+      }
+    } catch (e) {
+      console.error('Error al limpiar alertas duplicadas al iniciar el módulo:', e);
+    }
+
     // Ejecutar reabastecimiento en segundo plano cada 5 minutos
     setInterval(
       () => {
