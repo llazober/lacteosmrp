@@ -91,6 +91,8 @@ export default function Utilidades() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -107,12 +109,14 @@ export default function Utilidades() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['categorias', 'unidades', 'tipos', 'proveedores', 'condiciones', 'sucursales', 'roles', 'manual', 'configuracion'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -870,65 +874,84 @@ export default function Utilidades() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  categorias.map((cat) => (
-                    <TableRow key={cat.id}>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{cat.id}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>
-                        <Chip label={cat.nombre} color="primary" variant="outlined" size="small" />
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const found = tiposProducto.find((t: any) => t.nombre === cat.tipoProducto);
-                          if (found) {
-                            const color =
-                              cat.tipoProducto === 'PRODUCTO_TERMINADO' || cat.tipoProducto === 'PT'
-                                ? 'primary'
-                                : cat.tipoProducto === 'INSUMO' || cat.tipoProducto === 'INS'
-                                ? 'secondary'
-                                : 'warning';
-                            return <Chip label={found.descripcion} color={color} variant="outlined" size="small" />;
-                          }
-                          if (cat.tipoProducto === 'PRODUCTO_TERMINADO' || cat.tipoProducto === 'PT') {
-                            return <Chip label="Prod. Terminado" color="primary" variant="outlined" size="small" />;
-                          }
-                          if (cat.tipoProducto === 'INSUMO' || cat.tipoProducto === 'INS') {
-                            return <Chip label="Insumo" color="secondary" variant="outlined" size="small" />;
-                          }
-                          if (cat.tipoProducto === 'MATERIA_PRIMA' || cat.tipoProducto === 'MP') {
-                            return <Chip label="Materia Prima" color="warning" variant="outlined" size="small" />;
-                          }
-                          return cat.tipoProducto;
-                        })()}
-                      </TableCell>
-                      <TableCell>{new Date(cat.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                      <TableCell align="right">
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            color="info"
-                            startIcon={<Edit />}
-                            onClick={() => {
-                              setSelectedCategoria(cat);
-                              setCategoriaForm({ nombre: cat.nombre, tipoProducto: cat.tipoProducto || 'PT' });
-                              setOpenEditarCategoria(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            color="error"
-                            startIcon={<Delete />}
-                            onClick={() => handleEliminarCategoria(cat.id)}
-                          >
-                            Eliminar
-                          </Button>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  categorias.map((cat) => {
+                    const isSelected = selectedRowId === cat.id;
+                    return (
+                      <TableRow
+                        key={cat.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : cat.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{cat.id}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>
+                          <Chip label={cat.nombre} color="primary" variant="outlined" size="small" />
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const found = tiposProducto.find((t: any) => t.nombre === cat.tipoProducto);
+                            if (found) {
+                              const color =
+                                cat.tipoProducto === 'PRODUCTO_TERMINADO' || cat.tipoProducto === 'PT'
+                                  ? 'primary'
+                                  : cat.tipoProducto === 'INSUMO' || cat.tipoProducto === 'INS'
+                                  ? 'secondary'
+                                  : 'warning';
+                              return <Chip label={found.descripcion} color={color} variant="outlined" size="small" />;
+                            }
+                            if (cat.tipoProducto === 'PRODUCTO_TERMINADO' || cat.tipoProducto === 'PT') {
+                              return <Chip label="Prod. Terminado" color="primary" variant="outlined" size="small" />;
+                            }
+                            if (cat.tipoProducto === 'INSUMO' || cat.tipoProducto === 'INS') {
+                              return <Chip label="Insumo" color="secondary" variant="outlined" size="small" />;
+                            }
+                            if (cat.tipoProducto === 'MATERIA_PRIMA' || cat.tipoProducto === 'MP') {
+                              return <Chip label="Materia Prima" color="warning" variant="outlined" size="small" />;
+                            }
+                            return cat.tipoProducto;
+                          })()}
+                        </TableCell>
+                        <TableCell>{new Date(cat.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="info"
+                              startIcon={<Edit />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCategoria(cat);
+                                setCategoriaForm({ nombre: cat.nombre, tipoProducto: cat.tipoProducto || 'PT' });
+                                setOpenEditarCategoria(true);
+                              }}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="error"
+                              startIcon={<Delete />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEliminarCategoria(cat.id);
+                              }}
+                            >
+                              Eliminar
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -977,46 +1000,65 @@ export default function Utilidades() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  unidadesMedida.map((uni) => (
-                    <TableRow key={uni.id}>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{uni.id}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>
-                        <Chip label={uni.nombre} color="secondary" variant="outlined" size="small" />
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{uni.abreviacion}</TableCell>
-                      <TableCell>{new Date(uni.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                      <TableCell align="right">
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                            <>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                color="info"
-                                startIcon={<Edit />}
-                                onClick={() => {
-                                  setSelectedUnidad(uni);
-                                  setUnidadForm({ nombre: uni.nombre, abreviacion: uni.abreviacion });
-                                  setOpenEditarUnidad(true);
-                                }}
-                              >
-                                Editar
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                color="error"
-                                startIcon={<Delete />}
-                                onClick={() => handleEliminarUnidad(uni.id)}
-                              >
-                                Eliminar
-                              </Button>
-                            </>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  unidadesMedida.map((uni) => {
+                    const isSelected = selectedRowId === uni.id;
+                    return (
+                      <TableRow
+                        key={uni.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : uni.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{uni.id}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>
+                          <Chip label={uni.nombre} color="secondary" variant="outlined" size="small" />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{uni.abreviacion}</TableCell>
+                        <TableCell>{new Date(uni.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                              <>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  color="info"
+                                  startIcon={<Edit />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedUnidad(uni);
+                                    setUnidadForm({ nombre: uni.nombre, abreviacion: uni.abreviacion });
+                                    setOpenEditarUnidad(true);
+                                  }}
+                                >
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  color="error"
+                                  startIcon={<Delete />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEliminarUnidad(uni.id);
+                                  }}
+                                >
+                                  Eliminar
+                                </Button>
+                              </>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1067,48 +1109,67 @@ export default function Utilidades() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tiposProducto.map((tipo) => (
-                    <TableRow key={tipo.id}>
-                      <TableCell sx={{ fontWeight: 700 }}>
-                        <Chip label={tipo.nombre} color="info" variant="outlined" size="small" />
-                      </TableCell>
-                      <TableCell>{tipo.descripcion}</TableCell>
-                      <TableCell>{tipo.metadata || '-'}</TableCell>
-                      <TableCell>{new Date(tipo.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                      {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              color="info"
-                              startIcon={<Edit />}
-                              onClick={() => {
-                                setSelectedTipo(tipo);
-                                setTipoForm({
-                                  nombre: tipo.nombre,
-                                  descripcion: tipo.descripcion,
-                                  metadata: tipo.metadata || '',
-                                });
-                                setOpenEditarTipo(true);
-                              }}
-                            >
-                              Editar
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              color="error"
-                              startIcon={<Delete />}
-                              onClick={() => handleEliminarTipoProducto(tipo.id)}
-                            >
-                              Eliminar
-                            </Button>
-                          </Box>
+                  tiposProducto.map((tipo) => {
+                    const isSelected = selectedRowId === tipo.id;
+                    return (
+                      <TableRow
+                        key={tipo.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : tipo.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: 700 }}>
+                          <Chip label={tipo.nombre} color="info" variant="outlined" size="small" />
                         </TableCell>
-                      )}
-                    </TableRow>
-                  ))
+                        <TableCell>{tipo.descripcion}</TableCell>
+                        <TableCell>{tipo.metadata || '-'}</TableCell>
+                        <TableCell>{new Date(tipo.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                        {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                          <TableCell align="right">
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="info"
+                                startIcon={<Edit />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTipo(tipo);
+                                  setTipoForm({
+                                    nombre: tipo.nombre,
+                                    descripcion: tipo.descripcion,
+                                    metadata: tipo.metadata || '',
+                                  });
+                                  setOpenEditarTipo(true);
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="error"
+                                startIcon={<Delete />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEliminarTipoProducto(tipo.id);
+                                }}
+                              >
+                                Eliminar
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1183,8 +1244,21 @@ export default function Utilidades() {
                     } catch (e) {
                       certs = [];
                     }
+                    const isSelected = selectedRowId === prov.id;
                     return (
-                      <TableRow key={prov.id}>
+                      <TableRow
+                        key={prov.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : prov.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
                         <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
                           {prov.codigo}
                         </TableCell>
@@ -1232,7 +1306,7 @@ export default function Utilidades() {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 1, justifycontent: 'flex-end' }}>
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                             {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                               <>
                                 <Button
@@ -1240,7 +1314,8 @@ export default function Utilidades() {
                                   size="small"
                                   color="info"
                                   startIcon={<Edit />}
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setSelectedProveedor(prov);
                                     let certsStr = '';
                                     try {
@@ -1274,7 +1349,7 @@ export default function Utilidades() {
                                   size="small"
                                   color="error"
                                   startIcon={<Delete />}
-                                  onClick={() => handleEliminarProveedor(prov.id)}
+                                  onClick={(e) => { e.stopPropagation(); handleEliminarProveedor(prov.id); }}
                                 >
                                   Eliminar
                                 </Button>
@@ -1330,8 +1405,22 @@ export default function Utilidades() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  terminosPago.map((tp) => (
-                    <TableRow key={tp.id}>
+                  terminosPago.map((tp) => {
+                    const isSelected = selectedRowId === tp.id;
+                    return (
+                    <TableRow
+                      key={tp.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : tp.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
                       <TableCell sx={{ fontWeight: 700 }}>{tp.nombre}</TableCell>
                       <TableCell>{tp.dias} días</TableCell>
                       <TableCell>
@@ -1348,7 +1437,8 @@ export default function Utilidades() {
                             size="small"
                             color="info"
                             startIcon={<Edit />}
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedTermino(tp);
                               setTerminoForm({
                                 nombre: tp.nombre,
@@ -1365,14 +1455,15 @@ export default function Utilidades() {
                             size="small"
                             color="error"
                             startIcon={<Delete />}
-                            onClick={() => handleEliminarTermino(tp.id)}
+                            onClick={(e) => { e.stopPropagation(); handleEliminarTermino(tp.id); }}
                           >
                             Eliminar
                           </Button>
                         </Box>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1429,8 +1520,22 @@ export default function Utilidades() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sucursales.map((suc) => (
-                    <TableRow key={suc.id}>
+                  sucursales.map((suc) => {
+                    const isSelected = selectedRowId === suc.id;
+                    return (
+                    <TableRow
+                      key={suc.id}
+                      hover
+                      onClick={() => setSelectedRowId(isSelected ? null : suc.id)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                        '&:hover': {
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                        },
+                        transition: 'background-color 0.2s ease',
+                      }}
+                    >
                       <TableCell sx={{ fontFamily: 'monospace' }}>{suc.codigo}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{suc.nombre}</TableCell>
                       <TableCell>{suc.direccion || '—'}</TableCell>
@@ -1452,7 +1557,7 @@ export default function Utilidades() {
                               size="small"
                               color="info"
                               startIcon={<Edit />}
-                              onClick={() => handleAbrirEditarSucursal(suc)}
+                              onClick={(e) => { e.stopPropagation(); handleAbrirEditarSucursal(suc); }}
                             >
                               Editar
                             </Button>
@@ -1461,7 +1566,7 @@ export default function Utilidades() {
                               size="small"
                               color="error"
                               startIcon={<Delete />}
-                              onClick={() => handleEliminarSucursal(suc.id)}
+                              onClick={(e) => { e.stopPropagation(); handleEliminarSucursal(suc.id); }}
                             >
                               Eliminar
                             </Button>
@@ -1469,7 +1574,8 @@ export default function Utilidades() {
                         </TableCell>
                       )}
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1528,8 +1634,21 @@ export default function Utilidades() {
                     } catch (e) {
                       permsList = [];
                     }
+                    const isSelected = selectedRowId === r.id;
                     return (
-                      <TableRow key={r.id}>
+                      <TableRow
+                        key={r.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : r.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
                         <TableCell sx={{ fontWeight: 700 }}>
                           <Chip label={r.nombre} color="secondary" variant="outlined" size="small" sx={{ fontWeight: 800 }} />
                         </TableCell>
@@ -1553,7 +1672,8 @@ export default function Utilidades() {
                                 size="small"
                                 color="info"
                                 startIcon={<Edit />}
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSelectedRol(r);
                                   setRolForm({
                                     nombre: r.nombre,
@@ -1570,7 +1690,7 @@ export default function Utilidades() {
                                 size="small"
                                 color="error"
                                 startIcon={<Delete />}
-                                onClick={() => handleEliminarRol(r.id)}
+                                onClick={(e) => { e.stopPropagation(); handleEliminarRol(r.id); }}
                                 disabled={['ADMINISTRADOR', 'SUPERVISOR', 'GERENTE_TIENDA', 'CAJERO', 'ALMACEN', 'CONTROL_CALIDAD'].includes(r.nombre)}
                               >
                                 Eliminar
