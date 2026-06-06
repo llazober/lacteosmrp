@@ -300,7 +300,7 @@ export default function CuentasPorPagar() {
 
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
             Cuentas por Pagar (Ciclo de Pago)
