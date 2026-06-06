@@ -81,7 +81,7 @@ export class AiService {
     }
 
     const systemPrompt = `Eres "Vaquita AI", el asistente inteligente de operaciones oficial de la cadena de lácteos "La Vaquita".
-Tienes acceso a consultas en tiempo real sobre la base de datos del sistema (incluyendo inventario, ventas, compras, mermas, cadena de frío y ahora el nuevo módulo de LOGÍSTICA, RUTAS e inventario de REABASTECIMIENTO) para ayudar a responder las preguntas del usuario.
+Tienes acceso a consultas en tiempo real sobre la base de datos del sistema (incluyendo inventario, ventas, compras, mermas, cadena de frío, producción/recetas/órdenes de producción, y ahora el nuevo módulo de LOGÍSTICA, RUTAS e inventario de REABASTECIMIENTO) para ayudar a responder las preguntas del usuario.
 Usa las funciones de herramientas (tools) disponibles para obtener los datos necesarios.
 
 Además de los datos dinámicos de la base de datos, cuentas con el MANUAL OPERATIVO DEL SISTEMA para responder cualquier pregunta del usuario sobre cómo funciona la aplicación, flujos operativos (como recibir lotes por OC, abrir caja, mermas, etc.), roles y permisos.
@@ -339,6 +339,28 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
       {
         type: 'function',
         function: {
+          name: 'obtenerOrdenesProduccion',
+          description:
+            'Obtiene la lista de órdenes de producción del sistema, permitiendo filtrar por sucursal y opcionalmente por estado.',
+          parameters: {
+            type: 'object',
+            properties: {
+              sucursalId: {
+                type: 'string',
+                description: 'ID opcional de la sucursal para filtrar.',
+              },
+              estado: {
+                type: 'string',
+                enum: ['PLANIFICADA', 'EN_PROCESO', 'COMPLETADA', 'CANCELADA'],
+                description: 'Estado opcional de las órdenes de producción para filtrar.',
+              },
+            },
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
           name: 'navegarAPagina',
           description:
             'Navega o redirige al usuario a una sección o pantalla específica del sistema ERP de acuerdo a sus permisos.',
@@ -458,6 +480,11 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
             } else if (functionName === 'obtenerOrdenesCompra') {
               functionResult = await this.obtenerOrdenesCompra(
                 rawArgs.sucursalId,
+              );
+            } else if (functionName === 'obtenerOrdenesProduccion') {
+              functionResult = await this.obtenerOrdenesProduccion(
+                rawArgs.sucursalId,
+                rawArgs.estado,
               );
             } else if (functionName === 'obtenerLotesPorVencer') {
               functionResult = await this.obtenerLotesPorVencer(
@@ -988,6 +1015,37 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
       estado: o.estado,
       fecha: o.fecha,
       total: o.total,
+    }));
+  }
+
+  private async obtenerOrdenesProduccion(sucursalId?: string, estado?: string) {
+    const filter: any = {};
+    if (sucursalId) filter.sucursalId = sucursalId;
+    if (estado) filter.estado = estado;
+
+    const ops = await this.prisma.ordenProduccion.findMany({
+      where: filter,
+      include: {
+        receta: {
+          include: { productoFinal: { select: { descripcion: true } } },
+        },
+        sucursal: { select: { nombre: true } },
+        responsable: { select: { nombre: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return ops.map((op) => ({
+      numeroOrden: op.numeroOrden,
+      receta: op.receta.nombre,
+      productoFinal: op.receta.productoFinal.descripcion,
+      sucursal: op.sucursal.nombre,
+      responsable: op.responsable.nombre,
+      cantidadPlanificada: op.cantidadPlanificada,
+      cantidadProducida: op.cantidadProducida,
+      estado: op.estado,
+      fechaInicio: op.fechaInicio,
+      fechaFin: op.fechaFin,
     }));
   }
 
