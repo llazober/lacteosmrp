@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -33,7 +34,39 @@ import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 export default function Auditoria() {
   const systemTimezone = useAuthStore((state) => state.systemTimezone);
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        bitacora: 0,
+        personal: 1,
+      };
+      if (tabMap[tabParam] !== undefined) {
+        return tabMap[tabParam];
+      }
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        bitacora: 0,
+        personal: 1,
+      };
+      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
+        setActiveTab(tabMap[tabParam]);
+      }
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: number) => {
+    setActiveTab(val);
+    const tabNames = ['bitacora', 'personal'];
+    setSearchParams({ tab: tabNames[val] });
+  };
 
   // Datos
   const [logs, setLogs] = useState<any[]>([]);
@@ -187,7 +220,7 @@ export default function Auditoria() {
 
       <Tabs
         value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
+        onChange={(_, val) => handleTabChange(val)}
         sx={{
           borderBottom: 1,
           borderColor: 'divider',

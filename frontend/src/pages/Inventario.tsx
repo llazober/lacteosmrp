@@ -45,10 +45,12 @@ import {
   QrCode,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Inventario() {
   const usuario = useAuthStore((state) => state.usuario);
   const systemTimezone = useAuthStore((state) => state.systemTimezone);
+  const [searchParams, setSearchParams] = useSearchParams();
   const tienePermisoTraslados =
     usuario?.rol === 'ADMINISTRADOR' ||
     usuario?.rol === 'SUPERVISOR' ||
@@ -58,11 +60,50 @@ export default function Inventario() {
     usuario?.rol === 'SUPERVISOR' ||
     usuario?.permisos?.includes('VER_INVENTARIO');
   const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        stock: 0,
+        movimientos: 1,
+        kardex: 1,
+        traslados: 2,
+        productos: 3,
+        lotes: 4,
+        mermas: 5,
+      };
+      if (tabMap[tabParam] !== undefined) {
+        return tabMap[tabParam];
+      }
+    }
     if (!tienePermisoInventario && tienePermisoTraslados) {
       return 2;
     }
     return 0;
   });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        stock: 0,
+        movimientos: 1,
+        kardex: 1,
+        traslados: 2,
+        productos: 3,
+        lotes: 4,
+        mermas: 5,
+      };
+      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
+        setActiveTab(tabMap[tabParam]);
+      }
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: number) => {
+    setActiveTab(val);
+    const tabNames = ['stock', 'movimientos', 'traslados', 'productos', 'lotes', 'mermas'];
+    setSearchParams({ tab: tabNames[val] });
+  };
 
   // Pagination states
   const [pageStock, setPageStock] = useState(0);
@@ -1048,7 +1089,7 @@ export default function Inventario() {
 
       <Tabs
         value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
+        onChange={(_, val) => handleTabChange(val)}
         sx={{
           borderBottom: 1,
           borderColor: 'divider',

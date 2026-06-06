@@ -19,6 +19,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Send, SmartToy, Person, Mic, MicOff } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 interface Mensaje {
@@ -29,6 +30,7 @@ interface Mensaje {
 
 export default function Asistente() {
   const usuario = useAuthStore((state) => state.usuario);
+  const navigate = useNavigate();
   const userKey = usuario ? `lacteoserp_ai_history_${usuario.id}` : 'lacteoserp_ai_history_guest';
 
   const [historial, setHistorial] = useState<Mensaje[]>(() => {
@@ -112,7 +114,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   };
 
   // Clean and speak text out loud using Web Speech Synthesis
-  const speakText = (text: string) => {
+  const speakText = (text: string, onEndCallback?: () => void) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       if (speakTimeoutRef.current) {
@@ -142,7 +144,10 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           .replace(/\s+/g, ' ')           // normalize spaces
           .trim();
 
-        if (!clean) return;
+        if (!clean) {
+          if (onEndCallback) onEndCallback();
+          return;
+        }
 
         const utterance = new SpeechSynthesisUtterance(clean);
         utterance.lang = 'es-CL';
@@ -170,9 +175,34 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           utterance.lang = selectedVoice.lang;
         }
 
+        let callbackCalled = false;
+        const triggerCallback = () => {
+          if (!callbackCalled) {
+            callbackCalled = true;
+            if (onEndCallback) onEndCallback();
+          }
+        };
+
+        utterance.onend = triggerCallback;
+        utterance.onerror = triggerCallback;
+
+        // Safety fallback timeout
+        const fallbackMs = (clean.length / 10) * 1000 + 2000;
+        const fallbackTimeout = setTimeout(triggerCallback, fallbackMs);
+
+        // Clear fallback timeout if it ends normally
+        const originalOnEnd = utterance.onend;
+        utterance.onend = (e) => {
+          clearTimeout(fallbackTimeout);
+          if (originalOnEnd) originalOnEnd.call(utterance, e);
+          triggerCallback();
+        };
+
         utteranceRef.current = utterance; // Keep reference to prevent GC
         window.speechSynthesis.speak(utterance);
       }, 250);
+    } else {
+      if (onEndCallback) onEndCallback();
     }
   };
 
@@ -337,7 +367,19 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       };
 
       setHistorial((prev) => [...prev, mensajeAsistente]);
-      if (isVoice) {
+      if (res.navegacion) {
+        if (isVoice) {
+          speakText(res.respuesta, () => {
+            setTimeout(() => {
+              navigate(res.navegacion);
+            }, 500);
+          });
+        } else {
+          setTimeout(() => {
+            navigate(res.navegacion);
+          }, 1500);
+        }
+      } else if (isVoice) {
         speakText(res.respuesta);
       }
     } catch (e: any) {

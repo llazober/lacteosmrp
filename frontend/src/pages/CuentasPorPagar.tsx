@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -42,7 +43,39 @@ import {
 import { apiFetch } from '../store/useAuthStore';
 
 export default function CuentasPorPagar() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        facturas: 0,
+        pagos: 1,
+      };
+      if (tabMap[tabParam] !== undefined) {
+        return tabMap[tabParam];
+      }
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        facturas: 0,
+        pagos: 1,
+      };
+      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
+        setActiveTab(tabMap[tabParam]);
+      }
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: number) => {
+    setActiveTab(val);
+    const tabNames = ['facturas', 'pagos'];
+    setSearchParams({ tab: tabNames[val] });
+  };
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -353,7 +386,7 @@ export default function CuentasPorPagar() {
       {/* Tabs */}
       <Tabs
         value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
+        onChange={(_, val) => handleTabChange(val)}
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
       >
         <Tab label="Facturas por Pagar" icon={<ReceiptLong />} iconPosition="start" />

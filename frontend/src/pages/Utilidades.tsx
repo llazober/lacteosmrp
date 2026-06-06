@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -68,7 +69,53 @@ import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 export default function Utilidades() {
   const usuario = useAuthStore((state) => state.usuario);
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        categorias: 0,
+        unidades: 1,
+        tipos: 2,
+        proveedores: 3,
+        condiciones: 4,
+        sucursales: 5,
+        roles: 6,
+        manual: 7,
+        configuracion: 8,
+      };
+      if (tabMap[tabParam] !== undefined) {
+        return tabMap[tabParam];
+      }
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        categorias: 0,
+        unidades: 1,
+        tipos: 2,
+        proveedores: 3,
+        condiciones: 4,
+        sucursales: 5,
+        roles: 6,
+        manual: 7,
+        configuracion: 8,
+      };
+      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
+        setActiveTab(tabMap[tabParam]);
+      }
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: number) => {
+    setActiveTab(val);
+    const tabNames = ['categorias', 'unidades', 'tipos', 'proveedores', 'condiciones', 'sucursales', 'roles', 'manual', 'configuracion'];
+    setSearchParams({ tab: tabNames[val] });
+  };
 
   // States for Sucursales
   const [sucursales, setSucursales] = useState<any[]>([]);
@@ -765,7 +812,7 @@ export default function Utilidades() {
 
       <Tabs
         value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
+        onChange={(_, val) => handleTabChange(val)}
         variant="scrollable"
         scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}

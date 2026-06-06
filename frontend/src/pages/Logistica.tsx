@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -92,7 +93,45 @@ const TruckIcon = L.divIcon({
 });
 
 export default function Logistica() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        reabastecimiento: 0,
+        pronostico: 1,
+        rutas: 2,
+        monitoreo: 3,
+        conductores: 4,
+      };
+      if (tabMap[tabParam] !== undefined) {
+        return tabMap[tabParam];
+      }
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        reabastecimiento: 0,
+        pronostico: 1,
+        rutas: 2,
+        monitoreo: 3,
+        conductores: 4,
+      };
+      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
+        setActiveTab(tabMap[tabParam]);
+      }
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: number) => {
+    setActiveTab(val);
+    const tabNames = ['reabastecimiento', 'pronostico', 'rutas', 'monitoreo', 'conductores'];
+    setSearchParams({ tab: tabNames[val] });
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -611,7 +650,7 @@ export default function Logistica() {
 
       <Tabs
         value={activeTab}
-        onChange={(_, val) => setActiveTab(val)}
+        onChange={(_, val) => handleTabChange(val)}
         sx={{ mb: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <Tab icon={<Restore />} label="Reabastecimiento y FEFO" iconPosition="start" />

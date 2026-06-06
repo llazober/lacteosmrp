@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -44,7 +45,41 @@ import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 export default function Produccion() {
   const usuario = useAuthStore((state) => state.usuario);
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        recetas: 0,
+        ordenes: 1,
+        mermas: 2,
+      };
+      if (tabMap[tabParam] !== undefined) {
+        return tabMap[tabParam];
+      }
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      const tabMap: Record<string, number> = {
+        recetas: 0,
+        ordenes: 1,
+        mermas: 2,
+      };
+      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
+        setActiveTab(tabMap[tabParam]);
+      }
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (val: number) => {
+    setActiveTab(val);
+    const tabNames = ['recetas', 'ordenes', 'mermas'];
+    setSearchParams({ tab: tabNames[val] });
+  };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -476,7 +511,7 @@ export default function Produccion() {
       <Paper sx={{ mb: 3, backgroundColor: '#111827', borderRadius: 2 }}>
         <Tabs
           value={activeTab}
-          onChange={(_, val) => setActiveTab(val)}
+          onChange={(_, val) => handleTabChange(val)}
           textColor="primary"
           indicatorColor="primary"
           sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}

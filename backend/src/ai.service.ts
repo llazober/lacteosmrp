@@ -41,7 +41,7 @@ export class AiService {
     }
   }
 
-  async procesarConsulta(user: any, historial: any[]): Promise<string> {
+  async procesarConsulta(user: any, historial: any[]): Promise<any> {
     const openai = await this.getOpenAIClient();
     const model = await this.getActiveModel();
 
@@ -115,7 +115,13 @@ PAUTAS DE RESPUESTA:
 - Presenta los datos numéricos y listas en formatos visuales excelentes usando Markdown (negritas, listas con viñetas y tablas legibles).
 - Utiliza siempre los valores monetarios ya formateados como cadenas de texto (ej. totalIngresosFormateado, totalFormateado, etc.) que devuelven las herramientas directamente. NUNCA intentes reformatear, recalcular, multiplicar o dividir estos valores numéricos.
 - Al presentar reportes o resúmenes de cualquier módulo (ventas, compras, inventario, mermas, logística, etc.), limítate a mostrar únicamente los datos principales y métricas solicitadas (ej. montos facturados, stock disponible, cantidades de pérdidas). NO incluyes cantidad de tickets, promedios por ticket, métodos de pago, IDs internos, fechas de creación ni ningún otro metadato o dato secundario, a menos que el usuario lo solicite explícitamente en su pregunta.
-- Si la información requerida no se encuentra en las herramientas, dilo amablemente.`;
+- Si la información requerida no se encuentra en las herramientas, dilo amablemente.
+
+REGLAS DE NAVEGACIÓN Y PERMISOS:
+- Tienes la herramienta "navegarAPagina" para redirigir al usuario a diferentes secciones del sistema.
+- Debes invocar siempre la herramienta "navegarAPagina" cada vez que el usuario te pida explícitamente navegar, ir, abrir, ver o dirigirse a una sección del sistema, ignorando cualquier resultado previo en el historial de chat (debes llamarla siempre para validar los permisos actuales en tiempo real).
+- Si la herramienta responde que la navegación fue exitosa (success: true), confirma al usuario de manera cordial que lo estás redirigiendo a esa pantalla.
+- Si la herramienta responde indicando un error (success: false), explícale amablemente al usuario el motivo del error devuelto por la herramienta (ej. falta de permisos o sección no válida) y detén el flujo de llamadas de herramientas para esta consulta (no vuelvas a llamarla en bucle para el mismo mensaje).`;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -330,6 +336,71 @@ PAUTAS DE RESPUESTA:
           },
         },
       },
+      {
+        type: 'function',
+        function: {
+          name: 'navegarAPagina',
+          description:
+            'Navega o redirige al usuario a una sección o pantalla específica del sistema ERP de acuerdo a sus permisos.',
+          parameters: {
+            type: 'object',
+            properties: {
+              seccion: {
+                type: 'string',
+                enum: [
+                  'dashboard',
+                  'pos',
+                  'ventas',
+                  'frio',
+                  'trazabilidad',
+                  'inventario',
+                  'traslados',
+                  'mermas',
+                  'lotes',
+                  'productos',
+                  'kardex',
+                  'movimientos',
+                  'produccion',
+                  'calidad',
+                  'compras',
+                  'finanzas',
+                  'auditoria',
+                  'chat',
+                  'logistica',
+                  'asistente',
+                  'utilidades',
+                  'recepcion_leche',
+                  'auditorias_calidad',
+                  'incidencias',
+                  'bitacora',
+                  'personal',
+                  'facturas',
+                  'pagos',
+                  'reabastecimiento',
+                  'pronostico',
+                  'rutas',
+                  'monitoreo',
+                  'conductores',
+                  'recetas',
+                  'ordenes',
+                  'mermas_produccion',
+                  'categorias',
+                  'unidades',
+                  'tipos',
+                  'proveedores',
+                  'condiciones',
+                  'sucursales',
+                  'roles',
+                  'manual',
+                  'configuracion'
+                ],
+                description: 'La sección o pantalla de la aplicación a la que se desea navegar, incluyendo cualquier sub-pestaña específica.',
+              },
+            },
+            required: ['seccion'],
+          },
+        },
+      },
     ];
 
     try {
@@ -341,6 +412,7 @@ PAUTAS DE RESPUESTA:
       });
 
       const responseMessage = response.choices[0].message;
+      let redirectPath: string | null = null;
 
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
         messages.push(responseMessage);
@@ -351,7 +423,7 @@ PAUTAS DE RESPUESTA:
           const rawArgs = JSON.parse(toolCall.function.arguments);
 
           // Force sucursalId security check
-          if (sucursalFiltro) {
+          if (sucursalFiltro && functionName !== 'navegarAPagina') {
             rawArgs.sucursalId = sucursalFiltro;
           }
 
@@ -407,6 +479,11 @@ PAUTAS DE RESPUESTA:
                 rawArgs.sucursalId,
                 rawArgs.useSafetyStockMin,
               );
+            } else if (functionName === 'navegarAPagina') {
+              functionResult = await this.ejecutarNavegacion(user, rawArgs.seccion);
+              if (functionResult.success) {
+                redirectPath = functionResult.path;
+              }
             } else {
               functionResult = {
                 error: `Función ${functionName} no implementada.`,
@@ -432,15 +509,261 @@ PAUTAS DE RESPUESTA:
           messages,
         });
 
-        return secondResponse.choices[0].message.content || 'Sin respuesta.';
+        return {
+          respuesta: secondResponse.choices[0].message.content || 'Sin respuesta.',
+          navegacion: redirectPath,
+        };
       }
 
-      return responseMessage.content || 'Sin respuesta.';
+      return {
+        respuesta: responseMessage.content || 'Sin respuesta.',
+        navegacion: null,
+      };
     } catch (e: any) {
       throw new BadRequestException(
         `Error en la consulta del chatbot: ${e.message}`,
       );
     }
+  }
+
+  private async ejecutarNavegacion(user: any, seccion: string) {
+    const PAGE_PERMISSIONS: Record<string, { permission: string; path: string }> = {
+      dashboard: { permission: 'VER_DASHBOARD', path: '/' },
+      pos: { permission: 'VER_POS', path: '/pos' },
+      ventas: { permission: 'VER_VENTAS', path: '/ventas' },
+      frio: { permission: 'VER_FRIO', path: '/frio' },
+      trazabilidad: { permission: 'VER_TRAZABILIDAD', path: '/trazabilidad' },
+      inventario: { permission: 'VER_INVENTARIO', path: '/inventario' },
+      traslados: { permission: 'VER_TRASLADO_INTERSUCURSALES', path: '/inventario?tab=traslados' },
+      mermas: { permission: 'VER_INVENTARIO', path: '/inventario?tab=mermas' },
+      lotes: { permission: 'VER_INVENTARIO', path: '/inventario?tab=lotes' },
+      productos: { permission: 'VER_INVENTARIO', path: '/inventario?tab=productos' },
+      kardex: { permission: 'VER_INVENTARIO', path: '/inventario?tab=movimientos' },
+      movimientos: { permission: 'VER_INVENTARIO', path: '/inventario?tab=movimientos' },
+      produccion: { permission: 'VER_PRODUCCION', path: '/produccion' },
+      calidad: { permission: 'VER_CALIDAD', path: '/calidad' },
+      compras: { permission: 'VER_COMPRAS', path: '/compras' },
+      finanzas: { permission: 'VER_FINANZAS', path: '/finanzas' },
+      auditoria: { permission: 'VER_AUDITORIA', path: '/auditoria' },
+      chat: { permission: 'VER_CHAT', path: '/chat' },
+      logistica: { permission: 'VER_LOGISTICA', path: '/logistica' },
+      asistente: { permission: 'USAR_ASISTENTE', path: '/asistente' },
+      utilidades: { permission: 'VER_UTILIDADES', path: '/utilidades' },
+
+      // Calidad sub-tabs
+      recepcion_leche: { permission: 'VER_CALIDAD', path: '/calidad?tab=recepcion' },
+      auditorias_calidad: { permission: 'VER_CALIDAD', path: '/calidad?tab=auditorias' },
+      incidencias: { permission: 'VER_CALIDAD', path: '/calidad?tab=incidencias' },
+
+      // Auditoria sub-tabs
+      bitacora: { permission: 'VER_AUDITORIA', path: '/auditoria?tab=bitacora' },
+      personal: { permission: 'VER_AUDITORIA', path: '/auditoria?tab=personal' },
+
+      // Finanzas sub-tabs
+      facturas: { permission: 'VER_FINANZAS', path: '/finanzas?tab=facturas' },
+      pagos: { permission: 'VER_FINANZAS', path: '/finanzas?tab=pagos' },
+
+      // Logistica sub-tabs
+      reabastecimiento: { permission: 'VER_LOGISTICA', path: '/logistica?tab=reabastecimiento' },
+      pronostico: { permission: 'VER_LOGISTICA', path: '/logistica?tab=pronostico' },
+      rutas: { permission: 'VER_LOGISTICA', path: '/logistica?tab=rutas' },
+      monitoreo: { permission: 'VER_LOGISTICA', path: '/logistica?tab=monitoreo' },
+      conductores: { permission: 'VER_LOGISTICA', path: '/logistica?tab=conductores' },
+
+      // Produccion sub-tabs
+      recetas: { permission: 'VER_PRODUCCION', path: '/produccion?tab=recetas' },
+      ordenes: { permission: 'VER_PRODUCCION', path: '/produccion?tab=ordenes' },
+      mermas_produccion: { permission: 'VER_PRODUCCION', path: '/produccion?tab=mermas' },
+
+      // Utilidades sub-tabs
+      categorias: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=categorias' },
+      unidades: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=unidades' },
+      tipos: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=tipos' },
+      proveedores: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=proveedores' },
+      condiciones: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=condiciones' },
+      sucursales: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=sucursales' },
+      roles: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=roles' },
+      manual: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=manual' },
+      manual_del_sistema: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=manual' },
+      configuracion: { permission: 'VER_UTILIDADES', path: '/utilidades?tab=configuracion' },
+    };
+
+    // Normalize input to remove accents/diacritics and make lowercase
+    let normalized = (seccion || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    // Map common aliases/synonyms
+    const ALIASES: Record<string, string> = {
+      'punto de venta': 'pos',
+      'caja': 'pos',
+      'cadena de frio': 'frio',
+      'inventarios': 'inventario',
+      'control de calidad': 'calidad',
+      'cuentas por pagar': 'facturas',
+      'personal': 'personal',
+      'rutas': 'rutas',
+      'asistente ai': 'asistente',
+
+      // Calidad
+      'recepcion leche': 'recepcion_leche',
+      'recepcion de leche': 'recepcion_leche',
+      'insumos lacteos': 'recepcion_leche',
+      'auditorias calidad': 'auditorias_calidad',
+      'auditorias en proceso': 'auditorias_calidad',
+      'no conformidades': 'incidencias',
+      'incidencias calidad': 'incidencias',
+      'recepcion_de_leche': 'recepcion_leche',
+      'insumos_lacteos': 'recepcion_leche',
+      'auditorias_calidad': 'auditorias_calidad',
+      'auditorias_en_proceso': 'auditorias_calidad',
+      'no_conformidades': 'incidencias',
+      'incidencias_calidad': 'incidencias',
+
+      // Auditoria
+      'bitacora de auditoria': 'bitacora',
+      'bitacora': 'bitacora',
+      'logs': 'bitacora',
+      'gestion de personal': 'personal',
+      'usuarios': 'personal',
+      'bitacora_de_auditoria': 'bitacora',
+      'gestion_de_personal': 'personal',
+
+      // Finanzas
+      'facturas por pagar': 'facturas',
+      'historial de pagos': 'pagos',
+      'pagos finanzas': 'pagos',
+      'facturas_por_pagar': 'facturas',
+      'historial_de_pagos': 'pagos',
+      'pagos_finanzas': 'pagos',
+
+      // Logistica
+      'reabastecimiento automatico': 'reabastecimiento',
+      'pronostico de demanda': 'pronostico',
+      'simulacion de demanda': 'pronostico',
+      'planificacion de rutas': 'rutas',
+      'rutas logistica': 'rutas',
+      'monitoreo en vivo': 'monitoreo',
+      'mapa logistica': 'monitoreo',
+      'flota y conductores': 'conductores',
+      'conductores': 'conductores',
+      'camiones': 'conductores',
+      'reabastecimiento_automatico': 'reabastecimiento',
+      'pronostico_de_demanda': 'pronostico',
+      'simulacion_de_demanda': 'pronostico',
+      'planificacion_de_rutas': 'rutas',
+      'rutas_logistica': 'rutas',
+      'monitoreo_en_vivo': 'monitoreo',
+      'mapa_logistica': 'monitoreo',
+      'flota_y_conductores': 'conductores',
+
+      // Produccion
+      'recetario maestro': 'recetas',
+      'recetas': 'recetas',
+      'ordenes de produccion': 'ordenes',
+      'op': 'ordenes',
+      'mermas produccion': 'mermas_produccion',
+      'desechos': 'mermas_produccion',
+      'recetario_maestro': 'recetas',
+      'ordenes_de_produccion': 'ordenes',
+      'mermas_produccion': 'mermas_produccion',
+
+      // Utilidades
+      'categorias de productos': 'categorias',
+      'unidades de medida': 'unidades',
+      'tipos de producto': 'tipos',
+      'proveedores': 'proveedores',
+      'condiciones de pago': 'condiciones',
+      'terminos de pago': 'condiciones',
+      'gestion de sucursales': 'sucursales',
+      'roles y permisos': 'roles',
+      'manual del sistema': 'manual',
+      'manual_del_sistema': 'manual',
+      'guia del sistema': 'manual',
+      'guia_del_sistema': 'manual',
+      'guia': 'manual',
+      'configuracion del sistema': 'configuracion',
+      'categorias_de_productos': 'categorias',
+      'unidades_de_medida': 'unidades',
+      'tipos_de_producto': 'tipos',
+      'condiciones_de_pago': 'condiciones',
+      'terminos_de_pago': 'condiciones',
+      'gestion_de_sucursales': 'sucursales',
+      'roles_y_permisos': 'roles',
+      'configuracion_del_sistema': 'configuracion',
+    };
+
+    if (ALIASES[normalized]) {
+      normalized = ALIASES[normalized];
+    }
+
+    const target = PAGE_PERMISSIONS[normalized];
+    console.log('[ejecutarNavegacion] User:', user?.nombre, 'Rol:', user?.rol, 'Original:', seccion, 'Normalized:', normalized, 'Found:', !!target);
+
+    if (!target) {
+      return { success: false, error: `Sección no reconocida: ${seccion}` };
+    }
+
+    // Admin and Supervisor bypass all permission checks
+    if (user?.rol === 'ADMINISTRADOR' || user?.rol === 'SUPERVISOR') {
+      return { success: true, path: target.path };
+    }
+
+    // Fetch user permissions from DB via role
+    const dbRole = await this.prisma.rol.findUnique({
+      where: { nombre: user?.rol },
+    });
+
+    let permisos: string[] = [];
+    if (dbRole) {
+      try {
+        permisos = JSON.parse(dbRole.permisos);
+      } catch (e) {
+        permisos = [];
+      }
+    } else {
+      // Fallbacks matching App.tsx / auth.controller.ts
+      if (user?.rol === 'ALMACEN') {
+        permisos = ['VER_DASHBOARD', 'VER_INVENTARIO', 'VER_PRODUCCION', 'VER_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES', 'VER_TRASLADO_INTERSUCURSALES', 'VER_PRODUCTOS', 'VER_LOTES'];
+      } else if (user?.rol === 'CAJERO') {
+        permisos = ['VER_DASHBOARD', 'VER_POS', 'VER_CHAT'];
+      } else if (user?.rol === 'CONTROL_CALIDAD' || user?.rol === 'CALIDAD') {
+        permisos = ['VER_DASHBOARD', 'VER_CALIDAD', 'VER_CHAT', 'VER_LOTES'];
+      }
+    }
+
+    // Special check for inventario and its tabs
+    if (normalized === 'inventario') {
+      const hasAccess = permisos.includes('VER_INVENTARIO') || permisos.includes('VER_TRASLADO_INTERSUCURSALES');
+      if (hasAccess) {
+        return { success: true, path: target.path };
+      }
+    } else if (normalized === 'lotes') {
+      const hasAccess = permisos.includes('VER_INVENTARIO') || permisos.includes('VER_LOTES');
+      if (hasAccess) {
+        return { success: true, path: target.path };
+      }
+    } else if (normalized === 'productos') {
+      const hasAccess = permisos.includes('VER_INVENTARIO') || permisos.includes('VER_PRODUCTOS');
+      if (hasAccess) {
+        return { success: true, path: target.path };
+      }
+    } else if (normalized === 'traslados') {
+      const hasAccess = permisos.includes('VER_TRASLADO_INTERSUCURSALES') || permisos.includes('VER_INVENTARIO');
+      if (hasAccess) {
+        return { success: true, path: target.path };
+      }
+    } else {
+      if (permisos.includes(target.permission)) {
+        return { success: true, path: target.path };
+      }
+    }
+
+    return {
+      success: false,
+      error: `El usuario con rol ${user?.rol} no tiene el permiso requerido (${target.permission}) para acceder a la sección ${seccion}.`,
+    };
   }
 
   // --- TOOL METHODS ---

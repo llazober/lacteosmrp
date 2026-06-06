@@ -28,8 +28,10 @@ export class AiController {
         'El historial de chat es obligatorio y debe ser una lista.',
       );
     }
+    const result = await this.aiService.procesarConsulta(req.user, historial);
     return {
-      respuesta: await this.aiService.procesarConsulta(req.user, historial),
+      respuesta: result.respuesta,
+      navegacion: result.navegacion,
     };
   }
 
