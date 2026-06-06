@@ -125,6 +125,11 @@ export default function Inventario() {
   // Datos
   const [inventario, setInventario] = useState<any[]>([]);
   const [filterSucursalId, setFilterSucursalId] = useState('');
+  const [searchStockProduct, setSearchStockProduct] = useState('');
+
+  useEffect(() => {
+    setPageStock(0);
+  }, [searchStockProduct, filterSucursalId]);
   const [movimientos, setMovimientos] = useState<any[]>([]);
   const [transferencias, setTransferencias] = useState<any[]>([]);
   const [sucursales, setSucursales] = useState<any[]>([]);
@@ -898,8 +903,14 @@ export default function Inventario() {
   };
 
   const filteredInventario = inventario.filter((inv) => {
-    if (filterSucursalId) {
-      return inv.sucursalId === filterSucursalId;
+    if (filterSucursalId && inv.sucursalId !== filterSucursalId) {
+      return false;
+    }
+    if (searchStockProduct) {
+      const q = searchStockProduct.toLowerCase();
+      const descMatch = inv.producto?.descripcion?.toLowerCase().includes(q);
+      const skuMatch = inv.producto?.sku?.toLowerCase().includes(q);
+      return descMatch || skuMatch;
     }
     return true;
   });
@@ -949,11 +960,25 @@ export default function Inventario() {
 
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
-            Gestión de Inventario
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+              Gestión de Inventario
+            </Typography>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+                background: 'linear-gradient(90deg, #3b82f6 0%, #10b981 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                display: 'inline-block',
+              }}
+            >
+              Powered by Inteligencia Artificial
+            </Typography>
+          </Box>
           <Typography variant="body2" color="text.secondary">
             Administre stocks por tienda, realice ajustes y autorice traslados inter-sucursales.
           </Typography>
@@ -1108,8 +1133,27 @@ export default function Inventario() {
       {/* TAB 0: EXISTENCIAS */}
       {activeTab === 0 && tienePermisoInventario && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
-          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
-            <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField
+              size="small"
+              placeholder="Buscar por producto o SKU..."
+              value={searchStockProduct}
+              onChange={(e) => setSearchStockProduct(e.target.value)}
+              sx={{
+                minWidth: 280,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.15)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'primary.main',
+                  },
+                },
+              }}
+            />
+
+            {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
               <FormControl sx={{ minWidth: 240 }} size="small">
                 <InputLabel id="sucursal-filter-label" sx={{ color: 'text.secondary' }}>
                   Filtrar por Sucursal
@@ -1139,18 +1183,30 @@ export default function Inventario() {
                   ))}
                 </Select>
               </FormControl>
-              {filterSucursalId && (
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setFilterSucursalId('')}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Limpiar Filtro
-                </Button>
-              )}
-            </Box>
-          )}
+            )}
+
+            {filterSucursalId && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setFilterSucursalId('')}
+                sx={{ textTransform: 'none' }}
+              >
+                Limpiar Sucursal
+              </Button>
+            )}
+
+            {searchStockProduct && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setSearchStockProduct('')}
+                sx={{ textTransform: 'none' }}
+              >
+                Limpiar Búsqueda
+              </Button>
+            )}
+          </Box>
 
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
