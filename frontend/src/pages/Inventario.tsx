@@ -1387,7 +1387,6 @@ export default function Inventario() {
                           <Chip
                             label={mov.tipo}
                             color={mov.tipo === 'ENTRADA' ? 'success' : 'error'}
-                            size="small;'}
                             size="small"
                             sx={{ fontWeight: 700 }}
                           />
