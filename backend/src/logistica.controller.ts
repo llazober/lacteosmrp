@@ -1467,16 +1467,47 @@ export class LogisticaController implements OnModuleInit {
       },
     });
 
-    // Si la temperatura es CRITICA, crear una Alerta en el sistema
-    if (estado === 'CRITICO') {
-      await this.prisma.alerta.create({
-        data: {
-          sucursalId: ruta.origenId, // Se asocia a la sucursal de origen CD
+    // Si la temperatura está fuera de rango, crear una Alerta en el sistema (si no existe una activa para esta ruta)
+    if (estado === 'CRITICO' || estado === 'ALERTA') {
+      const alertaExistente = await this.prisma.alerta.findFirst({
+        where: {
+          sucursalId: ruta.origenId,
           tipo: 'TEMPERATURA',
-          mensaje: `Alerta Cadena de Frío en Ruta ${ruta.codigo}: Sensor registra ${temperatura}°C en el camión ${ruta.camion.placa} (Rango permitido: ${ruta.camion.temperaturaMin}°C a ${ruta.camion.temperaturaMax}°C).`,
+          mensaje: { contains: `Ruta ${ruta.codigo}` },
           estado: 'ACTIVA',
         },
       });
+
+      if (!alertaExistente) {
+        await this.prisma.alerta.create({
+          data: {
+            sucursalId: ruta.origenId, // Se asocia a la sucursal de origen CD
+            tipo: 'TEMPERATURA',
+            mensaje: `Alerta Cadena de Frío en Ruta ${ruta.codigo}: Sensor registra ${temperatura}°C en el camión ${ruta.camion.placa} (Rango permitido: ${ruta.camion.temperaturaMin}°C a ${ruta.camion.temperaturaMax}°C).`,
+            estado: 'ACTIVA',
+          },
+        });
+      }
+    } else {
+      // Si la temperatura volvió a la normalidad, resolver alertas activas automáticamente para esta ruta
+      const alertasActivas = await this.prisma.alerta.findMany({
+        where: {
+          sucursalId: ruta.origenId,
+          tipo: 'TEMPERATURA',
+          mensaje: { contains: `Ruta ${ruta.codigo}` },
+          estado: 'ACTIVA',
+        },
+      });
+
+      for (const alerta of alertasActivas) {
+        await this.prisma.alerta.update({
+          where: { id: alerta.id },
+          data: {
+            estado: 'RESUELTA',
+            notasAtencion: 'Resuelta automáticamente: Telemetría indica retorno a rango normal.',
+          },
+        });
+      }
     }
 
     return lectura;
