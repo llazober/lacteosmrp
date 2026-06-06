@@ -124,31 +124,71 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       speakTimeoutRef.current = setTimeout(() => {
         // Format table lines to be read out loud naturally, skipping only the markdown separator lines
         const lines = text.split('\n');
+        let currentHeaders: string[] = [];
+        let inTable = false;
+
         const cleanLines = lines.map(line => {
           const trimmed = line.trim();
-          if (trimmed.startsWith('|') && (trimmed.includes('---') || trimmed.includes('- | -') || trimmed.includes('-|-'))) {
-            return '';
-          }
-          let cleanLine = line;
+          
           if (trimmed.startsWith('|')) {
-            const cols = trimmed.split('|').map(c => c.trim()).filter(Boolean);
-            cleanLine = cols.join(', ');
-          }
-          const trimmedClean = cleanLine.trim();
-          if (trimmedClean.length > 0) {
-            const lastChar = trimmedClean.slice(-1);
-            if (!['.', ',', ';', ':', '?', '!'].includes(lastChar)) {
-              cleanLine = trimmedClean + '.';
+            // Check if separator
+            if (trimmed.includes('---') || trimmed.includes('- | -') || trimmed.includes('-|-')) {
+              return '';
             }
+            
+            const cols = trimmed.split('|').map(c => c.trim()).filter(Boolean);
+            
+            if (!inTable) {
+              inTable = true;
+              currentHeaders = cols;
+              return ''; // Skip reading the header line itself
+            } else {
+              // Read data line mapped to headers
+              const spokenParts: string[] = [];
+              for (let i = 0; i < cols.length; i++) {
+                const header = currentHeaders[i] || `Columna ${i + 1}`;
+                let value = cols[i] || '';
+                
+                // Format dates YYYY-MM-DD naturally
+                const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+                const match = value.match(dateRegex);
+                if (match) {
+                  const year = match[1];
+                  const monthNum = parseInt(match[2], 10);
+                  const day = parseInt(match[3], 10);
+                  const months = [
+                    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+                  ];
+                  const monthName = months[monthNum - 1] || '';
+                  value = `${day} de ${monthName} de ${year}`;
+                }
+                
+                spokenParts.push(`${header}: ${value}`);
+              }
+              return spokenParts.join('. ') + '.';
+            }
+          } else {
+            inTable = false;
+            currentHeaders = [];
+            
+            let cleanLine = line;
+            const trimmedClean = cleanLine.trim();
+            if (trimmedClean.length > 0) {
+              const lastChar = trimmedClean.slice(-1);
+              if (!['.', ',', ';', ':', '?', '!'].includes(lastChar)) {
+                cleanLine = trimmedClean + '.';
+              }
+            }
+            return cleanLine;
           }
-          return cleanLine;
         });
         const textWithoutTables = cleanLines.filter(Boolean).join(' ');
 
         const clean = textWithoutTables
           .replace(/```[\s\S]*?```/g, '') // remove code blocks
+          .replace(/\$\s*(\d+(?:,\d+)?(?:\.\d+)?)/g, '$1 dólares') // speak dollars naturally
           .replace(/[-+|#*`~&=_<>[\]{}()]/g, ' ') // remove special symbols, hashes, ampersands, dashes
-          .replace(/\$/g, ' dólares ')   // speak dollars naturally
           .replace(/\s+/g, ' ')           // normalize spaces
           .trim();
 
