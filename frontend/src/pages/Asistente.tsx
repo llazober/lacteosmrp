@@ -129,11 +129,19 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           if (trimmed.startsWith('|') && (trimmed.includes('---') || trimmed.includes('- | -') || trimmed.includes('-|-'))) {
             return '';
           }
+          let cleanLine = line;
           if (trimmed.startsWith('|')) {
             const cols = trimmed.split('|').map(c => c.trim()).filter(Boolean);
-            return cols.join(', ');
+            cleanLine = cols.join(', ');
           }
-          return line;
+          const trimmedClean = cleanLine.trim();
+          if (trimmedClean.length > 0) {
+            const lastChar = trimmedClean.slice(-1);
+            if (!['.', ',', ';', ':', '?', '!'].includes(lastChar)) {
+              cleanLine = trimmedClean + '.';
+            }
+          }
+          return cleanLine;
         });
         const textWithoutTables = cleanLines.filter(Boolean).join(' ');
 
