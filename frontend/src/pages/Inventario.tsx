@@ -81,6 +81,8 @@ export default function Inventario() {
     return 0;
   });
 
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam) {
@@ -95,12 +97,14 @@ export default function Inventario() {
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
+        setSelectedRowId(null);
       }
     }
   }, [searchParams]);
 
   const handleTabChange = (val: number) => {
     setActiveTab(val);
+    setSelectedRowId(null);
     const tabNames = ['stock', 'movimientos', 'traslados', 'productos', 'lotes', 'mermas'];
     setSearchParams({ tab: tabNames[val] });
   };
@@ -1233,8 +1237,21 @@ export default function Inventario() {
                 ) : (
                   paginatedInventario.map((inv) => {
                     const isLow = inv.existencia < inv.existMin;
+                    const isSelected = selectedRowId === inv.id;
                     return (
-                      <TableRow key={inv.id}>
+                      <TableRow
+                        key={inv.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : inv.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
                         <TableCell sx={{ fontWeight: 700 }}>{inv.sucursal.nombre}</TableCell>
                         <TableCell>{inv.producto.sku}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{inv.producto.descripcion}</TableCell>
@@ -1257,7 +1274,8 @@ export default function Inventario() {
                               <IconButton
                                 size="small"
                                 color="primary"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSelectedInv(inv);
                                   setEditForm({
                                     existencia: String(inv.existencia),
@@ -1276,7 +1294,8 @@ export default function Inventario() {
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSelectedInv(inv);
                                   setOpenDelete(true);
                                 }}
@@ -1347,28 +1366,44 @@ export default function Inventario() {
                     <TableCell colSpan={9} align="center">No hay movimientos registrados.</TableCell>
                   </TableRow>
                 ) : (
-                  paginatedMovimientos.map((mov) => (
-                    <TableRow key={mov.id}>
-                      <TableCell>{new Date(mov.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={mov.tipo}
-                          color={mov.tipo === 'ENTRADA' ? 'success' : 'error'}
-                          size="small"
-                          sx={{ fontWeight: 700 }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{mov.producto.descripcion}</TableCell>
-                      <TableCell>
-                        {mov.lote ? <Chip label={mov.lote.numeroLote} size="small" variant="outlined" /> : '-'}
-                      </TableCell>
-                      <TableCell>{mov.sucursalOrigen?.nombre || '-'}</TableCell>
-                      <TableCell>{mov.sucursalDestino?.nombre || '-'}</TableCell>
-                      <TableCell sx={{ fontWeight: 800 }}>{mov.cantidad} {mov.producto.unidadMedida}</TableCell>
-                      <TableCell>{mov.motivo}</TableCell>
-                      <TableCell>{mov.usuario.nombre}</TableCell>
-                    </TableRow>
-                  ))
+                  paginatedMovimientos.map((mov) => {
+                    const isSelected = selectedRowId === mov.id;
+                    return (
+                      <TableRow
+                        key={mov.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : mov.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell>{new Date(mov.fecha).toLocaleString('es-CO', { timeZone: systemTimezone })}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={mov.tipo}
+                            color={mov.tipo === 'ENTRADA' ? 'success' : 'error'}
+                            size="small;'}
+                            size="small"
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{mov.producto.descripcion}</TableCell>
+                        <TableCell>
+                          {mov.lote ? <Chip label={mov.lote.numeroLote} size="small" variant="outlined" /> : '-'}
+                        </TableCell>
+                        <TableCell>{mov.sucursalOrigen?.nombre || '-'}</TableCell>
+                        <TableCell>{mov.sucursalDestino?.nombre || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 800 }}>{mov.cantidad} {mov.producto.unidadMedida}</TableCell>
+                        <TableCell>{mov.motivo}</TableCell>
+                        <TableCell>{mov.usuario.nombre}</TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1411,96 +1446,123 @@ export default function Inventario() {
                     <TableCell colSpan={7} align="center">No hay transferencias de stock registradas.</TableCell>
                   </TableRow>
                 ) : (
-                  transferencias.map((tr) => (
-                    <TableRow key={tr.id}>
-                      <TableCell sx={{ fontWeight: 700 }}>{tr.codigo}</TableCell>
-                      <TableCell>{tr.origen.nombre}</TableCell>
-                      <TableCell>
-                        {tr.estado !== 'RECIBIDA' && tr.estado !== 'RECHAZADA' ? (
-                          <Button
-                            variant="text"
-                            size="small"
-                            sx={{
-                              p: 0,
-                              minWidth: 0,
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              textAlign: 'left',
-                              color: 'primary.main',
-                              textDecoration: 'underline',
-                              '&:hover': {
-                                textDecoration: 'none',
-                                color: 'primary.dark',
-                              }
-                            }}
-                            onClick={() => handleOpenRecepcionGrupal(tr.destino.id, tr.destino.nombre)}
-                          >
-                            {tr.destino.nombre}
-                          </Button>
-                        ) : (
-                          tr.destino.nombre
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tr.detalles.map((det: any) => (
-                          <div key={det.id}>
-                            {det.producto.descripcion} (L: {det.lote?.numeroLote}) - {det.cantidad} {det.producto.unidadMedida}
-                          </div>
-                        ))}
-                      </TableCell>
-                      <TableCell>{tr.creadoPor.nombre}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={tr.estado}
-                          color={
-                            tr.estado === 'RECIBIDA'
-                              ? 'success'
-                              : tr.estado === 'EN_TRANSITO'
-                              ? 'warning'
-                              : tr.estado === 'PENDIENTE'
-                              ? 'primary'
-                              : 'error'
-                          }
-                          size="small"
-                          sx={{ fontWeight: 700 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {tr.estado === 'PENDIENTE' && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            color="warning"
-                            startIcon={<LocalShipping />}
-                            onClick={() => handleProcesarTransferencia(tr.id, 'EN_TRANSITO')}
-                          >
-                            Despachar
-                          </Button>
-                        )}
-                        {tr.estado === 'EN_TRANSITO' && (
-                          <Box sx={{ display: 'flex', gap: 1 }}>
+                  transferencias.map((tr) => {
+                    const isSelected = selectedRowId === tr.id;
+                    return (
+                      <TableRow
+                        key={tr.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : tr.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: 700 }}>{tr.codigo}</TableCell>
+                        <TableCell>{tr.origen.nombre}</TableCell>
+                        <TableCell>
+                          {tr.estado !== 'RECIBIDA' && tr.estado !== 'RECHAZADA' ? (
                             <Button
-                              variant="contained"
+                              variant="text"
                               size="small"
-                              color="success"
-                              startIcon={<CheckCircle />}
-                              onClick={() => handleProcesarTransferencia(tr.id, 'RECIBIDA')}
+                              sx={{
+                                p: 0,
+                                minWidth: 0,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                textAlign: 'left',
+                                color: 'primary.main',
+                                textDecoration: 'underline',
+                                '&:hover': {
+                                  textDecoration: 'none',
+                                  color: 'primary.dark',
+                                }
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenRecepcionGrupal(tr.destino.id, tr.destino.nombre);
+                              }}
                             >
-                              Recibir
+                              {tr.destino.nombre}
                             </Button>
+                          ) : (
+                            tr.destino.nombre
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {tr.detalles.map((det: any) => (
+                            <div key={det.id}>
+                              {det.producto.descripcion} (L: {det.lote?.numeroLote}) - {det.cantidad} {det.producto.unidadMedida}
+                            </div>
+                          ))}
+                        </TableCell>
+                        <TableCell>{tr.creadoPor.nombre}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={tr.estado}
+                            color={
+                              tr.estado === 'RECIBIDA'
+                                ? 'success'
+                                : tr.estado === 'EN_TRANSITO'
+                                ? 'warning'
+                                : tr.estado === 'PENDIENTE'
+                                ? 'primary'
+                                : 'error'
+                            }
+                            size="small"
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {tr.estado === 'PENDIENTE' && (
                             <Button
                               variant="outlined"
                               size="small"
-                              color="error"
-                              onClick={() => handleProcesarTransferencia(tr.id, 'RECHAZADA')}
+                              color="warning"
+                              startIcon={<LocalShipping />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProcesarTransferencia(tr.id, 'EN_TRANSITO');
+                              }}
                             >
-                              Rechazar
+                              Despachar
                             </Button>
-                          </Box>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          )}
+                          {tr.estado === 'EN_TRANSITO' && (
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                color="success"
+                                startIcon={<CheckCircle />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProcesarTransferencia(tr.id, 'RECIBIDA');
+                                }}
+                              >
+                                Recibir
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="error"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProcesarTransferencia(tr.id, 'RECHAZADA');
+                                }}
+                              >
+                                Rechazar
+                              </Button>
+                            </Box>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1556,79 +1618,95 @@ export default function Inventario() {
                     <TableCell colSpan={12} align="center">No hay productos en el catálogo.</TableCell>
                   </TableRow>
                 ) : (
-                  paginatedTodosProductos.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell sx={{ fontWeight: 700 }}>{p.sku}</TableCell>
-                      <TableCell>{p.codigoBarras}</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>{p.descripcion}</TableCell>
-                      <TableCell>{p.categoria}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={
-                            (() => {
-                              const found = tiposProducto.find((t: any) => t.nombre === p.tipoProducto);
-                              if (found) return found.descripcion;
-                              if (p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT') return 'Prod. Terminado';
-                              if (p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS') return 'Insumo';
-                              if (p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'MP') return 'Mat. Prima';
-                              return p.tipoProducto;
-                            })()
-                          }
-                          color={
-                            p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT'
-                              ? 'primary'
-                              : p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS'
-                              ? 'secondary'
-                              : 'warning'
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{p.marca}</TableCell>
-                      <TableCell>{p.unidadMedida}</TableCell>
-                      <TableCell>{formatCurrency(p.costo)}</TableCell>
-                      <TableCell>{formatCurrency(p.precioVenta)}</TableCell>
-                      <TableCell>{p.temperaturaMin}°C a {p.temperaturaMax}°C</TableCell>
-                      <TableCell>{p.vidaUtilDias} días</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={p.estado}
-                          color={p.estado === 'ACTIVO' ? 'success' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                          <Tooltip title="Editar Producto">
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => {
-                                setSelectedProducto(p);
-                                setEditarProductoForm({
-                                  tipoProducto: p.tipoProducto || 'PRODUCTO_TERMINADO',
-                                  descripcion: p.descripcion,
-                                  categoria: p.categoria,
-                                  marca: p.marca,
-                                  unidadMedida: p.unidadMedida,
-                                  costo: String(p.costo),
-                                  precioVenta: String(p.precioVenta),
-                                  iva: String(p.iva),
-                                  temperaturaMin: String(p.temperaturaMin),
-                                  temperaturaMax: String(p.temperaturaMax),
-                                  vidaUtilDias: String(p.vidaUtilDias),
-                                  estado: p.estado,
-                                });
-                                setOpenEditarProducto(true);
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  paginatedTodosProductos.map((p) => {
+                    const isSelected = selectedRowId === p.id;
+                    return (
+                      <TableRow
+                        key={p.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : p.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: 700 }}>{p.sku}</TableCell>
+                        <TableCell>{p.codigoBarras}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{p.descripcion}</TableCell>
+                        <TableCell>{p.categoria}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={
+                              (() => {
+                                const found = tiposProducto.find((t: any) => t.nombre === p.tipoProducto);
+                                if (found) return found.descripcion;
+                                if (p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT') return 'Prod. Terminado';
+                                if (p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS') return 'Insumo';
+                                if (p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'MP') return 'Mat. Prima';
+                                return p.tipoProducto;
+                              })()
+                            }
+                            color={
+                              p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT'
+                                ? 'primary'
+                                : p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS'
+                                ? 'secondary'
+                                : 'warning'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>{p.marca}</TableCell>
+                        <TableCell>{p.unidadMedida}</TableCell>
+                        <TableCell>{formatCurrency(p.costo)}</TableCell>
+                        <TableCell>{formatCurrency(p.precioVenta)}</TableCell>
+                        <TableCell>{p.temperaturaMin}°C a {p.temperaturaMax}°C</TableCell>
+                        <TableCell>{p.vidaUtilDias} días</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={p.estado}
+                            color={p.estado === 'ACTIVO' ? 'success' : 'error'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                            <Tooltip title="Editar Producto">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedProducto(p);
+                                  setEditarProductoForm({
+                                    tipoProducto: p.tipoProducto || 'PRODUCTO_TERMINADO',
+                                    descripcion: p.descripcion,
+                                    categoria: p.categoria,
+                                    marca: p.marca,
+                                    unidadMedida: p.unidadMedida,
+                                    costo: String(p.costo),
+                                    precioVenta: String(p.precioVenta),
+                                    iva: String(p.iva),
+                                    temperaturaMin: String(p.temperaturaMin),
+                                    temperaturaMax: String(p.temperaturaMax),
+                                    vidaUtilDias: String(p.vidaUtilDias),
+                                    estado: p.estado,
+                                  });
+                                  setOpenEditarProducto(true);
+                                }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -1676,8 +1754,21 @@ export default function Inventario() {
                   paginatedTodosLotes.map((l) => {
                     const diasRestantes = Math.ceil((new Date(l.fechaVencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                     const isVencido = diasRestantes <= 0;
+                    const isSelected = selectedRowId === l.id;
                     return (
-                      <TableRow key={l.id}>
+                      <TableRow
+                        key={l.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : l.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
                         <TableCell sx={{ fontWeight: 700 }}>
                           <Chip label={l.numeroLote} color={isVencido ? 'error' : 'default'} variant="outlined" />
                         </TableCell>
@@ -1712,7 +1803,8 @@ export default function Inventario() {
                               <IconButton
                                 size="small"
                                 color="primary"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setBarcodeDialogData({
                                     sku: l.producto.sku,
                                     codigoBarras: l.producto.codigoBarras || l.producto.sku,
@@ -1731,7 +1823,10 @@ export default function Inventario() {
                                 <IconButton
                                   size="small"
                                   color="info"
-                                  onClick={() => handleOpenEditarLote(l)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditarLote(l);
+                                  }}
                                 >
                                   <Edit fontSize="small" />
                                 </IconButton>
@@ -1743,7 +1838,10 @@ export default function Inventario() {
                                 <IconButton
                                   size="small"
                                   color="error"
-                                  onClick={() => handleOpenEliminarLote(l)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEliminarLote(l);
+                                  }}
                                 >
                                   <Delete fontSize="small" />
                                 </IconButton>
@@ -1756,7 +1854,10 @@ export default function Inventario() {
                                   variant="outlined"
                                   size="small"
                                   color="success"
-                                  onClick={() => handleCambiarEstadoLote(l.id, 'APROBADO')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCambiarEstadoLote(l.id, 'APROBADO');
+                                  }}
                                   disabled={l.estado === 'APROBADO'}
                                 >
                                   Aprobar
@@ -1765,7 +1866,10 @@ export default function Inventario() {
                                   variant="outlined"
                                   size="small"
                                   color="warning"
-                                  onClick={() => handleCambiarEstadoLote(l.id, 'CUARENTENA')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCambiarEstadoLote(l.id, 'CUARENTENA');
+                                  }}
                                   disabled={l.estado === 'CUARENTENA'}
                                 >
                                   Cuarentena
@@ -1774,7 +1878,10 @@ export default function Inventario() {
                                   variant="outlined"
                                   size="small"
                                   color="error"
-                                  onClick={() => handleCambiarEstadoLote(l.id, 'RECHAZADO')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCambiarEstadoLote(l.id, 'RECHAZADO');
+                                  }}
                                   disabled={l.estado === 'RECHAZADO'}
                                 >
                                   Rechazar
@@ -1870,6 +1977,7 @@ export default function Inventario() {
                     const match = m.motivo.match(/^\[(.*?)\]\s*(.*)$/);
                     const tipo = match ? match[1] : 'OTROS';
                     const comentario = match ? match[2] : m.motivo;
+                    const isSelected = selectedRowId === m.id;
 
                     const getTipoColor = (t: string) => {
                       switch (t) {
@@ -1892,7 +2000,19 @@ export default function Inventario() {
                     };
 
                     return (
-                      <TableRow key={m.id}>
+                      <TableRow
+                        key={m.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : m.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
                         <TableCell>{new Date(m.fecha).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>{m.sucursalOrigen?.nombre || 'Global'}</TableCell>
                         <TableCell sx={{ fontFamily: 'monospace' }}>{m.producto?.sku}</TableCell>
