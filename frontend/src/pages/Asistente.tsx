@@ -19,8 +19,9 @@ import {
   MenuItem,
 } from '@mui/material';
 import { Send, SmartToy, Person, Mic, MicOff } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
+import { speakText, cancelSpeech } from '../utils/speech';
 
 interface Mensaje {
   role: 'user' | 'assistant';
@@ -76,8 +77,9 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const speakTimeoutRef = useRef<any>(null);
+  const location = useLocation();
+  const locationState = location.state as { tourAction?: string; isVoice?: boolean } | null;
+  const shouldCancelSpeechOnUnmountRef = useRef(true);
 
   // Voice States
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -98,10 +100,9 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
       return () => {
         window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-        if (speakTimeoutRef.current) {
-          clearTimeout(speakTimeoutRef.current);
+        if (shouldCancelSpeechOnUnmountRef.current) {
+          cancelSpeech();
         }
-        window.speechSynthesis.cancel();
       };
     }
   }, []);
@@ -123,146 +124,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     }
   };
 
-  // Clean and speak text out loud using Web Speech Synthesis
-  const speakText = (text: string, onEndCallback?: () => void) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      if (speakTimeoutRef.current) {
-        clearTimeout(speakTimeoutRef.current);
-      }
 
-      speakTimeoutRef.current = setTimeout(() => {
-        // Format table lines to be read out loud naturally, skipping only the markdown separator lines
-        const lines = text.split('\n');
-        let currentHeaders: string[] = [];
-        let inTable = false;
-
-        const cleanLines = lines.map(line => {
-          const trimmed = line.trim();
-          
-          if (trimmed.startsWith('|')) {
-            // Check if separator
-            if (trimmed.includes('---') || trimmed.includes('- | -') || trimmed.includes('-|-')) {
-              return '';
-            }
-            
-            const cols = trimmed.split('|').map(c => c.trim()).filter(Boolean);
-            
-            if (!inTable) {
-              inTable = true;
-              currentHeaders = cols;
-              return ''; // Skip reading the header line itself
-            } else {
-              // Read data line mapped to headers
-              const spokenParts: string[] = [];
-              for (let i = 0; i < cols.length; i++) {
-                const header = currentHeaders[i] || `Columna ${i + 1}`;
-                let value = cols[i] || '';
-                
-                // Format dates YYYY-MM-DD naturally
-                const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
-                const match = value.match(dateRegex);
-                if (match) {
-                  const year = match[1];
-                  const monthNum = parseInt(match[2], 10);
-                  const day = parseInt(match[3], 10);
-                  const months = [
-                    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-                  ];
-                  const monthName = months[monthNum - 1] || '';
-                  value = `${day} de ${monthName} de ${year}`;
-                }
-                
-                spokenParts.push(`${header}: ${value}`);
-              }
-              return spokenParts.join('. ') + '.';
-            }
-          } else {
-            inTable = false;
-            currentHeaders = [];
-            
-            let cleanLine = line;
-            const trimmedClean = cleanLine.trim();
-            if (trimmedClean.length > 0) {
-              const lastChar = trimmedClean.slice(-1);
-              if (!['.', ',', ';', ':', '?', '!'].includes(lastChar)) {
-                cleanLine = trimmedClean + '.';
-              }
-            }
-            return cleanLine;
-          }
-        });
-        const textWithoutTables = cleanLines.filter(Boolean).join(' ');
-
-        const clean = textWithoutTables
-          .replace(/```[\s\S]*?```/g, '') // remove code blocks
-          .replace(/\$\s*(\d+(?:,\d+)?(?:\.\d+)?)/g, '$1 dólares') // speak dollars naturally
-          .replace(/[-+|#*`~&=_<>[\]{}()]/g, ' ') // remove special symbols, hashes, ampersands, dashes
-          .replace(/\s+/g, ' ')           // normalize spaces
-          .trim();
-
-        if (!clean) {
-          if (onEndCallback) onEndCallback();
-          return;
-        }
-
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = 'es-CL';
-
-        const voices = window.speechSynthesis.getVoices();
-        let selectedVoice: SpeechSynthesisVoice | undefined;
-
-        if (voiceURI) {
-          selectedVoice = voices.find(v => v.voiceURI === voiceURI);
-        }
-
-        if (!selectedVoice) {
-          const esVoices = voices.filter(v => v.lang.toLowerCase().startsWith('es'));
-          const femaleKeywords = ['sabina', 'helena', 'laura', 'daria', 'paula', 'elena', 'maria', 'francisca', 'yolanda', 'google español', 'siri', 'female', 'mujer', 'zira', 'monica', 'paulina', 'ana'];
-          selectedVoice = esVoices.find(v => 
-            femaleKeywords.some(kw => v.name.toLowerCase().includes(kw))
-          );
-          if (!selectedVoice && esVoices.length > 0) {
-            selectedVoice = esVoices[0];
-          }
-        }
-
-        if (selectedVoice) {
-          utterance.voice = selectedVoice;
-          utterance.lang = selectedVoice.lang;
-        }
-
-        let callbackCalled = false;
-        const triggerCallback = () => {
-          if (!callbackCalled) {
-            callbackCalled = true;
-            if (onEndCallback) onEndCallback();
-          }
-        };
-
-        utterance.onend = triggerCallback;
-        utterance.onerror = triggerCallback;
-
-        // Safety fallback timeout
-        const fallbackMs = (clean.length / 10) * 1000 + 2000;
-        const fallbackTimeout = setTimeout(triggerCallback, fallbackMs);
-
-        // Clear fallback timeout if it ends normally
-        const originalOnEnd = utterance.onend;
-        utterance.onend = (e) => {
-          clearTimeout(fallbackTimeout);
-          if (originalOnEnd) originalOnEnd.call(utterance, e);
-          triggerCallback();
-        };
-
-        utteranceRef.current = utterance; // Keep reference to prevent GC
-        window.speechSynthesis.speak(utterance);
-      }, 250);
-    } else {
-      if (onEndCallback) onEndCallback();
-    }
-  };
 
   const startRecording = async () => {
     try {
@@ -303,9 +165,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
         }
       };
 
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      cancelSpeech();
 
       recorder.start();
       setIsRecording(true);
@@ -388,8 +248,18 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     }
   }, [historial, cargando]);
 
+  // Trigger tour action if received from navigation state
+  useEffect(() => {
+    if (locationState?.tourAction) {
+      window.history.replaceState({}, document.title);
+      handleEnviar(locationState.tourAction, !!locationState.isVoice);
+    }
+  }, [locationState]);
+
   const handleEnviar = async (texto: string, isVoice = false) => {
     if (!texto.trim() || cargando) return;
+
+    shouldCancelSpeechOnUnmountRef.current = true;
 
     if (isRecording && mediaRecorderRef.current) {
       stopRecording();
@@ -446,17 +316,11 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
           total: tourInfo ? tourInfo.total : 1,
           siguienteNombre: tourInfo ? tourInfo.siguienteNombre : null,
           siguienteSeccion: tourInfo ? tourInfo.siguienteSeccion : null,
+          reproducirVoz: isVoice,
         });
 
-        if (isVoice) {
-          speakText(res.respuesta, () => {
-            setTimeout(() => {
-              navigate(res.navegacion);
-            }, 500);
-          });
-        } else {
-          navigate(res.navegacion);
-        }
+        shouldCancelSpeechOnUnmountRef.current = false;
+        navigate(res.navegacion);
       } else if (isVoice) {
         speakText(res.respuesta);
       }
@@ -688,9 +552,6 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     { texto: 'Listar las mermas registradas recientemente', titulo: 'Mermas y Pérdidas' },
   ];
 
-  const handleIniciarTour = () => {
-    handleEnviar('Inicia el tour del sistema', false);
-  };
 
   const handleSiguienteModulo = () => {
     if (!tourState) return;
@@ -781,30 +642,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
               </Button>
             ))}
 
-            {/* Tour button */}
-            <Box sx={{ mt: 'auto', pt: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                🗺️ Tour Guiado
-              </Typography>
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleIniciarTour}
-                disabled={cargando || !!tourState}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  borderRadius: '10px',
-                  py: 1.2,
-                  background: tourState ? 'rgba(99,102,241,0.2)' : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                  '&:hover': { background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)' },
-                  '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)' },
-                }}
-              >
-                {tourState ? `Módulo ${tourState.indiceActual + 1}/${tourState.total}` : '▶ Iniciar Tour del Sistema'}
-              </Button>
-            </Box>
+
           </Paper>
         </Box>
 

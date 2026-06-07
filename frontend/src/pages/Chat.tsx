@@ -177,10 +177,10 @@ export default function Chat() {
   });
 
   return (
-    <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <ForumIcon color="primary" sx={{ fontSize: '2.5rem' }} /> Chat Operativo
+    <Box sx={{ p: { xs: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Box sx={{ mb: { xs: 1.5, md: 3 } }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1.4rem', md: '2.125rem' } }}>
+          <ForumIcon color="primary" sx={{ fontSize: { xs: '1.8rem', md: '2.5rem' } }} /> Chat Operativo
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Comunicación instantánea entre sucursales y administración del sistema.
@@ -193,25 +193,31 @@ export default function Chat() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '280px 1fr' }, gap: 3, flexGrow: 1, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: { xs: 1, md: 3 }, flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* SIDEBAR: CHANNELS LIST */}
         <Paper
           className="glass-panel"
           sx={{
-            p: 2,
+            p: { xs: 1, md: 2 },
             display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            overflowY: 'auto',
+            flexDirection: { xs: 'row', md: 'column' },
+            flexShrink: 0,
+            width: { xs: '100%', md: '280px' },
+            height: { xs: 'auto', md: '100%' },
+            maxHeight: { xs: '56px', md: '100%' },
+            overflowX: { xs: 'auto', md: 'hidden' },
+            overflowY: { xs: 'hidden', md: 'auto' },
             border: '1px solid rgba(255,255,255,0.05)',
             backgroundColor: 'rgba(15, 23, 42, 0.4)',
+            alignItems: { xs: 'center', md: 'stretch' },
+            gap: { xs: 0.5, md: 0 },
           }}
         >
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 2, textTransform: 'uppercase', tracking: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 2, textTransform: 'uppercase', display: { xs: 'none', md: 'block' } }}>
             Canales Disponibles
           </Typography>
 
-          <List sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 0 }}>
+          <List sx={{ display: 'flex', flexDirection: { xs: 'row', md: 'column' }, gap: 0.5, p: 0, flexShrink: 0 }}>
             {/* General Channel */}
             <ListItem disablePadding>
               <ListItemButton
@@ -264,8 +270,9 @@ export default function Chat() {
 
             {visibleBranchChannels.length > 0 && (
               <>
-                <Divider sx={{ my: 1.5, borderColor: 'rgba(255,255,255,0.05)' }} />
-                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', mb: 1, pl: 1, display: 'block', textTransform: 'uppercase' }}>
+                <Divider orientation="vertical" flexItem sx={{ display: { xs: 'block', md: 'none' }, mx: 0.5, borderColor: 'rgba(255,255,255,0.05)' }} />
+                <Divider sx={{ display: { xs: 'none', md: 'block' }, my: 1.5, borderColor: 'rgba(255,255,255,0.05)' }} />
+                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', mb: 1, pl: 1, display: { xs: 'none', md: 'block' }, textTransform: 'uppercase' }}>
                   Sucursales
                 </Typography>
               </>
@@ -334,7 +341,8 @@ export default function Chat() {
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            height: '100%',
+            flex: 1,
+            minHeight: 0,
             overflow: 'hidden',
             border: '1px solid rgba(255,255,255,0.05)',
             backgroundColor: 'rgba(15, 23, 42, 0.2)',

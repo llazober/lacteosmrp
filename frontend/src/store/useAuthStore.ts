@@ -20,6 +20,7 @@ interface AiExplanation {
   total: number;
   siguienteNombre: string | null;
   siguienteSeccion: string | null;
+  reproducirVoz?: boolean;
 }
 
 interface AuthState {

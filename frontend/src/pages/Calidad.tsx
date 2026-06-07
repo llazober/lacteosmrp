@@ -549,7 +549,8 @@ export default function Calidad() {
             <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
               <Typography variant="h6" sx={{ fontWeight: 800 }}>Historial de Controles de Recepción</Typography>
             </Box>
-            <Table>
+            <Box sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table sx={{ minWidth: 900 }}>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
                   <TableCell>Fecha</TableCell>
@@ -618,6 +619,7 @@ export default function Calidad() {
                 )}
               </TableBody>
             </Table>
+            </Box>
           </Paper>
         </Box>
       )}
@@ -625,7 +627,8 @@ export default function Calidad() {
       {/* --- TAB AUDITORIAS Y LOTES --- */}
       {activeTab === 1 && (
         <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
-          <Table>
+          <Box sx={{ overflowX: 'auto', width: '100%' }}>
+          <Table sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
                 <TableCell>Fecha</TableCell>
@@ -691,6 +694,7 @@ export default function Calidad() {
               )}
             </TableBody>
           </Table>
+          </Box>
         </Paper>
       )}
 
