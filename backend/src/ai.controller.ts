@@ -32,6 +32,7 @@ export class AiController {
     return {
       respuesta: result.respuesta,
       navegacion: result.navegacion,
+      tour: result.tour ?? null,
     };
   }
 

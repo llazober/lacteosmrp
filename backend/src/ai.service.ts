@@ -121,7 +121,26 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
 - Tienes la herramienta "navegarAPagina" para redirigir al usuario a diferentes secciones del sistema.
 - Debes invocar siempre la herramienta "navegarAPagina" cada vez que el usuario te pida explícitamente navegar, ir, abrir, ver o dirigirse a una sección del sistema, ignorando cualquier resultado previo en el historial de chat (debes llamarla siempre para validar los permisos actuales en tiempo real).
 - Si la herramienta responde que la navegación fue exitosa (success: true), confirma al usuario de manera cordial que lo estás redirigiendo a esa pantalla.
-- Si la herramienta responde indicando un error (success: false), explícale amablemente al usuario el motivo del error devuelto por la herramienta (ej. falta de permisos o sección no válida) y detén el flujo de llamadas de herramientas para esta consulta (no vuelvas a llamarla en bucle para el mismo mensaje).`;
+- Si la herramienta responde indicando un error (success: false), explícale amablemente al usuario el motivo del error devuelto por la herramienta (ej. falta de permisos o sección no válida) y detén el flujo de llamadas de herramientas para esta consulta (no vuelvas a llamarla en bucle para el mismo mensaje).
+
+REGLAS DE EXPLICACIÓN DE MÓDULOS Y PESTAÑAS:
+- Cuando el usuario te pida que expliques qué hace un módulo, qué pestañas tiene, o qué puede hacer en una sección, debes responder usando el MANUAL OPERATIVO DEL SISTEMA como fuente de información. No inventes funcionalidades que no estén en el manual.
+- Cuando el usuario pida que lo lleves a un módulo Y que le expliques qué hace, debes: (1) invocar "navegarAPagina" para redirigirlo, y (2) en tu respuesta final explicar las pestañas y funcionalidades de ese módulo según el manual.
+- Puedes explicar módulos sin navegar si el usuario solo pregunta sobre su funcionamiento sin pedir ser redirigido.
+- Si el usuario pregunta "¿qué puedo hacer aquí?" o "explícame este módulo", responde describiendo las pestañas disponibles y la función de cada una basándote en el manual.
+- Usa un formato claro con viñetas o numeración para listar las pestañas y funcionalidades de cada módulo.
+
+TOUR GUIADO DEL SISTEMA:
+- Tienes la herramienta "gestionarTour" para conducir un tour guiado secuencial por todos los módulos del sistema.
+- Cuando el usuario diga "iniciar tour", "tour del sistema", "recorrido del sistema" o similar, llama a gestionarTour({ accion: 'iniciar', indiceActual: -1 }) Y TAMBIÉN llama a navegarAPagina con la sección que te devuelva el tour.
+- Cuando el usuario diga "tour:siguiente:N" (donde N es el índice actual), llama a gestionarTour({ accion: 'siguiente', indiceActual: N }) Y TAMBIÉN llama a navegarAPagina con la siguiente sección.
+- SIEMPRE debes invocar AMBAS herramientas juntas: primero gestionarTour para obtener la info del módulo, luego navegarAPagina para navegar.
+- En tu respuesta durante el tour, usa este formato:
+  🗺️ **Tour del Sistema — Módulo [indice+1] de [total]**
+  ## [emoji] [Nombre del Módulo]
+  [Explicación del módulo y sus pestañas basada en el manual]
+  ---
+  ➡️ *El siguiente módulo será: [nombre siguiente]* (o "🎉 ¡Has completado el tour!" si es el último)`;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -423,6 +442,29 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
           },
         },
       },
+      {
+        type: 'function',
+        function: {
+          name: 'gestionarTour',
+          description:
+            'Gestiona el tour guiado secuencial por todos los módulos del sistema. Devuelve información del módulo actual y del siguiente para que el frontend pueda mostrar el progreso.',
+          parameters: {
+            type: 'object',
+            properties: {
+              accion: {
+                type: 'string',
+                enum: ['iniciar', 'siguiente', 'finalizar'],
+                description: 'Acción del tour: iniciar (primer módulo), siguiente (avanzar) o finalizar.',
+              },
+              indiceActual: {
+                type: 'number',
+                description: 'Índice actual en la secuencia del tour (0-based). Para iniciar, usar -1.',
+              },
+            },
+            required: ['accion', 'indiceActual'],
+          },
+        },
+      },
     ];
 
     try {
@@ -435,6 +477,7 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
 
       const responseMessage = response.choices[0].message;
       let redirectPath: string | null = null;
+      let tourData: any = null;
 
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
         messages.push(responseMessage);
@@ -445,7 +488,7 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
           const rawArgs = JSON.parse(toolCall.function.arguments);
 
           // Force sucursalId security check
-          if (sucursalFiltro && functionName !== 'navegarAPagina') {
+          if (sucursalFiltro && functionName !== 'navegarAPagina' && functionName !== 'gestionarTour') {
             rawArgs.sucursalId = sucursalFiltro;
           }
 
@@ -511,6 +554,13 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
               if (functionResult.success) {
                 redirectPath = functionResult.path;
               }
+            } else if (functionName === 'gestionarTour') {
+              functionResult = this.ejecutarTour(rawArgs.accion, rawArgs.indiceActual);
+              if (functionResult.activo) {
+                tourData = functionResult;
+              } else {
+                tourData = null;
+              }
             } else {
               functionResult = {
                 error: `Función ${functionName} no implementada.`,
@@ -539,18 +589,64 @@ REGLAS DE NAVEGACIÓN Y PERMISOS:
         return {
           respuesta: secondResponse.choices[0].message.content || 'Sin respuesta.',
           navegacion: redirectPath,
+          tour: tourData,
         };
       }
 
       return {
         respuesta: responseMessage.content || 'Sin respuesta.',
         navegacion: null,
+        tour: null,
       };
     } catch (e: any) {
       throw new BadRequestException(
         `Error en la consulta del chatbot: ${e.message}`,
       );
     }
+  }
+
+  private ejecutarTour(accion: string, indiceActual: number): any {
+    const TOUR_SECUENCIA = [
+      { nombre: 'Dashboard',      emoji: '🏠', seccion: 'dashboard',   path: '/' },
+      { nombre: 'Punto de Venta', emoji: '🛒', seccion: 'pos',         path: '/pos' },
+      { nombre: 'Ventas',         emoji: '📊', seccion: 'ventas',       path: '/ventas' },
+      { nombre: 'Inventario',     emoji: '📦', seccion: 'inventario',   path: '/inventario' },
+      { nombre: 'Cadena de Frío', emoji: '🧊', seccion: 'frio',         path: '/frio' },
+      { nombre: 'Trazabilidad',   emoji: '🔍', seccion: 'trazabilidad', path: '/trazabilidad' },
+      { nombre: 'Compras',        emoji: '🛍️',  seccion: 'compras',      path: '/compras' },
+      { nombre: 'Finanzas',       emoji: '💰', seccion: 'finanzas',     path: '/finanzas' },
+      { nombre: 'Producción',     emoji: '🏭', seccion: 'produccion',   path: '/produccion' },
+      { nombre: 'Calidad',        emoji: '🔬', seccion: 'calidad',       path: '/calidad' },
+      { nombre: 'Logística',      emoji: '🚚', seccion: 'logistica',    path: '/logistica' },
+      { nombre: 'Auditoría',      emoji: '📋', seccion: 'auditoria',    path: '/auditoria' },
+      { nombre: 'Chat',           emoji: '💬', seccion: 'chat',          path: '/chat' },
+    ];
+
+    if (accion === 'finalizar') {
+      return { activo: false };
+    }
+
+    const nuevoIndice = accion === 'iniciar' ? 0 : indiceActual + 1;
+
+    if (nuevoIndice >= TOUR_SECUENCIA.length) {
+      return { activo: false, completado: true };
+    }
+
+    const moduloActual = TOUR_SECUENCIA[nuevoIndice];
+    const moduloSiguiente = nuevoIndice + 1 < TOUR_SECUENCIA.length
+      ? TOUR_SECUENCIA[nuevoIndice + 1]
+      : null;
+
+    return {
+      activo: true,
+      moduloActual: moduloActual.nombre,
+      emoji: moduloActual.emoji,
+      seccionActual: moduloActual.seccion,
+      indiceActual: nuevoIndice,
+      total: TOUR_SECUENCIA.length,
+      siguienteSeccion: moduloSiguiente ? moduloSiguiente.seccion : null,
+      siguienteNombre: moduloSiguiente ? moduloSiguiente.nombre : null,
+    };
   }
 
   private async ejecutarNavegacion(user: any, seccion: string) {

@@ -242,3 +242,138 @@ Este módulo gestiona la optimización física de la cadena de distribución del
 *   **Flujo FEFO de Origen**: Al autorizar y procesar una propuesta de transferencia, el sistema localiza el stock disponible en el origen (CD u otras tiendas) y prioriza la extracción utilizando los lotes con la fecha de vencimiento más próxima (*First Expired, First Out*).
 *   **Procesamiento Automático en Segundo Plano**: Si la configuración de auto-reabastecimiento está activada (`autoReplenishEnabled`), el sistema ejecutará periódicamente en segundo plano el cálculo y registrará directamente las transferencias en estado `PENDIENTE` para asegurar el flujo logístico continuo.
 
+---
+
+## 15. Dashboard (Panel Principal)
+
+El **Dashboard** es la pantalla de inicio del sistema. Muestra una visión ejecutiva consolidada en tiempo real.
+
+*   **Ventas del Día**: Total facturado en el día actual.
+*   **Órdenes de Compra Pendientes**: Contador de OC en estado PENDIENTE o PARCIAL.
+*   **Alertas de Cadena de Frío**: Número de alertas térmicas activas.
+*   **Productos con Stock Crítico**: Productos por debajo del mínimo de seguridad.
+*   **Gráfico de Ventas**: Evolución de ingresos de los últimos 7 o 30 días.
+*   **Últimas Alertas**: Lista de alertas recientes del sistema.
+*   **Accesos Rápidos**: Botones directos a los módulos más usados.
+
+> El Dashboard es de solo lectura; no permite crear ni editar registros.
+
+---
+
+## 16. Módulo de Inventario — Pestañas Detalladas
+
+### Pestaña: Existencias (Stock Actual)
+Vista principal del inventario en tiempo real. Muestra stock disponible, unidad de medida, categoría y sucursal de cada producto. Incluye búsqueda global por nombre, SKU o código de barra, filtro por sucursal (solo ADMIN/SUPERVISOR), y alerta visual cuando el stock está bajo el mínimo.
+
+### Pestaña: Productos (Catálogo Maestro)
+Gestión del catálogo de artículos: crear, editar y desactivar productos. Campos principales: SKU, nombre, código de barra, categoría, tipo (Producto Terminado / Insumo / Materia Prima), unidad de medida, costo base, precio de venta y stock mínimo de seguridad. Solo los de tipo **Producto Terminado** aparecen en el POS.
+
+### Pestaña: Lotes
+Trazabilidad por lote. Cada recepción de OC o producción genera un lote con fecha de producción y vencimiento. Muestra lotes activos, agotados y vencidos. El sistema aplica FEFO automáticamente. Alerta en rojo si quedan menos de 15 días para vencer.
+
+### Pestaña: Traslados Inter-Sucursales
+Transferencias de mercadería entre locales o desde el CD. Estados: `PENDIENTE`, `EN_TRANSITO`, `RECIBIDO`. Recepción grupal con modal que agrupa todos los traslados pendientes. Exige **firma digital** en canvas antes de confirmar, que queda en la bitácora.
+
+### Pestaña: Mermas
+Dar de baja productos dañados, vencidos o perdidos. Seleccionar producto, lote, cantidad y motivo (VENCIMIENTO, DAÑO_FISICO, DERRAME, ROBO). Tabla histórica con filtro por fecha y sucursal. Descuenta el stock inmediatamente.
+
+### Pestaña: Movimientos (Kardex)
+Historial completo de entradas y salidas de cada producto. Cada venta, OC, traslado y merma genera un movimiento. Filtrable por producto, tipo, fecha y sucursal.
+
+---
+
+## 17. Módulo de Cadena de Frío — Pestañas Detalladas
+
+### Pestaña: Equipos / Freezers
+Lista de freezers y refrigeradores por sucursal con estado (OK / ALERTA / APAGADO) y temperatura actual del sensor IoT. Incluye gráfico histórico de temperatura de las últimas horas. Permite crear, editar y desactivar equipos. Cada equipo tiene umbrales mínimo y máximo configurados.
+
+### Pestaña: Alertas Térmicas
+Historial de alertas de temperatura disparadas: equipo afectado, temperatura detectada, duración y estado (activa / resuelta). El supervisor puede marcar una alerta como resuelta. El sistema sugiere descuentos POS automáticos para productos en riesgo térmico.
+
+### Pestaña: Configuración de Sensores
+Administrar los parámetros de cada sensor IoT: ID de dispositivo, equipo al que pertenece, sucursal, umbrales de temperatura y frecuencia de lectura.
+
+---
+
+## 18. Módulo de Trazabilidad
+
+Permite rastrear el ciclo de vida completo de un lote de producto desde su ingreso hasta su destino final.
+
+*   **Búsqueda por Lote**: Ingresar número de lote para ver toda la cadena de custodia.
+*   **Línea de Tiempo**: Cada evento del lote en orden cronológico: ingreso, traslados, ventas (tickets), mermas y alertas térmicas durante su almacenamiento.
+*   **Exportar Reporte**: Informe de trazabilidad para auditorías HACCP.
+
+---
+
+## 19. Módulo de Logística — Pestañas Detalladas
+
+### Pestaña: Reabastecimiento Automático
+Calcula y ejecuta propuestas de transferencia desde el CD a las sucursales. Compara stock disponible (físico + en tránsito) contra el Stock Objetivo. Dos modos: **Estándar** (proyección de ventas) y **Modo Seguridad** (usa stock mínimo). Botón "Procesar Propuesta" convierte la propuesta en transferencia PENDIENTE. Opción de activar auto-reabastecimiento en segundo plano.
+
+### Pestaña: Pronóstico de Demanda
+Simula la demanda futura basada en historial de ventas de los últimos 30 días. Gráficos de proyección por sucursal y categoría. Herramienta de simulación para escenarios hipotéticos (ej. temporada alta).
+
+### Pestaña: Planificación de Rutas (VRP/TSP)
+Diseñar rutas de distribución óptimas. Seleccionar sucursales a visitar y el algoritmo VRP/TSP calcula la secuencia óptima para minimizar distancia. Asignar ruta a camión y conductor. Estados: `PLANIFICADA`, `EN_TRANSITO`, `COMPLETADA`.
+
+### Pestaña: Monitoreo en Vivo (Mapa)
+Seguimiento GPS en tiempo real de la flota. Mapa interactivo con posición actual de cada camión, temperatura del compartimento de carga (telemetría IoT), velocidad y ruta asignada. Historial de recorrido del día. Alertas de desvío de ruta o temperatura fuera de rango.
+
+### Pestaña: Flota y Conductores
+Administrar el registro de vehículos y conductores. **Camiones**: placa, modelo, capacidad, estado (DISPONIBLE / EN_RUTA / MANTENIMIENTO), si tiene refrigeración. **Conductores**: nombre, licencia, tipo de licencia, teléfono, estado. Asignación de conductor a camión y registro de mantenimientos.
+
+---
+
+## 20. Módulo Consolidado (Vista Global)
+
+Exclusivo para ADMINISTRADOR y SUPERVISOR. Ofrece una vista unificada de métricas de todas las sucursales.
+
+*   **Ventas Globales**: Total consolidado desglosado por sucursal en tabla comparativa.
+*   **Stock Global**: Inventario total sumando todas las sucursales.
+*   **KPIs Comparativos**: Gráficos comparando ventas, mermas y compras entre sucursales.
+*   **Filtro de Período**: Semana, mes, trimestre o rango personalizado.
+
+---
+
+## 21. Módulo de Auditoría y Personal — Pestañas Detalladas
+
+### Pestaña: Bitácora de Auditoría
+Registro inmutable de todas las acciones críticas. Tabla con fecha/hora, usuario, acción (ej. `ELIMINAR_ORDEN_COMPRA`, `REGISTRAR_PAGO`), módulo afectado y detalle JSON. Filtrable por usuario, módulo, acción y fecha. No se puede editar ni borrar. Exportable a CSV.
+
+### Pestaña: Gestión de Personal (Usuarios)
+Crear, editar y desactivar cuentas de empleados. Campos: nombre, correo (credencial de login), contraseña, rol, sucursal asignada y estado. El administrador puede **blanquear contraseñas** sin conocer la clave actual. Desactivar usuarios suspende acceso sin borrar historial.
+
+---
+
+## 22. Módulo de Utilidades — Pestañas Detalladas
+
+### Pestaña: Sucursales
+Registrar, editar y desactivar locales comerciales y bodegas. Campos: código único, nombre, dirección, teléfono, correo, estado. La sucursal `SUC-001` es el Centro de Distribución principal.
+
+### Pestaña: Categorías de Producto
+Catálogo de categorías para clasificar productos (ej. Quesos, Lácteos, Bebidas, Insumos). Cada categoría puede asociarse a un tipo estructural.
+
+### Pestaña: Unidades de Medida
+Registro de unidades: litros (L), kilogramos (kg), gramos (g), unidades (und), cajas, etc.
+
+### Pestaña: Tipos de Producto
+Define los tres tipos estructurales: **Producto Terminado** (venta en POS), **Insumo** (material auxiliar), **Materia Prima** (ingrediente base como leche cruda).
+
+### Pestaña: Proveedores
+Registro de proveedores externos. Campos: nombre, RUT/NIT, contacto, correo, teléfono, dirección, condiciones de pago por defecto y datos bancarios (banco, tipo de cuenta, número de cuenta). Seleccionables al crear OC y Facturas.
+
+### Pestaña: Condiciones de Pago
+Términos de crédito disponibles: Contado (0 días), Crédito 15 días, 30 días, 60 días. Determinan la fecha de vencimiento de las facturas en Finanzas.
+
+### Pestaña: Roles y Permisos
+Matriz dinámica de seguridad. Crear roles personalizados y activar/desactivar permisos con checkboxes. Permisos incluyen: VER_DASHBOARD, VER_POS, VER_INVENTARIO, VER_FRIO, VER_COMPRAS, VER_FINANZAS, VER_PRODUCCION, VER_CALIDAD, VER_LOGISTICA, VER_AUDITORIA, VER_UTILIDADES, VER_CHAT, USAR_ASISTENTE. Los roles de fábrica no pueden eliminarse.
+
+### Pestaña: Manual del Sistema
+Muestra el contenido completo de este manual operativo dentro del ERP para consulta directa.
+
+### Pestaña: Configuración de IA
+*   **API Key de OpenAI**: Clave para activar el asistente Vaquita AI.
+*   **Modelo activo**: `gpt-4o-mini` (menor costo) o `gpt-4o` (mayor calidad).
+*   **Zona horaria**: Configura la hora local para reportes correctos del asistente.
+*   **Probar conexión**: Verifica que la API Key sea válida antes de guardar.
+

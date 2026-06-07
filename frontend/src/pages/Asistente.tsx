@@ -63,6 +63,15 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
   const [input, setInput] = useState('');
   const [cargando, setCargando] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [tourState, setTourState] = useState<{
+    activo: boolean;
+    moduloActual: string;
+    emoji: string;
+    indiceActual: number;
+    total: number;
+    siguienteSeccion: string | null;
+    siguienteNombre: string | null;
+  } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -415,6 +424,12 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       };
 
       setHistorial((prev) => [...prev, mensajeAsistente]);
+      // Handle tour state
+      if (res.tour && res.tour.activo) {
+        setTourState(res.tour);
+      } else if (res.tour !== undefined) {
+        setTourState(null);
+      }
       if (res.navegacion) {
         if (isVoice) {
           speakText(res.respuesta, () => {
@@ -658,6 +673,19 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
     { texto: 'Listar las mermas registradas recientemente', titulo: 'Mermas y Pérdidas' },
   ];
 
+  const handleIniciarTour = () => {
+    handleEnviar('Inicia el tour del sistema', false);
+  };
+
+  const handleSiguienteModulo = () => {
+    if (!tourState) return;
+    handleEnviar(`tour:siguiente:${tourState.indiceActual}`, false);
+  };
+
+  const handleFinalizarTour = () => {
+    setTourState(null);
+  };
+
   return (
     <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
@@ -703,7 +731,7 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
         >
           <Paper
             className="glass-panel"
-            sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}
+            sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}
           >
             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
               💡 Consultas Sugeridas
@@ -737,6 +765,31 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
                 {sug.titulo}
               </Button>
             ))}
+
+            {/* Tour button */}
+            <Box sx={{ mt: 'auto', pt: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                🗺️ Tour Guiado
+              </Typography>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleIniciarTour}
+                disabled={cargando || !!tourState}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  borderRadius: '10px',
+                  py: 1.2,
+                  background: tourState ? 'rgba(99,102,241,0.2)' : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                  '&:hover': { background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)' },
+                  '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)' },
+                }}
+              >
+                {tourState ? `Módulo ${tourState.indiceActual + 1}/${tourState.total}` : '▶ Iniciar Tour del Sistema'}
+              </Button>
+            </Box>
           </Paper>
         </Box>
 
@@ -992,6 +1045,82 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
                 <Send sx={{ fontSize: '1.1rem' }} />
               </IconButton>
             </Box>
+
+            {/* Tour Navigation Panel */}
+            {tourState && tourState.activo && (
+              <Box
+                sx={{
+                  px: 2,
+                  pb: 1.5,
+                  pt: 0,
+                  borderTop: '1px solid rgba(255,255,255,0.06)',
+                  backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                }}
+              >
+                {/* Progress bar */}
+                <Box sx={{ pt: 1.5, pb: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.light' }}>
+                      🗺️ Tour — {tourState.emoji} {tourState.moduloActual}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {tourState.indiceActual + 1} / {tourState.total}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 4, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                    <Box
+                      sx={{
+                        height: '100%',
+                        width: `${((tourState.indiceActual + 1) / tourState.total) * 100}%`,
+                        background: 'linear-gradient(90deg, #6366f1, #a855f7)',
+                        borderRadius: 99,
+                        transition: 'width 0.4s ease',
+                      }}
+                    />
+                  </Box>
+                </Box>
+
+                {/* Action buttons */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  {tourState.siguienteSeccion && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={handleSiguienteModulo}
+                      disabled={cargando}
+                      sx={{
+                        flex: 1,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.78rem',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                        '&:hover': { background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)' },
+                        '&.Mui-disabled': { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)' },
+                      }}
+                    >
+                      {cargando ? '⏳ Cargando...' : `Siguiente: ${tourState.siguienteNombre} →`}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleFinalizarTour}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: '0.75rem',
+                      borderRadius: '8px',
+                      borderColor: 'rgba(239,68,68,0.3)',
+                      color: '#ef4444',
+                      '&:hover': { borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)' },
+                    }}
+                  >
+                    Finalizar
+                  </Button>
+                </Box>
+              </Box>
+            )}
           </Box>
         </Paper>
       </Box>
