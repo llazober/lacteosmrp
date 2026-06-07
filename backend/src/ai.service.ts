@@ -561,7 +561,7 @@ TOUR GUIADO DEL SISTEMA:
                 // Auto-navigate to the tour module without needing a separate navegarAPagina call
                 const navResult = await this.ejecutarNavegacion(user, functionResult.seccionActual);
                 if (navResult.success) {
-                  redirectPath = navResult.path;
+                  redirectPath = navResult.path ?? null;
                 }
               } else {
                 tourData = null;
