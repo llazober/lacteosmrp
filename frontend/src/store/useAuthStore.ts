@@ -10,17 +10,31 @@ interface Usuario {
   permisos?: string[];
 }
 
+interface AiExplanation {
+  activo: boolean;
+  moduloNombre: string;
+  emoji: string;
+  mensaje: string;
+  tourActivo: boolean;
+  indiceActual: number;
+  total: number;
+  siguienteNombre: string | null;
+  siguienteSeccion: string | null;
+}
+
 interface AuthState {
   token: string | null;
   usuario: Usuario | null;
   unreadChannels: Record<string, boolean>;
   systemTimezone: string;
+  aiExplanation: AiExplanation | null;
   login: (token: string, usuario: Usuario) => void;
   logout: () => void;
   addUnreadChannel: (channelId: string) => void;
   clearUnreadChannel: (channelId: string) => void;
   clearAllUnread: () => void;
   setSystemTimezone: (timezone: string) => void;
+  setAiExplanation: (explanation: AiExplanation | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => {
@@ -34,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => {
     usuario: savedUsuario ? JSON.parse(savedUsuario) : null,
     unreadChannels: {},
     systemTimezone: savedTimezone,
+    aiExplanation: null,
     login: (token, usuario) => {
       localStorage.setItem('lacteoserp_token', token);
       localStorage.setItem('lacteoserp_usuario', JSON.stringify(usuario));
@@ -67,6 +82,9 @@ export const useAuthStore = create<AuthState>((set) => {
     setSystemTimezone: (timezone) => {
       localStorage.setItem('lacteoserp_timezone', timezone);
       set({ systemTimezone: timezone });
+    },
+    setAiExplanation: (explanation) => {
+      set({ aiExplanation: explanation });
     },
   };
 });

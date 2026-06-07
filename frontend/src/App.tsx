@@ -69,6 +69,7 @@ import Ventas from './pages/Ventas';
 import Produccion from './pages/Produccion';
 import Calidad from './pages/Calidad';
 import Logistica from './pages/Logistica';
+import FloatingAIPanel from './components/FloatingAIPanel';
 
 const DRAWER_WIDTH = 280;
 const queryClient = new QueryClient();
@@ -502,6 +503,8 @@ function MainLayout() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Box>
+      {/* Floating AI explanation panel — persists across navigation */}
+      <FloatingAIPanel />
     </Box>
   );
 }

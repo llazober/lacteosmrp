@@ -30,6 +30,7 @@ interface Mensaje {
 
 export default function Asistente() {
   const usuario = useAuthStore((state) => state.usuario);
+  const setAiExplanation = useAuthStore((state) => state.setAiExplanation);
   const navigate = useNavigate();
   const userKey = usuario ? `lacteoserp_ai_history_${usuario.id}` : 'lacteoserp_ai_history_guest';
 
@@ -424,13 +425,29 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
       };
 
       setHistorial((prev) => [...prev, mensajeAsistente]);
-      // Handle tour state
+
+      // Handle tour state panel
       if (res.tour && res.tour.activo) {
         setTourState(res.tour);
       } else if (res.tour !== undefined) {
         setTourState(null);
       }
+
       if (res.navegacion) {
+        // Save explanation to global store so FloatingAIPanel shows it after navigation
+        const tourInfo = res.tour && res.tour.activo ? res.tour : null;
+        setAiExplanation({
+          activo: true,
+          moduloNombre: tourInfo ? tourInfo.moduloActual : res.navegacion.replace('/', '') || 'Módulo',
+          emoji: tourInfo ? tourInfo.emoji : '🤖',
+          mensaje: res.respuesta,
+          tourActivo: !!tourInfo,
+          indiceActual: tourInfo ? tourInfo.indiceActual : 0,
+          total: tourInfo ? tourInfo.total : 1,
+          siguienteNombre: tourInfo ? tourInfo.siguienteNombre : null,
+          siguienteSeccion: tourInfo ? tourInfo.siguienteSeccion : null,
+        });
+
         if (isVoice) {
           speakText(res.respuesta, () => {
             setTimeout(() => {
@@ -438,7 +455,6 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
             }, 500);
           });
         } else {
-          // Navigate immediately — explanation and navigation happen at the same time
           navigate(res.navegacion);
         }
       } else if (isVoice) {
