@@ -558,6 +558,11 @@ TOUR GUIADO DEL SISTEMA:
               functionResult = this.ejecutarTour(rawArgs.accion, rawArgs.indiceActual);
               if (functionResult.activo) {
                 tourData = functionResult;
+                // Auto-navigate to the tour module without needing a separate navegarAPagina call
+                const navResult = await this.ejecutarNavegacion(user, functionResult.seccionActual);
+                if (navResult.success) {
+                  redirectPath = navResult.path;
+                }
               } else {
                 tourData = null;
               }

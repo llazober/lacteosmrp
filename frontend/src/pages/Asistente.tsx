@@ -438,9 +438,8 @@ Puedo ayudarte a consultar existencias, analizar ventas, revisar mermas y verifi
             }, 500);
           });
         } else {
-          setTimeout(() => {
-            navigate(res.navegacion);
-          }, 1500);
+          // Navigate immediately — explanation and navigation happen at the same time
+          navigate(res.navegacion);
         }
       } else if (isVoice) {
         speakText(res.respuesta);
