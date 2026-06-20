@@ -769,19 +769,28 @@ export class LogisticaController implements OnModuleInit {
             });
             const CDStock = CDInv ? CDInv.existencia : 0;
             if (CDStock < cantidadSugerida) {
-              // Si el CD tampoco tiene stock, sugerimos PRODUCCION o COMPRA
-              if (prod.marca === 'Lácteos ERP') {
+              // Solo sugerimos PRODUCCION si la sucursal que calcula es el propio CD (SUC-001)
+              if (suc.codigo === 'SUC-001' && prod.marca === 'Lácteos ERP') {
                 tipoOrigen = 'PRODUCCION';
                 origenSugeridoId = null;
                 origenSugeridoNombre = 'Línea de Producción Interna';
                 detalleRazon =
                   'Stock insuficiente en CD. Requiere programar orden de producción.';
-              } else {
+              } else if (suc.codigo === 'SUC-001') {
+                // Si es CD pero no es marca propia (es materia prima / insumo comprado)
                 tipoOrigen = 'COMPRA';
                 origenSugeridoId = null;
                 origenSugeridoNombre = 'Proveedor Externo';
                 detalleRazon =
                   'Stock insuficiente en CD. Requiere generar orden de compra a proveedor.';
+              } else {
+                // Para las tiendas, si el CD no tiene stock, mantenemos tipoOrigen = 'CD' (transferencia)
+                // pero indicamos en la razón que está en espera de producción/stock en el CD.
+                tipoOrigen = 'CD';
+                origenSugeridoId = plantaPrincipal.id;
+                origenSugeridoNombre = plantaPrincipal.nombre;
+                detalleRazon =
+                  'Suministrado desde el Centro de Distribución (esperando stock/producción en CD).';
               }
             }
           }
