@@ -1237,6 +1237,30 @@ export class ProduccionController {
               data: { cantidadActual: { decrement: aDescontar } },
             });
 
+            // Decrementar del inventario general
+            const inv = await tx.inventario.findUnique({
+              where: {
+                productoId_sucursalId: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                },
+              },
+            });
+            if (inv) {
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: aDescontar } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                  existencia: -aDescontar,
+                },
+              });
+            }
+
             await tx.ordenProduccionDetalle.create({
               data: {
                 ordenProduccionId: op.id,
@@ -1283,6 +1307,30 @@ export class ProduccionController {
             where: { id: lote.id },
             data: { cantidadActual: { decrement: aDescontar } },
           });
+
+          // Decrementar del inventario general
+          const inv = await tx.inventario.findUnique({
+            where: {
+              productoId_sucursalId: {
+                productoId: reqDetalle.productoId,
+                sucursalId: cdId,
+              },
+            },
+          });
+          if (inv) {
+            await tx.inventario.update({
+              where: { id: inv.id },
+              data: { existencia: { decrement: aDescontar } },
+            });
+          } else {
+            await tx.inventario.create({
+              data: {
+                productoId: reqDetalle.productoId,
+                sucursalId: cdId,
+                existencia: -aDescontar,
+              },
+            });
+          }
 
           // Registrar detalle consumido en la orden
           await tx.ordenProduccionDetalle.create({
