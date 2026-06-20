@@ -742,96 +742,8 @@ export class ProduccionController {
     const hoy = new Date();
     const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // 4. Calcular inventario virtual del CD (Planta Principal) para cada producto
-    const virtualCDStock: Record<string, number> = {};
-    const initialVirtualCDStock: Record<string, number> = {};
-
-    for (const prod of productos) {
-      // Stock actual en CD
-      const CDInv = await this.prisma.inventario.findUnique({
-        where: {
-          productoId_sucursalId: { productoId: prod.id, sucursalId: plantaPrincipal.id },
-        },
-      });
-      const CDStock = CDInv ? CDInv.existencia : 0;
-
-      // Órdenes de producción abiertas en CD (PLANIFICADA o EN_PROCESO)
-      const openCDOrders = await this.prisma.ordenProduccion.findMany({
-        where: {
-          sucursalId: plantaPrincipal.id,
-          receta: { productoFinalId: prod.id },
-          estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
-        },
-        select: { cantidadPlanificada: true },
-      });
-      const openCDQty = openCDOrders.reduce((sum, o) => sum + o.cantidadPlanificada, 0);
-
-      const CDStockDisponible = CDStock + openCDQty;
-      initialVirtualCDStock[prod.id] = CDStockDisponible;
-
-      // Calcular demanda de ventas propia del CD (últimos 30 días)
-      const CDVentasDetalle = await this.prisma.ventaDetalle.findMany({
-        where: {
-          productoId: prod.id,
-          venta: {
-            sucursalId: plantaPrincipal.id,
-            fecha: { gte: hace30Dias },
-            estado: 'COMPLETADA',
-          },
-        },
-        select: { cantidad: true },
-      });
-      const CDTotalVendido = CDVentasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
-      const CDPromedioVentas = CDTotalVendido > 0 ? CDTotalVendido / 30 : 2.0;
-
-      let CDDiasObjetivo = 5;
-      if (prod.categoria === 'YOGURT') CDDiasObjetivo = 7;
-      else if (prod.categoria === 'QUESOS') CDDiasObjetivo = 10;
-      else if (prod.categoria === 'MANTEQUILLA') CDDiasObjetivo = 15;
-
-      let CDStockObjetivo = CDPromedioVentas * CDDiasObjetivo;
-      if (useSafety) {
-        const CDMinimoSeguridad = CDInv ? CDInv.existMin : 5;
-        CDStockObjetivo = Math.max(CDStockObjetivo, CDMinimoSeguridad);
-      }
-
-      if (CDStockDisponible < CDStockObjetivo) {
-        const CDDeficit = CDStockObjetivo - CDStockDisponible;
-        virtualCDStock[prod.id] = 0; // No queda nada para otras sucursales
-        
-        // Agregar propuesta para la propia sucursal CD
-        const receta = recetas.find((r) => r.productoFinalId === prod.id);
-        const CDDiasInventario = CDPromedioVentas > 0 ? CDStockDisponible / CDPromedioVentas : 0;
-        
-        propuestas.push({
-          sucursalId: plantaPrincipal.id,
-          sucursalNombre: plantaPrincipal.nombre,
-          productoId: prod.id,
-          productoSku: prod.sku,
-          productoNombre: prod.descripcion,
-          recetaId: receta ? receta.id : null,
-          recetaNombre: receta ? receta.nombre : 'Sin Receta',
-          stockActual: parseFloat(CDStock.toFixed(2)),
-          promedioVentasDiarias: parseFloat(CDPromedioVentas.toFixed(2)),
-          diasInventario: parseFloat(CDDiasInventario.toFixed(1)),
-          stockObjetivo: parseFloat(CDStockObjetivo.toFixed(1)),
-          stockEnTransito: 0,
-          openBranchQty: parseFloat(openCDQty.toFixed(2)),
-          cantidadSugerida: Math.ceil(CDDeficit),
-          virtualCDStockInicial: parseFloat(CDStockDisponible.toFixed(2)),
-          detalleRazon: `Déficit en Planta Principal/CD (${CDDeficit.toFixed(1)} u). Sin excedente para transferencias.`,
-          alertaRiesgo: CDDiasInventario <= 2 ? 'CRITICO' : 'STOCK_BAJO',
-        });
-      } else {
-        // CD tiene excedente para transferir a sucursales
-        virtualCDStock[prod.id] = CDStockDisponible - CDStockObjetivo;
-      }
-    }
-
-    // 5. Para cada sucursal (que no sea CD) y cada producto
+    // 4. Calcular para cada sucursal y cada producto de forma directa
     for (const suc of sucursales) {
-      if (suc.codigo === 'SUC-001') continue;
-
       for (const prod of productos) {
         // A. Inventario en sucursal
         const inv = await this.prisma.inventario.findUnique({
@@ -896,19 +808,10 @@ export class ProduccionController {
           stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
         }
 
-        // F. Calcular necesidad y restar inventario virtual del CD
+        // F. Calcular necesidad
         if (stockDisponible < stockObjetivo) {
           const deficit = stockObjetivo - stockDisponible;
-          let cantidadSugerida = 0;
-
-          const currentVirtualStock = virtualCDStock[prod.id] || 0;
-          if (currentVirtualStock >= deficit) {
-            virtualCDStock[prod.id] -= deficit;
-            cantidadSugerida = 0;
-          } else {
-            cantidadSugerida = deficit - currentVirtualStock;
-            virtualCDStock[prod.id] = 0;
-          }
+          const cantidadSugerida = Math.ceil(deficit);
 
           if (cantidadSugerida > 0) {
             const receta = recetas.find((r) => r.productoFinalId === prod.id);
@@ -926,9 +829,8 @@ export class ProduccionController {
               stockObjetivo: parseFloat(stockObjetivo.toFixed(1)),
               stockEnTransito: parseFloat(stockEnTransito.toFixed(2)),
               openBranchQty: parseFloat(openBranchQty.toFixed(2)),
-              cantidadSugerida: Math.ceil(cantidadSugerida),
-              virtualCDStockInicial: parseFloat(initialVirtualCDStock[prod.id].toFixed(2)),
-              detalleRazon: `Defecto en sucursal (${deficit.toFixed(1)} u) supera el Stock Virtual disponible en CD (${currentVirtualStock.toFixed(1)} u).`,
+              cantidadSugerida,
+              detalleRazon: `Déficit en sucursal ${suc.nombre} (${deficit.toFixed(1)} u).`,
               alertaRiesgo: diasInventario <= 2 ? 'CRITICO' : 'STOCK_BAJO',
             });
           }
