@@ -731,6 +731,7 @@ export default function Produccion() {
                 <TableCell>Producido</TableCell>
                 <TableCell>Rendimiento</TableCell>
                 <TableCell>Estado</TableCell>
+                <TableCell>Picking</TableCell>
                 <TableCell>Fechas</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
@@ -738,7 +739,7 @@ export default function Produccion() {
             <TableBody>
               {ordenes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
+                  <TableCell colSpan={11} align="center">
                     No hay órdenes de producción planificadas.
                   </TableCell>
                 </TableRow>
@@ -798,6 +799,29 @@ export default function Produccion() {
                               : undefined
                           }
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip
+                            label={op.pickingCompletado ? 'Completado' : 'Pendiente'}
+                            size="small"
+                            color={op.pickingCompletado ? 'success' : 'default'}
+                          />
+                          {(op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                            <Tooltip title="Procesar Picking">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenPicking(op);
+                                }}
+                              >
+                                <Scale fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption" component="div">

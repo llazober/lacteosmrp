@@ -332,16 +332,6 @@ export class ProduccionController {
       );
     }
 
-    // Verificar si ya existe lote con ese número y no está asociado a la misma orden de producción
-    const existLote = await this.prisma.lote.findUnique({
-      where: { numeroLote: loteNumero },
-    });
-    if (existLote && existLote.ordenProduccionId !== op.id) {
-      throw new BadRequestException(
-        `El número de lote "${loteNumero}" ya existe en el sistema.`,
-      );
-    }
-
     // Buscar proveedor interno o primer proveedor para asociar al lote producido
     let proveedor = await this.prisma.proveedor.findFirst({
       where: { codigo: 'INTERNO' },
@@ -491,7 +481,12 @@ export class ProduccionController {
       fechaVen.setDate(fechaVen.getDate() + vidaUtil);
 
       const existingLote = await tx.lote.findFirst({
-        where: { ordenProduccionId: op.id },
+        where: {
+          OR: [
+            { ordenProduccionId: op.id },
+            { numeroLote: loteNumero }
+          ]
+        },
       });
 
       let nuevoLote;
@@ -505,6 +500,7 @@ export class ProduccionController {
             cantidadInicial: cantProd,
             cantidadActual: cantProd,
             estado: 'APROBADO',
+            ordenProduccionId: op.id,
           },
         });
       } else {
