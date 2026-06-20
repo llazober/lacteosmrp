@@ -371,6 +371,22 @@ export default function Produccion() {
     }
   };
 
+  const handleLimpiarDatosPruebas = async () => {
+    if (!window.confirm('¿Está seguro de que desea eliminar todas las transacciones (OPs, Ventas, Lotes) e inventarios para la categoría de Producto Terminado? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    try {
+      setErrorMsg(null);
+      await apiFetch('/produccion/limpiar-datos-pruebas', {
+        method: 'POST',
+      });
+      setSuccessMsg('Se han limpiado todos los datos de pruebas de productos terminados correctamente.');
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al limpiar datos de pruebas.');
+    }
+  };
+
   const handleOpenEditarOrden = (op: any) => {
     setEditarOrdenForm({
       id: op.id,
@@ -529,6 +545,15 @@ export default function Produccion() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleLimpiarDatosPruebas}
+            >
+              Limpiar Datos de Pruebas
+            </Button>
+          )}
           {activeTab === 0 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
             <Button
               variant="contained"
