@@ -29,6 +29,8 @@ import {
   CardContent,
   CardActions,
   Divider,
+  Checkbox,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add,
@@ -40,6 +42,7 @@ import {
   Visibility,
   Scale,
   Warehouse,
+  Edit,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
@@ -52,7 +55,8 @@ export default function Produccion() {
       const tabMap: Record<string, number> = {
         recetas: 0,
         ordenes: 1,
-        mermas: 2,
+        picking: 2,
+        mermas: 3,
       };
       if (tabMap[tabParam] !== undefined) {
         return tabMap[tabParam];
@@ -69,7 +73,8 @@ export default function Produccion() {
       const tabMap: Record<string, number> = {
         recetas: 0,
         ordenes: 1,
-        mermas: 2,
+        picking: 2,
+        mermas: 3,
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
@@ -81,7 +86,7 @@ export default function Produccion() {
   const handleTabChange = (val: number) => {
     setActiveTab(val);
     setSelectedRowId(null);
-    const tabNames = ['recetas', 'ordenes', 'mermas'];
+    const tabNames = ['recetas', 'ordenes', 'picking', 'mermas'];
     setSearchParams({ tab: tabNames[val] });
   };
 
@@ -138,6 +143,20 @@ export default function Produccion() {
     sucursalId: '',
   });
 
+  // Picking & Editing states
+  const [openPicking, setOpenPicking] = useState(false);
+  const [selectedPickingOrder, setSelectedPickingOrder] = useState<any>(null);
+  const [pickingData, setPickingData] = useState<any>(null);
+
+  const [openEditarOrden, setOpenEditarOrden] = useState(false);
+  const [editarOrdenForm, setEditarOrdenForm] = useState({
+    id: '',
+    numeroOrden: '',
+    recetaNombre: '',
+    cantidadPlanificada: '',
+    responsableId: '',
+  });
+
   // Feedback
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -153,7 +172,7 @@ export default function Produccion() {
         setRecetas(rec);
         const prod = await apiFetch('/productos');
         setProductos(prod);
-      } else if (activeTab === 1) {
+      } else if (activeTab === 1 || activeTab === 2) {
         const ord = await apiFetch('/produccion/ordenes');
         setOrdenes(ord);
         const rec = await apiFetch('/produccion/recetas');
@@ -167,7 +186,7 @@ export default function Produccion() {
         } catch {
           if (usuario) setUsuarios([usuario]);
         }
-      } else if (activeTab === 2) {
+      } else if (activeTab === 3) {
         const mer = await apiFetch('/produccion/mermas');
         setMermas(mer);
         const prod = await apiFetch('/productos');
@@ -306,6 +325,78 @@ export default function Produccion() {
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al planificar orden.');
+    }
+  };
+
+  const handleOpenPicking = async (order: any) => {
+    try {
+      setErrorMsg(null);
+      setSelectedPickingOrder(order);
+      const data = await apiFetch(`/produccion/ordenes/${order.id}/picking`);
+      const ingredientes = data.ingredientes.map((i: any) => ({
+        ...i,
+        picked: i.picked || false,
+      }));
+      setPickingData({ ...data, ingredientes });
+      setOpenPicking(true);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al obtener datos de picking.');
+    }
+  };
+
+  const handleConfirmarPicking = async () => {
+    try {
+      setErrorMsg(null);
+      const res = await apiFetch(`/produccion/ordenes/${selectedPickingOrder.id}/picking`, {
+        method: 'POST',
+        body: JSON.stringify({
+          detalles: pickingData.ingredientes.map((i: any) => ({
+            productoId: i.productoId,
+            cantidadPicked: parseFloat(i.cantidadPicked),
+            picked: i.picked,
+            loteNumero: i.loteNumero || '',
+          })),
+        }),
+      });
+
+      if (res.tieneShortage) {
+        setSuccessMsg(`Picking guardado con faltantes. La orden ${res.opUpdated.numeroOrden} ha sido marcada con FALTANTES.`);
+      } else {
+        setSuccessMsg(`Picking completado y confirmado con éxito para la orden ${res.opUpdated.numeroOrden}.`);
+      }
+      setOpenPicking(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al confirmar el picking.');
+    }
+  };
+
+  const handleOpenEditarOrden = (op: any) => {
+    setEditarOrdenForm({
+      id: op.id,
+      numeroOrden: op.numeroOrden,
+      recetaNombre: op.receta.nombre,
+      cantidadPlanificada: op.cantidadPlanificada.toString(),
+      responsableId: op.responsableId,
+    });
+    setOpenEditarOrden(true);
+  };
+
+  const handleGuardarEditarOrden = async () => {
+    try {
+      setErrorMsg(null);
+      await apiFetch(`/produccion/ordenes/${editarOrdenForm.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          cantidadPlanificada: parseFloat(editarOrdenForm.cantidadPlanificada),
+          responsableId: editarOrdenForm.responsableId,
+        }),
+      });
+      setSuccessMsg(`Orden ${editarOrdenForm.numeroOrden} actualizada con éxito.`);
+      setOpenEditarOrden(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al actualizar la orden.');
     }
   };
 
@@ -479,7 +570,7 @@ export default function Produccion() {
             </Button>
           )}
 
-          {activeTab === 2 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+          {activeTab === 3 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
             <Button
               variant="contained"
               color="warning"
@@ -524,6 +615,7 @@ export default function Produccion() {
         >
           <Tab label="Recetario Maestro" />
           <Tab label="Órdenes de Producción (OP)" />
+          <Tab label="Listas de Selección (Pick Lists)" />
           <Tab label="Control de Mermas (Desechos)" />
         </Tabs>
       </Paper>
@@ -671,7 +763,14 @@ export default function Produccion() {
                               ? 'primary'
                               : op.estado === 'PLANIFICADA'
                               ? 'warning'
+                              : op.estado === 'FALTANTES'
+                              ? 'error'
                               : 'error'
+                          }
+                          sx={
+                            op.estado === 'FALTANTES'
+                              ? { backgroundColor: '#ef4444', color: '#fff', fontWeight: 'bold' }
+                              : undefined
                           }
                         />
                       </TableCell>
@@ -687,11 +786,25 @@ export default function Produccion() {
                       </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                          {op.estado === 'PLANIFICADA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                          {(op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                             <>
-                              <Tooltip title="Iniciar Producción">
-                                <IconButton color="primary" onClick={(e) => { e.stopPropagation(); handleIniciarOrden(op.id); }}>
-                                  <PlayArrow />
+                              <Tooltip title={op.estado === 'FALTANTES' ? 'No se puede iniciar por falta de materia prima' : 'Iniciar Producción'}>
+                                <span>
+                                  <IconButton
+                                    color="primary"
+                                    disabled={op.estado === 'FALTANTES'}
+                                    onClick={(e) => { e.stopPropagation(); handleIniciarOrden(op.id); }}
+                                  >
+                                    <PlayArrow />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Editar Cantidad Planificada">
+                                <IconButton
+                                  color="info"
+                                  onClick={(e) => { e.stopPropagation(); handleOpenEditarOrden(op); }}
+                                >
+                                  <Edit />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Cancelar Orden">
@@ -739,8 +852,100 @@ export default function Produccion() {
         </Paper>
       )}
 
-      {/* --- TAB MERMAS --- */}
+      {/* --- TAB PICK LISTS --- */}
       {activeTab === 2 && (
+        <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
+                <TableCell>Nro Orden</TableCell>
+                <TableCell>Receta</TableCell>
+                <TableCell>Sucursal</TableCell>
+                <TableCell>Cantidad Planificada</TableCell>
+                <TableCell>Estado</TableCell>
+                <TableCell>Picking</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {ordenes.filter(op => op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES').length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center">
+                    No hay órdenes de producción planificadas o con faltantes que requieran picking.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                ordenes
+                  .filter(op => op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES')
+                  .map((op) => {
+                    const isSelected = selectedRowId === op.id;
+                    return (
+                      <TableRow
+                        key={op.id}
+                        hover
+                        onClick={() => setSelectedRowId(isSelected ? null : op.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                          '&:hover': {
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: 700 }}>{op.numeroOrden}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{op.receta.nombre}</Typography>
+                          <Typography variant="caption" color="text.secondary">{op.receta.productoFinal.descripcion}</Typography>
+                        </TableCell>
+                        <TableCell>{op.sucursal.nombre}</TableCell>
+                        <TableCell>{op.cantidadPlanificada}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={op.estado}
+                            size="small"
+                            color={op.estado === 'FALTANTES' ? 'error' : 'warning'}
+                            sx={
+                              op.estado === 'FALTANTES'
+                                ? { backgroundColor: '#ef4444', color: '#fff', fontWeight: 'bold' }
+                                : undefined
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={op.pickingCompletado ? 'Completado' : 'Pendiente'}
+                            size="small"
+                            color={op.pickingCompletado ? 'success' : 'default'}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="primary"
+                              startIcon={<Scale />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenPicking(op);
+                              }}
+                            >
+                              Ver / Procesar Picking
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+
+      {/* --- TAB MERMAS --- */}
+      {activeTab === 3 && (
         <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
           <Table>
             <TableHead>
@@ -1164,6 +1369,166 @@ export default function Produccion() {
           <Button onClick={() => setOpenMermaGeneral(false)}>Cancelar</Button>
           <Button onClick={handleRegistrarMermaGeneral} variant="contained" color="warning">
             Registrar Merma
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- DIALOG DE PICK LIST (PROCESAR SELECCION) --- */}
+      <Dialog open={openPicking} onClose={() => setOpenPicking(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Detalle de Selección de Materia Prima (Pick List) - Orden {pickingData?.numeroOrden}
+        </DialogTitle>
+        <DialogContent>
+          {pickingData && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                Valores sugeridos corresponden a la cantidad teórica de la receta para {pickingData.cantidadPlanificada} unidades de producto terminado ({pickingData.recetaNombre}).
+              </Alert>
+
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
+                    <TableCell>Insumo / Materia Prima</TableCell>
+                    <TableCell align="right">Requerido</TableCell>
+                    <TableCell align="right">Stock Disponible</TableCell>
+                    <TableCell sx={{ minWidth: 220 }}>Lote Escaneado / Seleccionado</TableCell>
+                    <TableCell align="right" sx={{ width: 130 }}>Cantidad Picked</TableCell>
+                    <TableCell align="center">¿Picked? (Recolectado)</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pickingData.ingredientes.map((ing: any, idx: number) => {
+                    const isShortage = ing.stockDisponible < parseFloat(ing.cantidadPicked || 0);
+                    return (
+                      <TableRow key={ing.productoId} hover>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
+                          <Typography variant="caption" color="text.secondary">{ing.sku}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          {ing.cantidadRequerida} {ing.unidadMedida}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: ing.stockDisponible < ing.cantidadRequerida ? '#f87171' : 'inherit',
+                            fontWeight: ing.stockDisponible < ing.cantidadRequerida ? 700 : 'normal',
+                          }}
+                        >
+                          {ing.stockDisponible} {ing.unidadMedida}
+                        </TableCell>
+                        <TableCell>
+                          <Autocomplete
+                            freeSolo
+                            options={ing.lotesDisponibles ? ing.lotesDisponibles.map((l: any) => l.numeroLote) : []}
+                            value={ing.loteNumero || ''}
+                            onChange={(_, newValue) => {
+                              const newIng = [...pickingData.ingredientes];
+                              newIng[idx].loteNumero = newValue || '';
+                              setPickingData({ ...pickingData, ingredientes: newIng });
+                            }}
+                            onInputChange={(_, newInputValue) => {
+                              const newIng = [...pickingData.ingredientes];
+                              newIng[idx].loteNumero = newInputValue || '';
+                              setPickingData({ ...pickingData, ingredientes: newIng });
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                size="small"
+                                placeholder="Escribe o escanea lote"
+                              />
+                            )}
+                          />
+                          {ing.lotesDisponibles && ing.lotesDisponibles.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem' }}>
+                              Sugeridos: {ing.lotesDisponibles.map((l: any) => `${l.numeroLote} (${l.cantidadActual} ${ing.unidadMedida})`).join(', ')}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            size="small"
+                            value={ing.cantidadPicked}
+                            onChange={(e) => {
+                              const newIng = [...pickingData.ingredientes];
+                              newIng[idx].cantidadPicked = e.target.value;
+                              setPickingData({ ...pickingData, ingredientes: newIng });
+                            }}
+                            error={isShortage && ing.picked}
+                            helperText={isShortage && ing.picked ? 'Excede stock disponible' : ''}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Checkbox
+                            checked={ing.picked}
+                            onChange={(e) => {
+                              const newIng = [...pickingData.ingredientes];
+                              newIng[idx].picked = e.target.checked;
+                              setPickingData({ ...pickingData, ingredientes: newIng });
+                            }}
+                            color="success"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenPicking(false)} variant="outlined">Cancelar</Button>
+          <Button onClick={handleConfirmarPicking} variant="contained" color="success">
+            Confirmar y Registrar Selección
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- DIALOG EDITAR ORDEN --- */}
+      <Dialog open={openEditarOrden} onClose={() => setOpenEditarOrden(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Editar Orden de Producción - {editarOrdenForm.numeroOrden}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
+            <TextField
+              label="Receta"
+              fullWidth
+              disabled
+              value={editarOrdenForm.recetaNombre}
+            />
+
+            <TextField
+              label="Cantidad Planificada"
+              type="number"
+              fullWidth
+              value={editarOrdenForm.cantidadPlanificada}
+              onChange={(e) => setEditarOrdenForm({ ...editarOrdenForm, cantidadPlanificada: e.target.value })}
+            />
+
+            <FormControl fullWidth>
+              <InputLabel>Operador / Responsable</InputLabel>
+              <Select
+                value={editarOrdenForm.responsableId}
+                label="Operador / Responsable"
+                onChange={(e) => setEditarOrdenForm({ ...editarOrdenForm, responsableId: e.target.value })}
+              >
+                {usuarios.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.nombre} ({u.rol})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenEditarOrden(false)} variant="outlined">Cancelar</Button>
+          <Button onClick={handleGuardarEditarOrden} variant="contained" color="primary">
+            Guardar Cambios
           </Button>
         </DialogActions>
       </Dialog>

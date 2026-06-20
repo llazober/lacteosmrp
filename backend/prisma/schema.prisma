@@ -553,6 +553,7 @@ model OrdenProduccion {
   rendimientoReal    Float                   @default(0.0)
   variacion          Float                   @default(0.0)
   estado             String                  @default("BORRADOR") // BORRADOR, PLANIFICADA, EN_PROCESO, COMPLETADA, CANCELADA
+  pickingCompletado  Boolean                 @default(false)
   fechaInicio        DateTime?
   fechaFin           DateTime?
   creadoPorId        String
