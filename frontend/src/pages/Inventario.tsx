@@ -2946,8 +2946,8 @@ export default function Inventario() {
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           <TextField
             fullWidth
-            label="Número de Lote"
-            placeholder="LOT-2026-001"
+            label="Número de Lote (Vacío para autogenerar)"
+            placeholder="Autogenerado (Ej: L-SKU-20260620-123)"
             size="small"
             value={loteForm.numeroLote}
             onChange={(e) => setLoteForm({ ...loteForm, numeroLote: e.target.value })}

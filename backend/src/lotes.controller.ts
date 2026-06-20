@@ -39,8 +39,24 @@ export class LotesController {
       cantidadInicial,
     } = body;
 
+    let finalNumeroLote = numeroLote;
+    if (!finalNumeroLote || finalNumeroLote.trim() === '') {
+      if (!productoId) {
+        throw new BadRequestException('El campo productoId es requerido.');
+      }
+      const product = await this.prisma.producto.findUnique({ where: { id: productoId } });
+      if (!product) {
+        throw new BadRequestException('El producto no existe.');
+      }
+      const d = fechaProduccion ? new Date(fechaProduccion) : new Date();
+      const yy = d.getUTCFullYear().toString().substring(2);
+      const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+      const dd = d.getUTCDate().toString().padStart(2, '0');
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      finalNumeroLote = `L${yy}${mm}${dd}${randomSuffix}`;
+    }
+
     if (
-      !numeroLote ||
       !productoId ||
       !fechaProduccion ||
       !fechaVencimiento ||
@@ -48,11 +64,11 @@ export class LotesController {
       cantidadInicial == null
     ) {
       throw new BadRequestException(
-        'Los campos numeroLote, productoId, fechaProduccion, fechaVencimiento, proveedorId y cantidadInicial son obligatorios.',
+        'Los campos productoId, fechaProduccion, fechaVencimiento, proveedorId y cantidadInicial son obligatorios.',
       );
     }
 
-    const exist = await this.prisma.lote.findUnique({ where: { numeroLote } });
+    const exist = await this.prisma.lote.findUnique({ where: { numeroLote: finalNumeroLote } });
     if (exist) {
       throw new BadRequestException(
         'Ya existe un lote registrado con ese número.',
@@ -61,7 +77,7 @@ export class LotesController {
 
     const lote = await this.prisma.lote.create({
       data: {
-        numeroLote,
+        numeroLote: finalNumeroLote,
         productoId,
         fechaProduccion: new Date(fechaProduccion),
         fechaVencimiento: new Date(fechaVencimiento),

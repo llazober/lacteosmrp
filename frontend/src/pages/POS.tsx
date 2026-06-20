@@ -157,8 +157,8 @@ export default function POS() {
     let productQuery = query.toLowerCase();
     let specificLoteNumber: string | null = null;
 
-    // Detectar código de barras combinado (ej: 780123456789#LOT-001) usando separadores #, @ o |
-    const delimiterMatch = query.match(/^(.*?)[#@|](.*)$/);
+    // Detectar código de barras combinado usando separadores #, @, |, :, -, / o espacio
+    const delimiterMatch = query.match(/^(.*?)[#@|:\-\s/](.*)$/);
     if (delimiterMatch) {
       productQuery = delimiterMatch[1].trim().toLowerCase();
       specificLoteNumber = delimiterMatch[2].trim();
@@ -217,10 +217,18 @@ export default function POS() {
 
   const productosFiltrados = productos.filter((p) => {
     const coincideCat = categoriaFiltrada === 'TODOS' || p.categoria === categoriaFiltrada;
+    
+    // Si la búsqueda tiene un delimitador, extraemos solo la parte del producto para filtrar
+    let q = searchQuery.trim().toLowerCase();
+    const delimiterMatch = q.match(/^(.*?)[#@|:\-\s/](.*)$/);
+    if (delimiterMatch) {
+      q = delimiterMatch[1].trim().toLowerCase();
+    }
+
     const coincideBusqueda =
-      p.descripcion.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.codigoBarras && p.codigoBarras.includes(searchQuery));
+      p.descripcion.toLowerCase().includes(q) ||
+      p.sku.toLowerCase().includes(q) ||
+      (p.codigoBarras && p.codigoBarras.includes(q));
     return coincideCat && coincideBusqueda;
   });
 
@@ -433,7 +441,34 @@ export default function POS() {
 
                   return (
                     <Box key={prod.id}>
-                      <Card sx={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <Card
+                        onClick={() => {
+                          if (!cajaAbierta) {
+                            setErrorPOS('Abra la caja para registrar ventas.');
+                            return;
+                          }
+                          const lotesProdDisponibles = lotes
+                            .filter((l) => l.productoId === prod.id && l.estado === 'APROBADO' && l.cantidadActual > 0)
+                            .sort((a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime());
+                          if (lotesProdDisponibles.length > 0) {
+                            addToCart(prod, lotesProdDisponibles[0]);
+                          } else {
+                            setErrorPOS(`El producto "${prod.descripcion}" no tiene lotes aprobados con stock disponible.`);
+                          }
+                        }}
+                        sx={{
+                          backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            borderColor: 'primary.main',
+                            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 4px 20px rgba(2, 132, 199, 0.15)',
+                          },
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
                         <CardContent sx={{ p: 2 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -443,38 +478,21 @@ export default function POS() {
                               {formatCurrency(prod.precioVenta)}
                             </Typography>
                           </Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             SKU: {prod.sku} | Temp: {prod.temperaturaMin}°C a {prod.temperaturaMax}°C
                           </Typography>
 
-                          {/* Selección de Lote para Trazabilidad */}
-                          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                            SELECCIONE LOTE PARA REGISTRO:
-                          </Typography>
-                          {lotesProd.length === 0 ? (
-                            <Typography variant="caption" color="error" sx={{ fontStyle: 'italic' }}>
-                              Sin lotes aprobados con stock.
+                          {/* Stock status indicator */}
+                          <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Stock Total: {lotesProd.reduce((sum, l) => sum + l.cantidadActual, 0)} U
                             </Typography>
-                          ) : (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {lotesProd.map((l) => (
-                                <Chip
-                                  key={l.id}
-                                  label={`${l.numeroLote} (${l.cantidadActual} U)`}
-                                  size="small"
-                                  onClick={() => cajaAbierta ? addToCart(prod, l) : setErrorPOS('Abra la caja para registrar ventas.')}
-                                  sx={{
-                                    fontSize: '0.7rem',
-                                    cursor: 'pointer',
-                                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
-                                    borderColor: 'rgba(2, 132, 199, 0.3)',
-                                    '&:hover': { backgroundColor: 'primary.main', color: '#fff' },
-                                  }}
-                                  variant="outlined"
-                                />
-                              ))}
-                            </Box>
-                          )}
+                            {lotesProd.length === 0 ? (
+                              <Chip label="Sin Stock" size="small" color="error" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} />
+                            ) : (
+                              <Chip label="Disponible" size="small" color="success" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} />
+                            )}
+                          </Box>
                         </CardContent>
                       </Card>
                     </Box>
