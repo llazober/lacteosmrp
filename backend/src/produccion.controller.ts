@@ -738,11 +738,11 @@ export class ProduccionController {
       },
     });
 
-    // 3.5. Obtener total de órdenes de producción abiertas en el CD (PLANIFICADA o EN_PROCESO) para descontar de las sugerencias
+    // 3.5. Obtener total de órdenes de producción abiertas en el CD (PLANIFICADA, EN_PROCESO o FALTANTES) para descontar de las sugerencias
     const openCDOrders = await this.prisma.ordenProduccion.findMany({
       where: {
         sucursalId: plantaPrincipal.id,
-        estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
+        estado: { in: ['PLANIFICADA', 'EN_PROCESO', 'FALTANTES'] },
       },
       include: {
         receta: true,
@@ -788,7 +788,7 @@ export class ProduccionController {
           where: {
             sucursalId: suc.id,
             receta: { productoFinalId: prod.id },
-            estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
+            estado: { in: ['PLANIFICADA', 'EN_PROCESO', 'FALTANTES'] },
           },
           select: { cantidadPlanificada: true },
         });
