@@ -1423,7 +1423,7 @@ export default function Produccion() {
       </Dialog>
 
       {/* --- DIALOG DE PICK LIST (PROCESAR SELECCION) --- */}
-      <Dialog open={openPicking} onClose={() => setOpenPicking(false)} maxWidth="md" fullWidth>
+      <Dialog open={openPicking} onClose={() => setOpenPicking(false)} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>
           Detalle de Selección de Materia Prima (Pick List) - Orden {pickingData?.numeroOrden}
         </DialogTitle>
@@ -1440,14 +1440,19 @@ export default function Produccion() {
                     <TableCell>Insumo / Materia Prima</TableCell>
                     <TableCell align="right">Requerido</TableCell>
                     <TableCell align="right">Stock Disponible</TableCell>
-                    <TableCell sx={{ minWidth: 220 }}>Lote Escaneado / Seleccionado</TableCell>
-                    <TableCell align="right" sx={{ width: 130 }}>Cantidad Picked</TableCell>
+                    <TableCell sx={{ minWidth: 200 }}>Lote Escaneado / Seleccionado</TableCell>
+                    <TableCell align="right" sx={{ width: 140 }}>Cant. Entregada (Issue Qty)</TableCell>
+                    <TableCell align="right" sx={{ width: 140 }}>Faltante (Bal Required)</TableCell>
                     <TableCell align="center">¿Picked? (Recolectado)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {pickingData.ingredientes.map((ing: any, idx: number) => {
-                    const isShortage = ing.stockDisponible < parseFloat(ing.cantidadPicked || 0);
+                    const qtyReq = parseFloat(ing.cantidadRequerida || 0);
+                    const qtyPicked = parseFloat(ing.cantidadPicked || 0) || 0;
+                    const balRequired = Math.max(0, qtyReq - qtyPicked);
+                    const isShortage = ing.stockDisponible < qtyPicked;
+
                     return (
                       <TableRow key={ing.productoId} hover>
                         <TableCell>
@@ -1508,6 +1513,15 @@ export default function Produccion() {
                             error={isShortage && ing.picked}
                             helperText={isShortage && ing.picked ? 'Excede stock disponible' : ''}
                           />
+                        </TableCell>
+                        <TableCell align="right">
+                          {balRequired > 0 ? (
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', px: 1, py: 0.5, borderRadius: 1, fontWeight: 700 }}>
+                              {balRequired.toFixed(2).replace(/\.00$/, '')} {ing.unidadMedida}
+                            </Box>
+                          ) : (
+                            <span style={{ color: 'rgba(255,255,255,0.4)' }}>0 {ing.unidadMedida}</span>
+                          )}
                         </TableCell>
                         <TableCell align="center">
                           <Checkbox
