@@ -738,6 +738,23 @@ export class ProduccionController {
       },
     });
 
+    // 3.5. Obtener total de órdenes de producción abiertas en el CD (PLANIFICADA o EN_PROCESO) para descontar de las sugerencias
+    const openCDOrders = await this.prisma.ordenProduccion.findMany({
+      where: {
+        sucursalId: plantaPrincipal.id,
+        estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
+      },
+      include: {
+        receta: true,
+      },
+    });
+
+    const remainingOpenCDQtyMap: Record<string, number> = {};
+    for (const prod of productos) {
+      const prodOrders = openCDOrders.filter((o) => o.receta.productoFinalId === prod.id);
+      remainingOpenCDQtyMap[prod.id] = prodOrders.reduce((sum, o) => sum + o.cantidadPlanificada, 0);
+    }
+
     const propuestas: any[] = [];
     const hoy = new Date();
     const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -811,9 +828,21 @@ export class ProduccionController {
         // F. Calcular necesidad
         if (stockDisponible < stockObjetivo) {
           const deficit = stockObjetivo - stockDisponible;
-          const cantidadSugerida = Math.ceil(deficit);
 
-          if (cantidadSugerida > 0) {
+          // Descontar del pool de órdenes abiertas del CD
+          let cantidadSugerida = 0;
+          const openCDPool = remainingOpenCDQtyMap[prod.id] || 0;
+          if (openCDPool >= deficit) {
+            remainingOpenCDQtyMap[prod.id] -= deficit;
+            cantidadSugerida = 0;
+          } else {
+            cantidadSugerida = deficit - openCDPool;
+            remainingOpenCDQtyMap[prod.id] = 0;
+          }
+
+          const cantidadSugeridaCeil = Math.ceil(cantidadSugerida);
+
+          if (cantidadSugeridaCeil > 0) {
             const receta = recetas.find((r) => r.productoFinalId === prod.id);
             propuestas.push({
               sucursalId: suc.id,
@@ -829,7 +858,7 @@ export class ProduccionController {
               stockObjetivo: parseFloat(stockObjetivo.toFixed(1)),
               stockEnTransito: parseFloat(stockEnTransito.toFixed(2)),
               openBranchQty: parseFloat(openBranchQty.toFixed(2)),
-              cantidadSugerida,
+              cantidadSugerida: cantidadSugeridaCeil,
               detalleRazon: `Déficit en sucursal ${suc.nombre} (${deficit.toFixed(1)} u).`,
               alertaRiesgo: diasInventario <= 2 ? 'CRITICO' : 'STOCK_BAJO',
             });
