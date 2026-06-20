@@ -355,6 +355,14 @@ export class ProduccionController {
       }
     }
 
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
+    if (!cd) {
+      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+    }
+    const cdId = cd.id;
+
     const result = await this.prisma.$transaction(async (tx) => {
       const cantProd = parseFloat(cantidadProducida);
       const cantPlan = op.cantidadPlanificada;
@@ -408,7 +416,7 @@ export class ProduccionController {
                 tipo: 'SALIDA',
                 productoId: reqDetalle.productoId,
                 loteId: lote.id,
-                sucursalOrigenId: op.sucursalId,
+                sucursalOrigenId: cdId,
                 cantidad: aDescontar,
                 motivo: `Consumo materia prima en Orden de Producción ${op.numeroOrden}`,
                 usuarioId: req.user.id,
@@ -424,7 +432,7 @@ export class ProduccionController {
             where: {
               productoId_sucursalId: {
                 productoId: reqDetalle.productoId,
-                sucursalId: op.sucursalId,
+                sucursalId: cdId,
               },
             },
           });
@@ -438,7 +446,7 @@ export class ProduccionController {
             await tx.inventario.create({
               data: {
                 productoId: reqDetalle.productoId,
-                sucursalId: op.sucursalId,
+                sucursalId: cdId,
                 existencia: -totalRequerido,
               },
             });
@@ -464,7 +472,7 @@ export class ProduccionController {
             where: {
               productoId_sucursalId: {
                 productoId: m.productoId,
-                sucursalId: op.sucursalId,
+                sucursalId: cdId,
               },
             },
           });
@@ -522,7 +530,7 @@ export class ProduccionController {
         where: {
           productoId_sucursalId: {
             productoId: op.receta.productoFinalId,
-            sucursalId: op.sucursalId,
+            sucursalId: cdId,
           },
         },
       });
@@ -536,7 +544,7 @@ export class ProduccionController {
         await tx.inventario.create({
           data: {
             productoId: op.receta.productoFinalId,
-            sucursalId: op.sucursalId,
+            sucursalId: cdId,
             existencia: cantProd,
           },
         });
@@ -548,7 +556,7 @@ export class ProduccionController {
           tipo: 'ENTRADA',
           productoId: op.receta.productoFinalId,
           loteId: nuevoLote.id,
-          sucursalDestinoId: op.sucursalId,
+          sucursalDestinoId: cdId,
           cantidad: cantProd,
           motivo: `Ingreso por Producción finalizada Orden ${op.numeroOrden}`,
           usuarioId: req.user.id,
@@ -1095,6 +1103,14 @@ export class ProduccionController {
       throw new BadRequestException('La orden de producción no existe.');
     }
 
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
+    if (!cd) {
+      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+    }
+    const cdId = cd.id;
+
     const ingredientes: any[] = [];
     for (const reqDetalle of op.receta.detalles) {
       const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
@@ -1103,7 +1119,7 @@ export class ProduccionController {
         where: {
           productoId_sucursalId: {
             productoId: reqDetalle.productoId,
-            sucursalId: op.sucursalId,
+            sucursalId: cdId,
           },
         },
       });
@@ -1192,6 +1208,14 @@ export class ProduccionController {
       throw new BadRequestException('La orden de producción no existe.');
     }
 
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
+    if (!cd) {
+      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+    }
+    const cdId = cd.id;
+
     if (op.estado !== 'PLANIFICADA' && op.estado !== 'FALTANTES') {
       throw new BadRequestException(
         'Solo se puede realizar picking en órdenes con estado PLANIFICADA o FALTANTES.',
@@ -1213,7 +1237,7 @@ export class ProduccionController {
         }
 
         const invGen = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: op.sucursalId } },
+          where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: cdId } },
         });
         if (invGen) {
           await tx.inventario.update({
@@ -1227,7 +1251,7 @@ export class ProduccionController {
             tipo: 'ENTRADA',
             productoId: det.productoId,
             loteId: det.loteId,
-            sucursalDestinoId: op.sucursalId,
+            sucursalDestinoId: cdId,
             cantidad: det.cantidadConsumida,
             motivo: `Reversión de picking previo para re-procesar en Orden ${op.numeroOrden}`,
             usuarioId: req.user.id,
@@ -1300,7 +1324,7 @@ export class ProduccionController {
                 tipo: 'SALIDA',
                 productoId: reqDetalle.productoId,
                 loteId: lote.id,
-                sucursalOrigenId: op.sucursalId,
+                sucursalOrigenId: cdId,
                 cantidad: aDescontar,
                 motivo: `Picking de lote escaneado ${lote.numeroLote} en Orden de Producción ${op.numeroOrden}`,
                 usuarioId: req.user.id,
@@ -1349,7 +1373,7 @@ export class ProduccionController {
               tipo: 'SALIDA',
               productoId: reqDetalle.productoId,
               loteId: lote.id,
-              sucursalOrigenId: op.sucursalId,
+              sucursalOrigenId: cdId,
               cantidad: aDescontar,
               motivo: `Picking de materia prima en Orden de Producción ${op.numeroOrden}`,
               usuarioId: req.user.id,
@@ -1367,7 +1391,7 @@ export class ProduccionController {
             where: {
               productoId_sucursalId: {
                 productoId: reqDetalle.productoId,
-                sucursalId: op.sucursalId,
+                sucursalId: cdId,
               },
             },
           });
@@ -1381,7 +1405,7 @@ export class ProduccionController {
             await tx.inventario.create({
               data: {
                 productoId: reqDetalle.productoId,
-                sucursalId: op.sucursalId,
+                sucursalId: cdId,
                 existencia: -pendientePorDescontar,
               },
             });
@@ -1401,7 +1425,7 @@ export class ProduccionController {
             data: {
               tipo: 'SALIDA',
               productoId: reqDetalle.productoId,
-              sucursalOrigenId: op.sucursalId,
+              sucursalOrigenId: cdId,
               cantidad: pendientePorDescontar,
               motivo: `Picking de materia prima (Déficit/Shortage) en Orden ${op.numeroOrden}`,
               usuarioId: req.user.id,
@@ -1461,6 +1485,14 @@ export class ProduccionController {
       throw new BadRequestException('La orden de producción no existe.');
     }
 
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
+    if (!cd) {
+      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+    }
+    const cdId = cd.id;
+
     if (op.estado !== 'PLANIFICADA' && op.estado !== 'FALTANTES') {
       throw new BadRequestException(
         'Solo se pueden editar órdenes en estado PLANIFICADA o FALTANTES.',
@@ -1485,7 +1517,7 @@ export class ProduccionController {
           }
 
           const invGen = await tx.inventario.findUnique({
-            where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: op.sucursalId } },
+            where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: cdId } },
           });
           if (invGen) {
             await tx.inventario.update({
@@ -1499,7 +1531,7 @@ export class ProduccionController {
               tipo: 'ENTRADA',
               productoId: det.productoId,
               loteId: det.loteId,
-              sucursalDestinoId: op.sucursalId,
+              sucursalDestinoId: cdId,
               cantidad: det.cantidadConsumida,
               motivo: `Reversión de picking por cambio de cantidad requerida en Orden ${op.numeroOrden}`,
               usuarioId: req.user.id,
@@ -1521,7 +1553,7 @@ export class ProduccionController {
           where: {
             productoId_sucursalId: {
               productoId: reqDetalle.productoId,
-              sucursalId: op.sucursalId,
+              sucursalId: cdId,
             },
           },
         });
