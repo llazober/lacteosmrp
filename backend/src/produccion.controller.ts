@@ -1591,66 +1591,46 @@ export class ProduccionController {
   @Post('limpiar-datos-pruebas')
   async limpiarDatosPruebas(@Request() req: any) {
     const res = await this.prisma.$transaction(async (tx) => {
-      // 1. Obtener todos los IDs de productos terminados
-      const productosTerminados = await tx.producto.findMany({
-        where: { tipoProducto: 'PRODUCTO_TERMINADO' },
-        select: { id: true },
-      });
-      const ptIds = productosTerminados.map((p) => p.id);
+      // 1. Eliminar Compras (Pagos, Facturas Detalle, Facturas, Recepciones Detalle, Recepciones, Ordenes de Compra Detalle, Ordenes de Compra)
+      await tx.pagoCompra.deleteMany({});
+      await tx.facturaCompraDetalle.deleteMany({});
+      await tx.facturaCompra.deleteMany({});
+      await tx.recepcionCompraDetalle.deleteMany({});
+      await tx.recepcionCompra.deleteMany({});
+      await tx.ordenCompraDetalle.deleteMany({});
+      await tx.ordenCompra.deleteMany({});
 
-      // 2. Eliminar Movimientos de Inventario para productos terminados
-      await tx.movimientoInventario.deleteMany({
-        where: { productoId: { in: ptIds } },
-      });
+      // 2. Eliminar Ventas (Detalles de Ventas, Ventas, Controles de Cajas)
+      await tx.ventaDetalle.deleteMany({});
+      await tx.venta.deleteMany({});
+      await tx.cajaControl.deleteMany({});
 
-      // 3. Eliminar Detalle de Ventas para productos terminados
-      await tx.ventaDetalle.deleteMany({
-        where: { productoId: { in: ptIds } },
-      });
+      // 3. Eliminar Transferencias (Detalles de Transferencias, Transferencias)
+      await tx.transferenciaDetalle.deleteMany({});
+      await tx.transferencia.deleteMany({});
 
-      // Eliminar Ventas que queden sin detalles
-      const ventasHuerfanas = await tx.venta.findMany({
-        where: { detalles: { none: {} } },
-        select: { id: true },
-      });
-      await tx.venta.deleteMany({
-        where: { id: { in: ventasHuerfanas.map((v) => v.id) } },
-      });
-
-      // 4. Eliminar Detalle de Transferencias para productos terminados
-      await tx.transferenciaDetalle.deleteMany({
-        where: { productoId: { in: ptIds } },
-      });
-
-      // Eliminar Transferencias que queden sin detalles
-      const transHuerfanas = await tx.transferencia.findMany({
-        where: { detalles: { none: {} } },
-        select: { id: true },
-      });
-      await tx.transferencia.deleteMany({
-        where: { id: { in: transHuerfanas.map((t) => t.id) } },
-      });
-
-      // 5. Eliminar Detalles de Órdenes de Producción (ingredientes picked)
+      // 4. Eliminar Producción y Mermas (Detalles de OP, Mermas)
       await tx.ordenProduccionDetalle.deleteMany({});
-
-      // 6. Eliminar Registros de Control de Calidad
-      await tx.controlCalidad.deleteMany({});
-
-      // 7. Eliminar Mermas
       await tx.merma.deleteMany({});
 
-      // 8. Eliminar Lotes de productos terminados
-      await tx.lote.deleteMany({
-        where: { productoId: { in: ptIds } },
-      });
+      // 5. Eliminar Calidad, Lecturas y Alertas (ControlLeche, ControlCalidad, NoConformidades, FreezerLectura, Alertas)
+      await tx.controlLeche.deleteMany({});
+      await tx.controlCalidad.deleteMany({});
+      await tx.noConformidad.deleteMany({});
+      await tx.freezerLectura.deleteMany({});
+      await tx.alerta.deleteMany({});
 
-      // 9. Eliminar todas las Órdenes de Producción
+      // 6. Eliminar Movimientos de Inventario (debido a la relación de Lote)
+      await tx.movimientoInventario.deleteMany({});
+
+      // 7. Eliminar Lotes (después de eliminar todo lo que le hace referencia)
+      await tx.lote.deleteMany({});
+
+      // 8. Eliminar Órdenes de Producción
       await tx.ordenProduccion.deleteMany({});
 
-      // 10. Resetear existencia y comprometido a 0 en Inventario para productos terminados
+      // 9. Resetear existencia y comprometido a 0 en Inventario para TODOS los productos en TODAS las sucursales
       await tx.inventario.updateMany({
-        where: { productoId: { in: ptIds } },
         data: {
           existencia: 0,
           comprometido: 0,
@@ -1664,7 +1644,7 @@ export class ProduccionController {
       data: {
         usuarioId: req.user.id,
         usuarioNombre: req.user.nombre,
-        accion: 'LIMPIAR_DATOS_PRUEBAS_PRODUCTOS_TERMINADOS',
+        accion: 'LIMPIAR_DATOS_PRUEBAS_COMPLETO',
         modulo: 'PRODUCCION',
         detalles: JSON.stringify({ success: true }),
       },
