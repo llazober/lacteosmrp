@@ -755,8 +755,66 @@ export class ProduccionController {
       });
       const openCDQty = openCDOrders.reduce((sum, o) => sum + o.cantidadPlanificada, 0);
 
-      virtualCDStock[prod.id] = CDStock + openCDQty;
-      initialVirtualCDStock[prod.id] = CDStock + openCDQty;
+      const CDStockDisponible = CDStock + openCDQty;
+      initialVirtualCDStock[prod.id] = CDStockDisponible;
+
+      // Calcular demanda de ventas propia del CD (últimos 30 días)
+      const CDVentasDetalle = await this.prisma.ventaDetalle.findMany({
+        where: {
+          productoId: prod.id,
+          venta: {
+            sucursalId: plantaPrincipal.id,
+            fecha: { gte: hace30Dias },
+            estado: 'COMPLETADA',
+          },
+        },
+        select: { cantidad: true },
+      });
+      const CDTotalVendido = CDVentasDetalle.reduce((sum, item) => sum + item.cantidad, 0);
+      const CDPromedioVentas = CDTotalVendido > 0 ? CDTotalVendido / 30 : 2.0;
+
+      let CDDiasObjetivo = 5;
+      if (prod.categoria === 'YOGURT') CDDiasObjetivo = 7;
+      else if (prod.categoria === 'QUESOS') CDDiasObjetivo = 10;
+      else if (prod.categoria === 'MANTEQUILLA') CDDiasObjetivo = 15;
+
+      let CDStockObjetivo = CDPromedioVentas * CDDiasObjetivo;
+      if (useSafety) {
+        const CDMinimoSeguridad = CDInv ? CDInv.existMin : 5;
+        CDStockObjetivo = Math.max(CDStockObjetivo, CDMinimoSeguridad);
+      }
+
+      if (CDStockDisponible < CDStockObjetivo) {
+        const CDDeficit = CDStockObjetivo - CDStockDisponible;
+        virtualCDStock[prod.id] = 0; // No queda nada para otras sucursales
+        
+        // Agregar propuesta para la propia sucursal CD
+        const receta = recetas.find((r) => r.productoFinalId === prod.id);
+        const CDDiasInventario = CDPromedioVentas > 0 ? CDStockDisponible / CDPromedioVentas : 0;
+        
+        propuestas.push({
+          sucursalId: plantaPrincipal.id,
+          sucursalNombre: plantaPrincipal.nombre,
+          productoId: prod.id,
+          productoSku: prod.sku,
+          productoNombre: prod.descripcion,
+          recetaId: receta ? receta.id : null,
+          recetaNombre: receta ? receta.nombre : 'Sin Receta',
+          stockActual: parseFloat(CDStock.toFixed(2)),
+          promedioVentasDiarias: parseFloat(CDPromedioVentas.toFixed(2)),
+          diasInventario: parseFloat(CDDiasInventario.toFixed(1)),
+          stockObjetivo: parseFloat(CDStockObjetivo.toFixed(1)),
+          stockEnTransito: 0,
+          openBranchQty: parseFloat(openCDQty.toFixed(2)),
+          cantidadSugerida: Math.ceil(CDDeficit),
+          virtualCDStockInicial: parseFloat(CDStockDisponible.toFixed(2)),
+          detalleRazon: `Déficit en Planta Principal/CD (${CDDeficit.toFixed(1)} u). Sin excedente para transferencias.`,
+          alertaRiesgo: CDDiasInventario <= 2 ? 'CRITICO' : 'STOCK_BAJO',
+        });
+      } else {
+        // CD tiene excedente para transferir a sucursales
+        virtualCDStock[prod.id] = CDStockDisponible - CDStockObjetivo;
+      }
     }
 
     // 5. Para cada sucursal (que no sea CD) y cada producto
