@@ -362,9 +362,23 @@ export class ProduccionController {
       // 1. Descontar materias primas mediante FEFO (solo si no se completó en la fase de picking)
       if (!op.pickingCompletado) {
         for (const reqDetalle of op.receta.detalles) {
-          // Multiplicar la cantidad requerida por la cantidad planificada o producida (escalado)
           const totalRequerido = reqDetalle.cantidadRequerida * cantPlan;
-          let pendientePorDescontar = totalRequerido;
+
+          // Calcular cuánto ya se consumió/pickeó para este producto con lote asignado
+          const consumidoPrevio = await tx.ordenProduccionDetalle.aggregate({
+            where: {
+              ordenProduccionId: op.id,
+              productoId: reqDetalle.productoId,
+              loteId: { not: null },
+            },
+            _sum: {
+              cantidadConsumida: true,
+            },
+          });
+          const yaConsumido = consumidoPrevio._sum.cantidadConsumida || 0;
+
+          let pendientePorDescontar = Math.max(0, totalRequerido - yaConsumido);
+          if (pendientePorDescontar <= 0) continue;
 
           // Buscar lotes de este ingrediente que estén APROBADOS, con stock, ordenados por vencimiento (FEFO)
           const lotesDisponibles = await tx.lote.findMany({
@@ -413,31 +427,77 @@ export class ProduccionController {
               },
             });
 
+            // Decrementar del inventario general
+            const inv = await tx.inventario.findUnique({
+              where: {
+                productoId_sucursalId: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                },
+              },
+            });
+            if (inv) {
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: aDescontar } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                  existencia: -aDescontar,
+                },
+              });
+            }
+
             pendientePorDescontar -= aDescontar;
           }
 
-          // Si faltó stock y no se cubrió todo, descontar del inventario general (permitiendo negativos o lanzando error)
-          // Para este ERP robusto, descontamos el total del Inventario de la sucursal
-          const inv = await tx.inventario.findUnique({
-            where: {
-              productoId_sucursalId: {
-                productoId: reqDetalle.productoId,
-                sucursalId: cdId,
+          // Si aún falta stock (shortage), descontar la diferencia restante de inventario general
+          if (pendientePorDescontar > 0) {
+            const inv = await tx.inventario.findUnique({
+              where: {
+                productoId_sucursalId: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                },
               },
-            },
-          });
-
-          if (inv) {
-            await tx.inventario.update({
-              where: { id: inv.id },
-              data: { existencia: { decrement: totalRequerido } },
             });
-          } else {
-            await tx.inventario.create({
+
+            if (inv) {
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: pendientePorDescontar } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                  existencia: -pendientePorDescontar,
+                },
+              });
+            }
+
+            // Registrar detalle consumido sin lote para el déficit restante
+            await tx.ordenProduccionDetalle.create({
               data: {
+                ordenProduccionId: op.id,
                 productoId: reqDetalle.productoId,
-                sucursalId: cdId,
-                existencia: -totalRequerido,
+                cantidadConsumida: pendientePorDescontar,
+              },
+            });
+
+            // Registrar Movimiento de inventario sin lote
+            await tx.movimientoInventario.create({
+              data: {
+                tipo: 'SALIDA',
+                productoId: reqDetalle.productoId,
+                sucursalOrigenId: cdId,
+                cantidad: pendientePorDescontar,
+                motivo: `Consumo materia prima (Déficit) en Orden de Producción ${op.numeroOrden}`,
+                usuarioId: req.user.id,
               },
             });
           }
@@ -601,12 +661,57 @@ export class ProduccionController {
       );
     }
 
-    const updated = await this.prisma.ordenProduccion.update({
-      where: { id },
-      data: {
-        estado: 'CANCELADA',
-        fechaFin: new Date(),
-      },
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
+    if (!cd) {
+      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+    }
+    const cdId = cd.id;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const detalles = await tx.ordenProduccionDetalle.findMany({
+        where: { ordenProduccionId: op.id },
+      });
+
+      for (const det of detalles) {
+        if (det.loteId) {
+          await tx.lote.update({
+            where: { id: det.loteId },
+            data: { cantidadActual: { increment: det.cantidadConsumida } },
+          });
+        }
+
+        const invGen = await tx.inventario.findUnique({
+          where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: cdId } },
+        });
+        if (invGen) {
+          await tx.inventario.update({
+            where: { id: invGen.id },
+            data: { existencia: { increment: det.cantidadConsumida } },
+          });
+        }
+
+        await tx.movimientoInventario.create({
+          data: {
+            tipo: 'ENTRADA',
+            productoId: det.productoId,
+            loteId: det.loteId,
+            sucursalDestinoId: cdId,
+            cantidad: det.cantidadConsumida,
+            motivo: `Retorno de materia prima por cancelación de Orden ${op.numeroOrden}`,
+            usuarioId: req.user.id,
+          },
+        });
+      }
+
+      return tx.ordenProduccion.update({
+        where: { id: op.id },
+        data: {
+          estado: 'CANCELADA',
+          fechaFin: new Date(),
+        },
+      });
     });
 
     // Auditoría
@@ -1052,20 +1157,15 @@ export class ProduccionController {
       });
       const stockDisponible = inv ? inv.existencia : 0;
 
-      const consumidoRecords = op.detalles.filter((d) => d.productoId === reqDetalle.productoId);
-      const cantidadPicked = consumidoRecords.length > 0
-        ? consumidoRecords.reduce((sum, r) => sum + r.cantidadConsumida, 0)
-        : cantidadRequerida;
+      // Filtrar detalles que correspondan a picking físico real (con lote asignado)
+      const consumidoRecords = op.detalles.filter(
+        (d) => d.productoId === reqDetalle.productoId && d.loteId !== null,
+      );
+      const yaEntregado = consumidoRecords.reduce((sum, r) => sum + r.cantidadConsumida, 0);
+      const cantidadPicked = Math.max(0, cantidadRequerida - yaEntregado);
 
-      let loteNumero = '';
-      if (consumidoRecords.length > 0 && consumidoRecords[0].loteId) {
-        const pickedLote = await this.prisma.lote.findUnique({
-          where: { id: consumidoRecords[0].loteId },
-        });
-        if (pickedLote) {
-          loteNumero = pickedLote.numeroLote;
-        }
-      }
+      // loteNumero se inicializa vacío en cada nueva transacción picking
+      const loteNumero = '';
 
       const lotes = await this.prisma.lote.findMany({
         where: {
@@ -1083,6 +1183,7 @@ export class ProduccionController {
         unidadMedida: reqDetalle.producto.unidadMedida || 'U',
         cantidadRequerida: parseFloat(cantidadRequerida.toFixed(2)),
         stockDisponible: parseFloat(stockDisponible.toFixed(2)),
+        yaEntregado: parseFloat(yaEntregado.toFixed(2)),
         cantidadPicked: parseFloat(cantidadPicked.toFixed(2)),
         picked: op.pickingCompletado,
         loteNumero,
@@ -1150,61 +1251,16 @@ export class ProduccionController {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Eliminar cualquier detalle previo y devolver inventario antes de recalcular
-      const detallesPrevios = await tx.ordenProduccionDetalle.findMany({
-        where: { ordenProduccionId: op.id },
-      });
-
-      for (const det of detallesPrevios) {
-        if (det.loteId) {
-          await tx.lote.update({
-            where: { id: det.loteId },
-            data: { cantidadActual: { increment: det.cantidadConsumida } },
-          });
-        }
-
-        const invGen = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: cdId } },
-        });
-        if (invGen) {
-          await tx.inventario.update({
-            where: { id: invGen.id },
-            data: { existencia: { increment: det.cantidadConsumida } },
-          });
-        }
-
-        await tx.movimientoInventario.create({
-          data: {
-            tipo: 'ENTRADA',
-            productoId: det.productoId,
-            loteId: det.loteId,
-            sucursalDestinoId: cdId,
-            cantidad: det.cantidadConsumida,
-            motivo: `Reversión de picking previo para re-procesar en Orden ${op.numeroOrden}`,
-            usuarioId: req.user.id,
-          },
-        });
-      }
-
-      await tx.ordenProduccionDetalle.deleteMany({
-        where: { ordenProduccionId: op.id },
-      });
-
-      // 2. Procesar el picking actual
-      let tieneShortage = false;
-
+      // 1. Procesar el picking actual de manera incremental (no eliminamos ni revertimos detalles anteriores)
       for (const reqDetalle of op.receta.detalles) {
         const itemPicking = detalles.find((d: any) => d.productoId === reqDetalle.productoId);
-        const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
-
         if (!itemPicking || !itemPicking.picked) {
-          tieneShortage = true;
           continue;
         }
 
         const cantidadAPreparar = parseFloat(itemPicking.cantidadPicked || 0);
-        if (cantidadAPreparar < cantidadRequerida) {
-          tieneShortage = true;
+        if (cantidadAPreparar <= 0) {
+          continue;
         }
 
         let pendientePorDescontar = cantidadAPreparar;
@@ -1287,125 +1343,95 @@ export class ProduccionController {
         }
 
         // B: Si aún queda cantidad pendiente por descontar, aplicar FEFO sobre los demás lotes
-        const lotesDisponibles = await tx.lote.findMany({
-          where: {
-            productoId: reqDetalle.productoId,
-            cantidadActual: { gt: 0 },
-            estado: 'APROBADO',
-            NOT: itemPicking.loteNumero ? { numeroLote: itemPicking.loteNumero } : undefined,
-          },
-          orderBy: { fechaVencimiento: 'asc' },
-        });
-
-        for (const lote of lotesDisponibles) {
-          if (pendientePorDescontar <= 0) break;
-
-          const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
-
-          // Descontar del lote
-          await tx.lote.update({
-            where: { id: lote.id },
-            data: { cantidadActual: { decrement: aDescontar } },
-          });
-
-          // Decrementar del inventario general
-          const inv = await tx.inventario.findUnique({
-            where: {
-              productoId_sucursalId: {
-                productoId: reqDetalle.productoId,
-                sucursalId: cdId,
-              },
-            },
-          });
-          if (inv) {
-            await tx.inventario.update({
-              where: { id: inv.id },
-              data: { existencia: { decrement: aDescontar } },
-            });
-          } else {
-            await tx.inventario.create({
-              data: {
-                productoId: reqDetalle.productoId,
-                sucursalId: cdId,
-                existencia: -aDescontar,
-              },
-            });
-          }
-
-          // Registrar detalle consumido en la orden
-          await tx.ordenProduccionDetalle.create({
-            data: {
-              ordenProduccionId: op.id,
-              productoId: reqDetalle.productoId,
-              loteId: lote.id,
-              cantidadConsumida: aDescontar,
-            },
-          });
-
-          // Registrar Movimiento de inventario
-          await tx.movimientoInventario.create({
-            data: {
-              tipo: 'SALIDA',
-              productoId: reqDetalle.productoId,
-              loteId: lote.id,
-              sucursalOrigenId: cdId,
-              cantidad: aDescontar,
-              motivo: `Picking de materia prima en Orden de Producción ${op.numeroOrden}`,
-              usuarioId: req.user.id,
-            },
-          });
-
-          pendientePorDescontar -= aDescontar;
-        }
-
-        // Si faltó stock en lotes
         if (pendientePorDescontar > 0) {
-          tieneShortage = true;
-
-          const inv = await tx.inventario.findUnique({
+          const lotesDisponibles = await tx.lote.findMany({
             where: {
-              productoId_sucursalId: {
-                productoId: reqDetalle.productoId,
-                sucursalId: cdId,
-              },
+              productoId: reqDetalle.productoId,
+              cantidadActual: { gt: 0 },
+              estado: 'APROBADO',
+              NOT: itemPicking.loteNumero ? { numeroLote: itemPicking.loteNumero } : undefined,
             },
+            orderBy: { fechaVencimiento: 'asc' },
           });
 
-          if (inv) {
-            await tx.inventario.update({
-              where: { id: inv.id },
-              data: { existencia: { decrement: pendientePorDescontar } },
+          for (const lote of lotesDisponibles) {
+            if (pendientePorDescontar <= 0) break;
+
+            const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+
+            await tx.lote.update({
+              where: { id: lote.id },
+              data: { cantidadActual: { decrement: aDescontar } },
             });
-          } else {
-            await tx.inventario.create({
+
+            const inv = await tx.inventario.findUnique({
+              where: {
+                productoId_sucursalId: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                },
+              },
+            });
+            if (inv) {
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: aDescontar } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId: reqDetalle.productoId,
+                  sucursalId: cdId,
+                  existencia: -aDescontar,
+                },
+              });
+            }
+
+            await tx.ordenProduccionDetalle.create({
               data: {
+                ordenProduccionId: op.id,
                 productoId: reqDetalle.productoId,
-                sucursalId: cdId,
-                existencia: -pendientePorDescontar,
+                loteId: lote.id,
+                cantidadConsumida: aDescontar,
               },
             });
+
+            await tx.movimientoInventario.create({
+              data: {
+                tipo: 'SALIDA',
+                productoId: reqDetalle.productoId,
+                loteId: lote.id,
+                sucursalOrigenId: cdId,
+                cantidad: aDescontar,
+                motivo: `Picking de materia prima en Orden de Producción ${op.numeroOrden}`,
+                usuarioId: req.user.id,
+              },
+            });
+
+            pendientePorDescontar -= aDescontar;
           }
+        }
+      }
 
-          // Registrar detalle consumido sin lote
-          await tx.ordenProduccionDetalle.create({
-            data: {
-              ordenProduccionId: op.id,
-              productoId: reqDetalle.productoId,
-              cantidadConsumida: pendientePorDescontar,
-            },
-          });
+      // 2. Determinar si aún hay shortage para la orden sumando todos los detalles recolectados con lote asignado
+      let tieneShortage = false;
+      for (const reqDetalle of op.receta.detalles) {
+        const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
 
-          // Registrar movimiento general
-          await tx.movimientoInventario.create({
-            data: {
-              tipo: 'SALIDA',
-              productoId: reqDetalle.productoId,
-              sucursalOrigenId: cdId,
-              cantidad: pendientePorDescontar,
-              motivo: `Picking de materia prima (Déficit/Shortage) en Orden ${op.numeroOrden}`,
-              usuarioId: req.user.id,
-            },
-          });
+        const aggregate = await tx.ordenProduccionDetalle.aggregate({
+          where: {
+            ordenProduccionId: op.id,
+            productoId: reqDetalle.productoId,
+            loteId: { not: null },
+          },
+          _sum: {
+            cantidadConsumida: true,
+          },
+        });
+        const totalPicked = aggregate._sum.cantidadConsumida || 0;
+
+        if (totalPicked < cantidadRequerida) {
+          tieneShortage = true;
         }
       }
 

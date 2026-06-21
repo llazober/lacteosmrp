@@ -1439,7 +1439,8 @@ export default function Produccion() {
                   <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
                     <TableCell>Insumo / Materia Prima</TableCell>
                     <TableCell align="right">Requerido</TableCell>
-                    <TableCell align="right">Stock Disponible</TableCell>
+                    <TableCell align="right">Ya Entregado</TableCell>
+                    <TableCell align="right">Stock CD (Disponible)</TableCell>
                     <TableCell sx={{ minWidth: 200 }}>Lote Escaneado / Seleccionado</TableCell>
                     <TableCell align="right" sx={{ width: 140 }}>Cant. Entregada (Issue Qty)</TableCell>
                     <TableCell align="right" sx={{ width: 140 }}>Faltante (Bal Required)</TableCell>
@@ -1449,8 +1450,9 @@ export default function Produccion() {
                 <TableBody>
                   {pickingData.ingredientes.map((ing: any, idx: number) => {
                     const qtyReq = parseFloat(ing.cantidadRequerida || 0);
+                    const qtyYaEntregado = parseFloat(ing.yaEntregado || 0);
                     const qtyPicked = parseFloat(ing.cantidadPicked || 0) || 0;
-                    const balRequired = Math.max(0, qtyReq - qtyPicked);
+                    const balRequired = Math.max(0, qtyReq - qtyYaEntregado - qtyPicked);
                     const isShortage = ing.stockDisponible < qtyPicked;
 
                     return (
@@ -1462,11 +1464,14 @@ export default function Produccion() {
                         <TableCell align="right">
                           {ing.cantidadRequerida} {ing.unidadMedida}
                         </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', color: qtyYaEntregado > 0 ? '#10b981' : 'inherit' }}>
+                          {qtyYaEntregado} {ing.unidadMedida}
+                        </TableCell>
                         <TableCell
                           align="right"
                           sx={{
-                            color: ing.stockDisponible < ing.cantidadRequerida ? '#f87171' : 'inherit',
-                            fontWeight: ing.stockDisponible < ing.cantidadRequerida ? 700 : 'normal',
+                            color: ing.stockDisponible < (qtyReq - qtyYaEntregado) ? '#f87171' : 'inherit',
+                            fontWeight: ing.stockDisponible < (qtyReq - qtyYaEntregado) ? 700 : 'normal',
                           }}
                         >
                           {ing.stockDisponible} {ing.unidadMedida}
@@ -1520,7 +1525,7 @@ export default function Produccion() {
                               {balRequired.toFixed(2).replace(/\.00$/, '')} {ing.unidadMedida}
                             </Box>
                           ) : (
-                            <span style={{ color: 'rgba(255,255,255,0.4)' }}>0 {ing.unidadMedida}</span>
+                            <span style={{ color: 'rgba(16, 185, 129, 0.2)', fontWeight: 'bold' }}>0 {ing.unidadMedida}</span>
                           )}
                         </TableCell>
                         <TableCell align="center">
