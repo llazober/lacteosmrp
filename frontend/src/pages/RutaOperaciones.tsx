@@ -15,23 +15,20 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Grid,
   Alert,
   CircularProgress,
   Divider,
-  Timeline as MuiTimeline,
 } from '@mui/material';
 import {
   PlayArrow,
   CheckCircle,
   AccountTree,
   Timer,
-  Thermostat,
   Biotech,
   Warehouse,
   History,
 } from '@mui/icons-material';
-import { apiFetch, useAuthStore } from '../store/useAuthStore';
+import { apiFetch } from '../store/useAuthStore';
 import dayjs from 'dayjs';
 
 const WORK_CENTERS = [
@@ -83,7 +80,7 @@ const WORK_CENTER_FIELDS: Record<
     { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
   ],
   'WC-PREN': [
-    { label: 'Presión Aplicada', name: 'presion_aplicada', type: 'number', required: true, suffix: 'PSI' },
+    { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
     { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
   ],
   'WC-SALA': [
@@ -109,7 +106,6 @@ const WORK_CENTER_FIELDS: Record<
 };
 
 export default function RutaOperaciones() {
-  const usuario = useAuthStore((state) => state.usuario);
   const [activeTab, setActiveTab] = useState(0);
   const [ordenes, setOrdenes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -394,7 +390,7 @@ export default function RutaOperaciones() {
           scrollButtons="auto"
           sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}
         >
-          {WORK_CENTERS.map((wc, idx) => {
+          {WORK_CENTERS.map((wc) => {
             const count = ordenes.filter((o) => getActiveWorkCenter(o) === wc.id).length;
             return (
               <Tab
@@ -438,7 +434,13 @@ export default function RutaOperaciones() {
               <Typography color="text.secondary">No hay órdenes de producción activas en este centro de trabajo.</Typography>
             </Paper>
           ) : (
-            <Grid container spacing={3}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' },
+                gap: 3,
+              }}
+            >
               {filteredOrdenes.map((orden) => {
                 const operacion = orden.operaciones.find((o: any) => o.workCenter === targetWc);
                 const isStarted = operacion?.estado === 'EN_PROCESO';
@@ -447,7 +449,7 @@ export default function RutaOperaciones() {
                 const completedSteps = orden.operaciones.filter((o: any) => o.estado === 'COMPLETADA');
 
                 return (
-                  <Grid item xs={12} md={6} lg={4} key={orden.id}>
+                  <Box key={orden.id}>
                     <Card
                       sx={{
                         backgroundColor: '#111827',
@@ -496,24 +498,24 @@ export default function RutaOperaciones() {
 
                         <Divider sx={{ my: 1.5, borderColor: 'rgba(255, 255, 255, 0.06)' }} />
 
-                        <Grid container spacing={1} sx={{ mb: 2 }}>
-                          <Grid item xs={6}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+                          <Box>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                               Cant. Planificada:
                             </Typography>
                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
                               {orden.cantidadPlanificada} {orden.receta.productoFinal.unidadMedida}
                             </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
+                          </Box>
+                          <Box>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                               Responsable:
                             </Typography>
                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
                               {orden.responsable?.nombre || 'No asignado'}
                             </Typography>
-                          </Grid>
-                        </Grid>
+                          </Box>
+                        </Box>
 
                         {isStarted && operacion.fechaInicio && (
                           <Box
@@ -620,10 +622,10 @@ export default function RutaOperaciones() {
                         )}
                       </CardActions>
                     </Card>
-                  </Grid>
+                  </Box>
                 );
               })}
-            </Grid>
+            </Box>
           )}
         </Box>
       )}
@@ -658,32 +660,40 @@ export default function RutaOperaciones() {
             </Box>
           )}
 
-          <Grid container spacing={2}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+            }}
+          >
             {(WORK_CENTER_FIELDS[currentWcId] || []).map((field) => (
-              <Grid item xs={12} sm={6} key={field.name}>
+              <Box key={field.name}>
                 <TextField
                   fullWidth
                   label={field.label}
-                  type={field.type}
+                  type={field.type as any}
                   required={field.required}
                   value={formData[field.name] || ''}
                   onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  InputProps={{
-                    endAdornment: field.suffix ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                        {field.suffix}
-                      </Typography>
-                    ) : null,
-                  }}
+                  {...(field.suffix ? {
+                    InputProps: {
+                      endAdornment: (
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                          {field.suffix}
+                        </Typography>
+                      )
+                    }
+                  } : {})}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       backgroundColor: 'rgba(255, 255, 255, 0.02)',
                     },
                   }}
                 />
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
 
           {/* Formulario Adicional para el último paso (Cámara Fría) */}
           {currentWcId === 'WC-CFRI' && (
@@ -692,8 +702,8 @@ export default function RutaOperaciones() {
               <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Warehouse sx={{ color: 'primary.main' }} /> Cierre de Lote e Ingreso a Inventario
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <Box>
                   <TextField
                     fullWidth
                     label="Cantidad Real Producida (kg)"
@@ -707,8 +717,8 @@ export default function RutaOperaciones() {
                       },
                     }}
                   />
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </Box>
+                <Box>
                   <TextField
                     fullWidth
                     label="Número de Lote Final"
@@ -722,8 +732,8 @@ export default function RutaOperaciones() {
                       },
                     }}
                   />
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </>
           )}
         </DialogContent>
