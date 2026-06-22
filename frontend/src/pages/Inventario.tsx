@@ -31,6 +31,7 @@ import {
   ListItemText,
   Checkbox,
   FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -234,6 +235,7 @@ export default function Inventario() {
     temperaturaMin: '2.0',
     temperaturaMax: '6.0',
     vidaUtilDias: '30',
+    esManufacturado: true,
   });
 
   const [openEditarProducto, setOpenEditarProducto] = useState(false);
@@ -251,6 +253,7 @@ export default function Inventario() {
     temperaturaMax: '6.0',
     vidaUtilDias: '30',
     estado: 'ACTIVO',
+    esManufacturado: true,
   });
 
   // Dialog de Lote
@@ -1029,6 +1032,7 @@ export default function Inventario() {
                   temperaturaMin: '2.0',
                   temperaturaMax: '6.0',
                   vidaUtilDias: '30',
+                  esManufacturado: true,
                 });
                 setOpenCrearProducto(true);
               }}
@@ -1694,6 +1698,7 @@ export default function Inventario() {
                                     temperaturaMax: String(p.temperaturaMax),
                                     vidaUtilDias: String(p.vidaUtilDias),
                                     estado: p.estado,
+                                    esManufacturado: p.esManufacturado !== false,
                                   });
                                   setOpenEditarProducto(true);
                                 }}
@@ -2766,6 +2771,19 @@ export default function Inventario() {
             value={productoForm.vidaUtilDias}
             onChange={(e) => setProductoForm({ ...productoForm, vidaUtilDias: e.target.value })}
           />
+
+          {(productoForm.tipoProducto === 'PRODUCTO_TERMINADO' || productoForm.tipoProducto === 'PT') && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={productoForm.esManufacturado}
+                  onChange={(e) => setProductoForm({ ...productoForm, esManufacturado: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label="Es Manufacturado (¿Se fabrica en planta?)"
+            />
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenCrearProducto(false)}>Cancelar</Button>
@@ -2933,6 +2951,19 @@ export default function Inventario() {
               <MenuItem value="INACTIVO">Inactivo</MenuItem>
             </Select>
           </FormControl>
+
+          {(editarProductoForm.tipoProducto === 'PRODUCTO_TERMINADO' || editarProductoForm.tipoProducto === 'PT') && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editarProductoForm.esManufacturado}
+                  onChange={(e) => setEditarProductoForm({ ...editarProductoForm, esManufacturado: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label="Es Manufacturado (¿Se fabrica en planta?)"
+            />
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEditarProducto(false); setSelectedProducto(null); }}>Cancelar</Button>

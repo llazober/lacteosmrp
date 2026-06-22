@@ -60,6 +60,16 @@ export class ProduccionController {
       throw new BadRequestException('Ya existe una receta con este nombre.');
     }
 
+    const prod = await this.prisma.producto.findUnique({
+      where: { id: productoFinalId },
+    });
+    if (!prod) {
+      throw new BadRequestException('El producto final no existe.');
+    }
+    if (!prod.esManufacturado) {
+      throw new BadRequestException('El producto final seleccionado no está marcado como manufacturado.');
+    }
+
     const receta = await this.prisma.$transaction(async (tx) => {
       const r = await tx.receta.create({
         data: {
@@ -113,6 +123,18 @@ export class ProduccionController {
       costoEstimado,
       detalles,
     } = body;
+
+    if (productoFinalId) {
+      const prod = await this.prisma.producto.findUnique({
+        where: { id: productoFinalId },
+      });
+      if (!prod) {
+        throw new BadRequestException('El producto final no existe.');
+      }
+      if (!prod.esManufacturado) {
+        throw new BadRequestException('El producto final seleccionado no está marcado como manufacturado.');
+      }
+    }
 
     const receta = await this.prisma.$transaction(async (tx) => {
       const r = await tx.receta.update({

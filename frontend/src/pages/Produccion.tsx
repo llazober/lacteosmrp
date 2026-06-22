@@ -34,8 +34,6 @@ import {
 } from '@mui/material';
 import {
   Add,
-  PlayArrow,
-  Check,
   Close,
   Assignment,
   Delete,
@@ -143,13 +141,7 @@ export default function Produccion() {
     responsableId: '',
   });
 
-  const [openCompletar, setOpenCompletar] = useState(false);
-  const [selectedOrden, setSelectedOrden] = useState<any>(null);
-  const [completarForm, setCompletarForm] = useState({
-    cantidadProducida: '',
-    loteNumero: '',
-    mermas: [] as { productoId: string; cantidad: string; motivo: string }[],
-  });
+
 
   const [openMermaGeneral, setOpenMermaGeneral] = useState(false);
   const [mermaForm, setMermaForm] = useState({
@@ -569,17 +561,6 @@ export default function Produccion() {
     }
   };
 
-  const handleIniciarOrden = async (id: string) => {
-    try {
-      setErrorMsg(null);
-      await apiFetch(`/produccion/ordenes/${id}/iniciar`, { method: 'POST' });
-      setSuccessMsg('Orden de producción iniciada. En proceso...');
-      cargarDatos();
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Error al iniciar orden.');
-    }
-  };
-
   const handleCancelarOrden = async (id: string) => {
     if (!window.confirm('¿Está seguro de cancelar esta orden de producción?')) return;
     try {
@@ -589,66 +570,6 @@ export default function Produccion() {
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al cancelar orden.');
-    }
-  };
-
-  const handleOpenCompletar = (op: any) => {
-    setSelectedOrden(op);
-    setCompletarForm({
-      cantidadProducida: String(op.cantidadPlanificada),
-      loteNumero: `L-${op.receta.productoFinal.sku.replace('PROD-', '')}-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`,
-      mermas: [],
-    });
-    setOpenCompletar(true);
-  };
-
-  const handleAgregarMermaOrden = () => {
-    setCompletarForm({
-      ...completarForm,
-      mermas: [...completarForm.mermas, { productoId: '', cantidad: '', motivo: 'DERRAME' }],
-    });
-  };
-
-  const handleQuitarMermaOrden = (index: number) => {
-    const list = [...completarForm.mermas];
-    list.splice(index, 1);
-    setCompletarForm({ ...completarForm, mermas: list });
-  };
-
-  const handleMermaOrdenChange = (index: number, field: string, value: string) => {
-    const list = [...completarForm.mermas];
-    list[index] = { ...list[index], [field]: value };
-    setCompletarForm({ ...completarForm, mermas: list });
-  };
-
-  const handleCompletarOrden = async () => {
-    try {
-      setErrorMsg(null);
-      const { cantidadProducida, loteNumero, mermas } = completarForm;
-
-      if (!cantidadProducida || !loteNumero) {
-        throw new Error('La cantidad real producida y el lote son obligatorios.');
-      }
-
-      await apiFetch(`/produccion/ordenes/${selectedOrden.id}/completar`, {
-        method: 'POST',
-        body: JSON.stringify({
-          cantidadProducida: parseFloat(cantidadProducida),
-          loteNumero,
-          mermas: mermas.map(m => ({
-            productoId: m.productoId,
-            cantidad: parseFloat(m.cantidad),
-            motivo: m.motivo,
-          })),
-        }),
-      });
-
-      setSuccessMsg('Orden de producción completada con éxito. Inventarios actualizados.');
-      setOpenCompletar(false);
-      setSelectedOrden(null);
-      cargarDatos();
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Error al completar orden.');
     }
   };
 
@@ -957,27 +878,11 @@ export default function Produccion() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Chip
-                            label={op.pickingCompletado ? 'Completado' : 'Pendiente'}
-                            size="small"
-                            color={op.pickingCompletado ? 'success' : 'default'}
-                          />
-                          {(op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                            <Tooltip title="Procesar Picking">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenPicking(op);
-                                }}
-                              >
-                                <Scale fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
+                        <Chip
+                          label={op.pickingCompletado ? 'Completado' : 'Pendiente'}
+                          size="small"
+                          color={op.pickingCompletado ? 'success' : 'default'}
+                        />
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption" component="div">
@@ -993,17 +898,6 @@ export default function Produccion() {
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                           {(op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                             <>
-                              <Tooltip title={op.estado === 'FALTANTES' ? 'No se puede iniciar por falta de materia prima' : 'Iniciar Producción'}>
-                                <span>
-                                  <IconButton
-                                    color="primary"
-                                    disabled={op.estado === 'FALTANTES'}
-                                    onClick={(e) => { e.stopPropagation(); handleIniciarOrden(op.id); }}
-                                  >
-                                    <PlayArrow />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
                               <Tooltip title="Editar Cantidad Planificada">
                                 <IconButton
                                   color="info"
@@ -1021,17 +915,6 @@ export default function Produccion() {
                           )}
                           {op.estado === 'EN_PROCESO' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                             <>
-                              <Tooltip title="Registrar Completada">
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  color="success"
-                                  startIcon={<Check />}
-                                  onClick={(e) => { e.stopPropagation(); handleOpenCompletar(op); }}
-                                >
-                                  Completar
-                                </Button>
-                              </Tooltip>
                               <Tooltip title="Cancelar Orden">
                                 <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
                                   <Close />
@@ -1242,7 +1125,7 @@ export default function Produccion() {
                     onChange={(e) => setRecetaForm({ ...recetaForm, productoFinalId: e.target.value })}
                   >
                     {productos
-                      .filter((p) => p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT')
+                      .filter((p) => (p.tipoProducto === 'PRODUCTO_TERMINADO' || p.tipoProducto === 'PT') && p.esManufacturado)
                       .map((p) => (
                         <MenuItem key={p.id} value={p.id}>
                           {p.descripcion} ({p.sku})
@@ -1407,106 +1290,7 @@ export default function Produccion() {
         </DialogActions>
       </Dialog>
 
-      {/* --- DIALOG COMPLETAR ORDEN CON CONSUMO/MERMAS --- */}
-      <Dialog open={openCompletar} onClose={() => setOpenCompletar(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Finalizar Orden de Producción - Registro de Lote y Consumos</DialogTitle>
-        <DialogContent>
-          {selectedOrden && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
-              <Alert severity="info">
-                Al finalizar esta orden, se descontará automáticamente el stock de materias primas según la receta (aplicando FEFO en lotes) y se cargará el producto terminado al inventario general.
-              </Alert>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                <Box>
-                  <TextField
-                    label={`Cantidad Real Producida (${selectedOrden.receta.productoFinal.unidadMedida})`}
-                    type="number"
-                    fullWidth
-                    value={completarForm.cantidadProducida}
-                    onChange={(e) => setCompletarForm({ ...completarForm, cantidadProducida: e.target.value })}
-                  />
-                </Box>
-                <Box>
-                  <TextField
-                    label="Número de Lote Generado"
-                    fullWidth
-                    value={completarForm.loteNumero}
-                    onChange={(e) => setCompletarForm({ ...completarForm, loteNumero: e.target.value })}
-                  />
-                </Box>
-              </Box>
-
-              <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'warning.main' }}>
-                  Declarar Mermas de Materia Prima en este lote (Opcional)
-                </Typography>
-                <Button size="small" variant="outlined" color="warning" startIcon={<Add />} onClick={handleAgregarMermaOrden}>
-                  Añadir Merma de Insumo
-                </Button>
-              </Box>
-
-              {completarForm.mermas.map((m, index) => (
-                <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '5fr 3fr 3fr 1fr', gap: 2, alignItems: 'center' }}>
-                  <Box>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Materia Prima Perdida</InputLabel>
-                      <Select
-                        value={m.productoId}
-                        label="Materia Prima Perdida"
-                        onChange={(e) => handleMermaOrdenChange(index, 'productoId', e.target.value)}
-                      >
-                        {selectedOrden.receta.detalles.map((d: any) => (
-                          <MenuItem key={d.producto.id} value={d.producto.id}>
-                            {d.producto.descripcion}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                  <Box>
-                    <TextField
-                      label="Cantidad Perdida"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      value={m.cantidad}
-                      onChange={(e) => handleMermaOrdenChange(index, 'cantidad', e.target.value)}
-                    />
-                  </Box>
-                  <Box>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Motivo</InputLabel>
-                      <Select
-                        value={m.motivo}
-                        label="Motivo"
-                        onChange={(e) => handleMermaOrdenChange(index, 'motivo', e.target.value)}
-                      >
-                        <MenuItem value="EVAPORACION">Evaporación</MenuItem>
-                        <MenuItem value="DERRAME">Derrame / Vertido</MenuItem>
-                        <MenuItem value="DEFECTO_EMPAQUE">Defecto de Empaque</MenuItem>
-                        <MenuItem value="OTRO">Otro</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Box>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <IconButton color="error" onClick={() => handleQuitarMermaOrden(index)}>
-                      <Delete />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCompletar(false)}>Cancelar</Button>
-          <Button onClick={handleCompletarOrden} variant="contained" color="success">
-            Finalizar y Generar Lote
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* --- DIALOG REGISTRAR MERMA GENERAL --- */}
       <Dialog open={openMermaGeneral} onClose={() => setOpenMermaGeneral(false)} maxWidth="sm" fullWidth>

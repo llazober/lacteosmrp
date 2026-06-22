@@ -7,6 +7,15 @@ async function main() {
   console.log('Iniciando proceso de semilla (seed) para Lácteos ERP...');
 
   // Limpiar base de datos en orden inverso de dependencias
+  await prisma.chatMensaje.deleteMany({});
+  await prisma.ordenProduccionOperacion.deleteMany({});
+  await prisma.billOfOperations.deleteMany({});
+  await prisma.pagoCompra.deleteMany({});
+  await prisma.facturaCompraDetalle.deleteMany({});
+  await prisma.facturaCompra.deleteMany({});
+  await prisma.recepcionCompraDetalle.deleteMany({});
+  await prisma.recepcionCompra.deleteMany({});
+
   await prisma.solicitudReabastecimiento.deleteMany({});
   await prisma.rutaTemperatura.deleteMany({});
   await prisma.rutaPunto.deleteMany({});
@@ -362,6 +371,7 @@ async function main() {
       temperaturaMin: 2.0,
       temperaturaMax: 4.0,
       vidaUtilDias: 3,
+      esManufacturado: false,
     }
   });
 
@@ -380,6 +390,7 @@ async function main() {
       temperaturaMin: 4.0,
       temperaturaMax: 10.0,
       vidaUtilDias: 90,
+      esManufacturado: false,
     }
   });
 
@@ -398,6 +409,7 @@ async function main() {
       temperaturaMin: 15.0,
       temperaturaMax: 25.0,
       vidaUtilDias: 365,
+      esManufacturado: false,
     }
   });
 
@@ -416,6 +428,7 @@ async function main() {
       temperaturaMin: -20.0,
       temperaturaMax: -10.0,
       vidaUtilDias: 180,
+      esManufacturado: false,
     }
   });
 
@@ -434,6 +447,7 @@ async function main() {
       temperaturaMin: 2.0,
       temperaturaMax: 8.0,
       vidaUtilDias: 180,
+      esManufacturado: false,
     }
   });
 

@@ -41,6 +41,7 @@ export class ProductosController {
       temperaturaMin,
       temperaturaMax,
       vidaUtilDias,
+      esManufacturado,
     } = body;
 
     if (
@@ -87,6 +88,7 @@ export class ProductosController {
         temperaturaMin: parseFloat(temperaturaMin || 2.0),
         temperaturaMax: parseFloat(temperaturaMax || 6.0),
         vidaUtilDias: parseInt(vidaUtilDias || 30),
+        esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : true,
       },
     });
 
@@ -124,6 +126,7 @@ export class ProductosController {
       temperaturaMax,
       vidaUtilDias,
       estado,
+      esManufacturado,
     } = body;
 
     const producto = await this.prisma.producto.update({
@@ -142,6 +145,7 @@ export class ProductosController {
           temperaturaMax != null ? parseFloat(temperaturaMax) : undefined,
         vidaUtilDias: vidaUtilDias != null ? parseInt(vidaUtilDias) : undefined,
         estado,
+        esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : undefined,
       },
     });
 
