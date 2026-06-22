@@ -868,7 +868,7 @@ export class LogisticaController implements OnModuleInit {
               codigo: codigoTrans,
               origenId,
               destinoId,
-              estado: 'PENDIENTE',
+              estado: 'EN_TRANSITO',
               fechaEnvio: hoy,
               creadoPorId: req.user.id,
             },
