@@ -46,13 +46,16 @@ export default function Compras() {
 
   // Modales
   const [openOC, setOpenOC] = useState(false);
-  const [ocForm, setOcForm] = useState({
+  const [ocForm, setOcForm] = useState<any>({
     proveedorId: '',
     sucursalId: '',
+    fechaEntrega: '',
+    productos: [],
+  });
+  const [nuevoItem, setNuevoItem] = useState({
     productoId: '',
     cantidad: '',
     costoUnitario: '',
-    fechaEntrega: '',
   });
 
   const [openRecepcion, setOpenRecepcion] = useState(false);
@@ -60,13 +63,16 @@ export default function Compras() {
   const [recepcionLotes, setRecepcionLotes] = useState<any[]>([]); // Array de datos de lote por cada detalle de OC
 
   const [openEditarOC, setOpenEditarOC] = useState(false);
-  const [editarOcForm, setEditarOcForm] = useState({
+  const [editarOcForm, setEditarOcForm] = useState<any>({
     proveedorId: '',
     sucursalId: '',
+    fechaEntrega: '',
+    productos: [],
+  });
+  const [nuevoItemEdit, setNuevoItemEdit] = useState({
     productoId: '',
     cantidad: '',
     costoUnitario: '',
-    fechaEntrega: '',
   });
   const [openEliminarOC, setOpenEliminarOC] = useState(false);
 
@@ -101,20 +107,99 @@ export default function Compras() {
     }
   };
 
+  const handleAgregarItem = () => {
+    if (!nuevoItem.productoId || !nuevoItem.cantidad || !nuevoItem.costoUnitario) {
+      setErrorMsg('Seleccione un producto, cantidad y costo.');
+      return;
+    }
+    setErrorMsg(null);
+    const prod = productos.find((p) => p.id === nuevoItem.productoId);
+    // Verificar si el producto ya existe en la lista para evitar duplicados
+    if (ocForm.productos.some((p: any) => p.productoId === nuevoItem.productoId)) {
+      setErrorMsg('Este producto ya ha sido agregado. Edite la línea correspondiente o elimínela para volver a agregarla.');
+      return;
+    }
+    setOcForm({
+      ...ocForm,
+      productos: [
+        ...ocForm.productos,
+        {
+          productoId: nuevoItem.productoId,
+          productoNombre: prod ? prod.descripcion : '',
+          productoSku: prod ? prod.sku : '',
+          cantidad: parseFloat(nuevoItem.cantidad),
+          costoUnitario: parseFloat(nuevoItem.costoUnitario),
+        },
+      ],
+    });
+    setNuevoItem({
+      productoId: '',
+      cantidad: '',
+      costoUnitario: '',
+    });
+  };
+
+  const handleEliminarItem = (index: number) => {
+    const updated = [...ocForm.productos];
+    updated.splice(index, 1);
+    setOcForm({ ...ocForm, productos: updated });
+  };
+
+  const handleAgregarItemEdit = () => {
+    if (!nuevoItemEdit.productoId || !nuevoItemEdit.cantidad || !nuevoItemEdit.costoUnitario) {
+      setErrorMsg('Seleccione un producto, cantidad y costo.');
+      return;
+    }
+    setErrorMsg(null);
+    const prod = productos.find((p) => p.id === nuevoItemEdit.productoId);
+    if (editarOcForm.productos.some((p: any) => p.productoId === nuevoItemEdit.productoId)) {
+      setErrorMsg('Este producto ya ha sido agregado. Edite la línea correspondiente o elimínela para volver a agregarla.');
+      return;
+    }
+    setEditarOcForm({
+      ...editarOcForm,
+      productos: [
+        ...editarOcForm.productos,
+        {
+          productoId: nuevoItemEdit.productoId,
+          productoNombre: prod ? prod.descripcion : '',
+          productoSku: prod ? prod.sku : '',
+          cantidad: parseFloat(nuevoItemEdit.cantidad),
+          costoUnitario: parseFloat(nuevoItemEdit.costoUnitario),
+        },
+      ],
+    });
+    setNuevoItemEdit({
+      productoId: '',
+      cantidad: '',
+      costoUnitario: '',
+    });
+  };
+
+  const handleEliminarItemEdit = (index: number) => {
+    const updated = [...editarOcForm.productos];
+    updated.splice(index, 1);
+    setEditarOcForm({ ...editarOcForm, productos: updated });
+  };
+
   const handleOCSubmit = async () => {
     try {
       setErrorMsg(null);
+      if (!ocForm.proveedorId || !ocForm.sucursalId) {
+        throw new Error('El proveedor y la sucursal de destino son obligatorios.');
+      }
+      if (ocForm.productos.length === 0) {
+        throw new Error('Debe agregar al menos un producto a la orden de compra.');
+      }
       const body = {
         proveedorId: ocForm.proveedorId,
         sucursalId: ocForm.sucursalId,
         fechaEntrega: ocForm.fechaEntrega || null,
-        productos: [
-          {
-            productoId: ocForm.productoId,
-            cantidad: parseFloat(ocForm.cantidad),
-            costoUnitario: parseFloat(ocForm.costoUnitario),
-          },
-        ],
+        productos: ocForm.productos.map((p: any) => ({
+          productoId: p.productoId,
+          cantidad: p.cantidad,
+          costoUnitario: p.costoUnitario,
+        })),
       };
 
       await apiFetch('/compras', {
@@ -131,14 +216,23 @@ export default function Compras() {
 
   const handleOpenEditarOC = (oc: any) => {
     setSelectedOC(oc);
-    const primerDetalle = oc.detalles[0] || {};
+    const lineas = oc.detalles.map((det: any) => ({
+      productoId: det.productoId,
+      productoNombre: det.producto.descripcion,
+      productoSku: det.producto.sku,
+      cantidad: det.cantidad,
+      costoUnitario: det.costoUnitario,
+    }));
     setEditarOcForm({
       proveedorId: oc.proveedorId,
       sucursalId: oc.sucursalId,
-      productoId: primerDetalle.productoId || '',
-      cantidad: primerDetalle.cantidad ? String(primerDetalle.cantidad) : '',
-      costoUnitario: primerDetalle.costoUnitario ? String(primerDetalle.costoUnitario) : '',
       fechaEntrega: oc.fechaEntrega ? oc.fechaEntrega.split('T')[0] : '',
+      productos: lineas,
+    });
+    setNuevoItemEdit({
+      productoId: '',
+      cantidad: '',
+      costoUnitario: '',
     });
     setOpenEditarOC(true);
   };
@@ -146,19 +240,23 @@ export default function Compras() {
   const handleEditarOCSubmit = async () => {
     try {
       setErrorMsg(null);
+      if (!editarOcForm.proveedorId || !editarOcForm.sucursalId) {
+        throw new Error('El proveedor y la sucursal de destino son obligatorios.');
+      }
+      if (editarOcForm.productos.length === 0) {
+        throw new Error('Debe tener al menos un producto en la orden de compra.');
+      }
       await apiFetch(`/compras/${selectedOC.id}`, {
         method: 'PUT',
         body: JSON.stringify({
           proveedorId: editarOcForm.proveedorId,
           sucursalId: editarOcForm.sucursalId,
           fechaEntrega: editarOcForm.fechaEntrega || null,
-          productos: [
-            {
-              productoId: editarOcForm.productoId,
-              cantidad: parseFloat(editarOcForm.cantidad),
-              costoUnitario: parseFloat(editarOcForm.costoUnitario),
-            },
-          ],
+          productos: editarOcForm.productos.map((p: any) => ({
+            productoId: p.productoId,
+            cantidad: p.cantidad,
+            costoUnitario: p.costoUnitario,
+          })),
         }),
       });
       setSuccessMsg('Orden de Compra actualizada exitosamente.');
@@ -277,10 +375,13 @@ export default function Compras() {
             setOcForm({
               proveedorId: '',
               sucursalId: usuario?.sucursalId || '',
+              fechaEntrega: '',
+              productos: [],
+            });
+            setNuevoItem({
               productoId: '',
               cantidad: '',
               costoUnitario: '',
-              fechaEntrega: '',
             });
             setOpenOC(true);
           }}
@@ -455,81 +556,159 @@ export default function Compras() {
       </Paper>
 
       {/* MODAL CREAR ORDEN COMPRA */}
-      <Dialog open={openOC} onClose={() => setOpenOC(false)} fullWidth maxWidth="xs">
+      <Dialog open={openOC} onClose={() => setOpenOC(false)} fullWidth maxWidth="md">
         <DialogTitle sx={{ fontWeight: 800 }}>Crear Orden de Compra</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Proveedor</InputLabel>
-            <Select
-              value={ocForm.proveedorId}
-              label="Proveedor"
-              onChange={(e) => setOcForm({ ...ocForm, proveedorId: e.target.value })}
-            >
-              {proveedores.map((p) => (
-                <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
+            {/* Cabecera */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary', borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 0.5 }}>
+                Datos Generales
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel>Proveedor</InputLabel>
+                <Select
+                  value={ocForm.proveedorId}
+                  label="Proveedor"
+                  onChange={(e) => setOcForm({ ...ocForm, proveedorId: e.target.value })}
+                >
+                  {proveedores.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Sucursal Destino</InputLabel>
-            <Select
-              value={ocForm.sucursalId}
-              label="Sucursal Destino"
-              onChange={(e) => setOcForm({ ...ocForm, sucursalId: e.target.value })}
-            >
-              {sucursales.map((s) => (
-                <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Sucursal Destino</InputLabel>
+                <Select
+                  value={ocForm.sucursalId}
+                  label="Sucursal Destino"
+                  onChange={(e) => setOcForm({ ...ocForm, sucursalId: e.target.value })}
+                >
+                  {sucursales.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Producto</InputLabel>
-            <Select
-              value={ocForm.productoId}
-              label="Producto"
-              onChange={(e) => {
-                const prodSelected = productos.find((p) => p.id === e.target.value);
-                setOcForm({
-                  ...ocForm,
-                  productoId: e.target.value,
-                  costoUnitario: prodSelected ? String(prodSelected.costo) : '',
-                });
-              }}
-            >
-              {productos.map((p) => (
-                <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)})</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <Box sx={{ mt: 1 }}>
+                <DatePicker
+                  label="Fecha Estimada de Entrega"
+                  value={ocForm.fechaEntrega ? dayjs(ocForm.fechaEntrega) : null}
+                  onChange={(newValue) => setOcForm({ ...ocForm, fechaEntrega: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+              </Box>
+            </Box>
 
-          <TextField
-            fullWidth
-            label="Cantidad"
-            type="number"
-            size="small"
-            value={ocForm.cantidad}
-            onChange={(e) => setOcForm({ ...ocForm, cantidad: e.target.value })}
-          />
+            {/* Agregar Producto */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.light', borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 0.5 }}>
+                Añadir Producto a la Orden
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel>Producto</InputLabel>
+                <Select
+                  value={nuevoItem.productoId}
+                  label="Producto"
+                  onChange={(e) => {
+                    const prodSelected = productos.find((p) => p.id === e.target.value);
+                    setNuevoItem({
+                      ...nuevoItem,
+                      productoId: e.target.value,
+                      costoUnitario: prodSelected ? String(prodSelected.costo) : '',
+                    });
+                  }}
+                >
+                  {productos.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)})</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          <TextField
-            fullWidth
-            label="Costo Unitario Pactado"
-            type="number"
-            size="small"
-            value={ocForm.costoUnitario}
-            onChange={(e) => setOcForm({ ...ocForm, costoUnitario: e.target.value })}
-          />
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Cantidad"
+                  type="number"
+                  size="small"
+                  value={nuevoItem.cantidad}
+                  onChange={(e) => setNuevoItem({ ...nuevoItem, cantidad: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Costo Unitario"
+                  type="number"
+                  size="small"
+                  value={nuevoItem.costoUnitario}
+                  onChange={(e) => setNuevoItem({ ...nuevoItem, costoUnitario: e.target.value })}
+                />
+              </Box>
 
-          <Box sx={{ mt: 1 }}>
-            <DatePicker
-              label="Fecha Estimada de Entrega"
-              value={ocForm.fechaEntrega ? dayjs(ocForm.fechaEntrega) : null}
-              onChange={(newValue) => setOcForm({ ...ocForm, fechaEntrega: newValue ? newValue.format('YYYY-MM-DD') : '' })}
-              slotProps={{ textField: { size: 'small', fullWidth: true } }}
-            />
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleAgregarItem}
+                fullWidth
+              >
+                Añadir Línea
+              </Button>
+            </Box>
           </Box>
+
+          {/* Tabla de Items */}
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary' }}>
+            Productos Solicitados ({ocForm.productos.length})
+          </Typography>
+          <Paper sx={{ p: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'transparent' }}>
+            <Table size="small">
+              <TableHead sx={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                <TableRow>
+                  <TableCell>Producto</TableCell>
+                  <TableCell>SKU</TableCell>
+                  <TableCell align="right">Cantidad</TableCell>
+                  <TableCell align="right">Costo Unitario</TableCell>
+                  <TableCell align="right">Subtotal</TableCell>
+                  <TableCell align="center">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {ocForm.productos.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                      No se han agregado productos a la orden. Use el formulario superior para añadir líneas.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  ocForm.productos.map((item: any, idx: number) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
+                      <TableCell>{item.productoSku}</TableCell>
+                      <TableCell align="right">{item.cantidad}</TableCell>
+                      <TableCell align="right">{formatCurrency(item.costoUnitario)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        {formatCurrency(item.cantidad * item.costoUnitario)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" color="error" onClick={() => handleEliminarItem(idx)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+                {ocForm.productos.length > 0 && (
+                  <TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                    <TableCell colSpan={4} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.light', fontSize: '1rem' }}>
+                      {formatCurrency(ocForm.productos.reduce((sum: number, p: any) => sum + (p.cantidad * p.costoUnitario), 0))}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenOC(false)}>Cancelar</Button>
@@ -622,81 +801,159 @@ export default function Compras() {
         </DialogActions>
       </Dialog>
       {/* DIALOG: EDITAR ORDEN COMPRA */}
-      <Dialog open={openEditarOC} onClose={() => { setOpenEditarOC(false); setSelectedOC(null); }} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 800 }}>Editar Orden de Compra</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Proveedor</InputLabel>
-            <Select
-              value={editarOcForm.proveedorId}
-              label="Proveedor"
-              onChange={(e) => setEditarOcForm({ ...editarOcForm, proveedorId: e.target.value })}
-            >
-              {proveedores.map((p) => (
-                <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+      <Dialog open={openEditarOC} onClose={() => { setOpenEditarOC(false); setSelectedOC(null); }} fullWidth maxWidth="md">
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Orden de Compra {selectedOC?.numeroOrden}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
+            {/* Cabecera */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary', borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 0.5 }}>
+                Datos Generales
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel>Proveedor</InputLabel>
+                <Select
+                  value={editarOcForm.proveedorId}
+                  label="Proveedor"
+                  onChange={(e) => setEditarOcForm({ ...editarOcForm, proveedorId: e.target.value })}
+                >
+                  {proveedores.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Sucursal Destino</InputLabel>
-            <Select
-              value={editarOcForm.sucursalId}
-              label="Sucursal Destino"
-              onChange={(e) => setEditarOcForm({ ...editarOcForm, sucursalId: e.target.value })}
-            >
-              {sucursales.map((s) => (
-                <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Sucursal Destino</InputLabel>
+                <Select
+                  value={editarOcForm.sucursalId}
+                  label="Sucursal Destino"
+                  onChange={(e) => setEditarOcForm({ ...editarOcForm, sucursalId: e.target.value })}
+                >
+                  {sucursales.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Producto</InputLabel>
-            <Select
-              value={editarOcForm.productoId}
-              label="Producto"
-              onChange={(e) => {
-                const prodSelected = productos.find((p) => p.id === e.target.value);
-                setEditarOcForm({
-                  ...editarOcForm,
-                  productoId: e.target.value,
-                  costoUnitario: prodSelected ? String(prodSelected.costo) : '',
-                });
-              }}
-            >
-              {productos.map((p) => (
-                <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)})</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <Box sx={{ mt: 1 }}>
+                <DatePicker
+                  label="Fecha Estimada de Entrega"
+                  value={editarOcForm.fechaEntrega ? dayjs(editarOcForm.fechaEntrega) : null}
+                  onChange={(newValue) => setEditarOcForm({ ...editarOcForm, fechaEntrega: newValue ? newValue.format('YYYY-MM-DD') : '' })}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+              </Box>
+            </Box>
 
-          <TextField
-            fullWidth
-            label="Cantidad"
-            type="number"
-            size="small"
-            value={editarOcForm.cantidad}
-            onChange={(e) => setEditarOcForm({ ...editarOcForm, cantidad: e.target.value })}
-          />
+            {/* Agregar Producto */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.light', borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 0.5 }}>
+                Añadir Producto a la Orden
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel>Producto</InputLabel>
+                <Select
+                  value={nuevoItemEdit.productoId}
+                  label="Producto"
+                  onChange={(e) => {
+                    const prodSelected = productos.find((p) => p.id === e.target.value);
+                    setNuevoItemEdit({
+                      ...nuevoItemEdit,
+                      productoId: e.target.value,
+                      costoUnitario: prodSelected ? String(prodSelected.costo) : '',
+                    });
+                  }}
+                >
+                  {productos.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)})</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          <TextField
-            fullWidth
-            label="Costo Unitario Pactado"
-            type="number"
-            size="small"
-            value={editarOcForm.costoUnitario}
-            onChange={(e) => setEditarOcForm({ ...editarOcForm, costoUnitario: e.target.value })}
-          />
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Cantidad"
+                  type="number"
+                  size="small"
+                  value={nuevoItemEdit.cantidad}
+                  onChange={(e) => setNuevoItemEdit({ ...nuevoItemEdit, cantidad: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Costo Unitario"
+                  type="number"
+                  size="small"
+                  value={nuevoItemEdit.costoUnitario}
+                  onChange={(e) => setNuevoItemEdit({ ...nuevoItemEdit, costoUnitario: e.target.value })}
+                />
+              </Box>
 
-          <Box sx={{ mt: 1 }}>
-            <DatePicker
-              label="Fecha Estimada de Entrega"
-              value={editarOcForm.fechaEntrega ? dayjs(editarOcForm.fechaEntrega) : null}
-              onChange={(newValue) => setEditarOcForm({ ...editarOcForm, fechaEntrega: newValue ? newValue.format('YYYY-MM-DD') : '' })}
-              slotProps={{ textField: { size: 'small', fullWidth: true } }}
-            />
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleAgregarItemEdit}
+                fullWidth
+              >
+                Añadir Línea
+              </Button>
+            </Box>
           </Box>
+
+          {/* Tabla de Items */}
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary' }}>
+            Productos Solicitados ({editarOcForm.productos.length})
+          </Typography>
+          <Paper sx={{ p: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'transparent' }}>
+            <Table size="small">
+              <TableHead sx={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                <TableRow>
+                  <TableCell>Producto</TableCell>
+                  <TableCell>SKU</TableCell>
+                  <TableCell align="right">Cantidad</TableCell>
+                  <TableCell align="right">Costo Unitario</TableCell>
+                  <TableCell align="right">Subtotal</TableCell>
+                  <TableCell align="center">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {editarOcForm.productos.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                      No hay productos en esta orden de compra. Añada líneas usando el formulario.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  editarOcForm.productos.map((item: any, idx: number) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
+                      <TableCell>{item.productoSku}</TableCell>
+                      <TableCell align="right">{item.cantidad}</TableCell>
+                      <TableCell align="right">{formatCurrency(item.costoUnitario)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        {formatCurrency(item.cantidad * item.costoUnitario)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" color="error" onClick={() => handleEliminarItemEdit(idx)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+                {editarOcForm.productos.length > 0 && (
+                  <TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                    <TableCell colSpan={4} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.light', fontSize: '1rem' }}>
+                      {formatCurrency(editarOcForm.productos.reduce((sum: number, p: any) => sum + (p.cantidad * p.costoUnitario), 0))}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEditarOC(false); setSelectedOC(null); }}>Cancelar</Button>
