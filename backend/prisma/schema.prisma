@@ -569,6 +569,7 @@ model OrdenProduccion {
   mermas             Merma[]
   inspecciones       ControlCalidad[]
   lotesProducidos    Lote[]
+  operaciones        OrdenProduccionOperacion[]
 }
 
 model OrdenProduccionDetalle {
@@ -739,4 +740,23 @@ model SolicitudReabastecimiento {
 
   sucursal         Sucursal @relation(fields: [sucursalId], references: [id])
   producto         Producto @relation(fields: [productoId], references: [id])
+}
+
+model OrdenProduccionOperacion {
+  id                 String          @id @default(uuid())
+  ordenProduccionId  String
+  workCenter         String          // WC-PAST, WC-CUAJ, WC-CORTE, etc.
+  estado             String          @default("PENDIENTE") // PENDIENTE, EN_PROCESO, COMPLETADA
+  fechaInicio        DateTime?
+  fechaFin           DateTime?
+  duracionSegundos   Int?
+  datosJson          String?         // JSON string containing QA parameters
+  usuarioId          String?
+  usuarioNombre      String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  ordenProduccion    OrdenProduccion @relation(fields: [ordenProduccionId], references: [id], onDelete: Cascade)
+
+  @@unique([ordenProduccionId, workCenter])
 }

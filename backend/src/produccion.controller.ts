@@ -282,6 +282,28 @@ export class ProduccionController {
       },
     });
 
+    // Inicializar operaciones si no existen
+    const workCenters = [
+      'WC-PAST', 'WC-CUAJ', 'WC-CORTE', 'WC-COCC', 'WC-DESU',
+      'WC-MOLD', 'WC-PREN', 'WC-SALA', 'WC-MADU', 'WC-EMPA', 'WC-CFRI'
+    ];
+    for (const wc of workCenters) {
+      await this.prisma.ordenProduccionOperacion.upsert({
+        where: {
+          ordenProduccionId_workCenter: {
+            ordenProduccionId: id,
+            workCenter: wc,
+          },
+        },
+        create: {
+          ordenProduccionId: id,
+          workCenter: wc,
+          estado: 'PENDIENTE',
+        },
+        update: {},
+      });
+    }
+
     // Auditoría
     await this.prisma.auditoria.create({
       data: {
@@ -1656,5 +1678,426 @@ export class ProduccionController {
     });
 
     return res;
+  }
+
+  // --- RUTA DE OPERACIONES (BILL OF OPERATIONS) ---
+  @Get('operaciones/activas')
+  async listarOperacionesActivas() {
+    return this.prisma.ordenProduccion.findMany({
+      where: {
+        estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
+      },
+      include: {
+        receta: {
+          include: { productoFinal: true },
+        },
+        operaciones: true,
+        responsable: true,
+        sucursal: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Post('operaciones/:opId/:workCenter/comenzar')
+  async comenzarOperacion(
+    @Param('opId') opId: string,
+    @Param('workCenter') workCenter: string,
+    @Request() req: any,
+  ) {
+    const op = await this.prisma.ordenProduccion.findUnique({
+      where: { id: opId },
+      include: { operaciones: true },
+    });
+
+    if (!op) {
+      throw new BadRequestException('La orden de producción no existe.');
+    }
+
+    const workCenters = [
+      'WC-PAST', 'WC-CUAJ', 'WC-CORTE', 'WC-COCC', 'WC-DESU',
+      'WC-MOLD', 'WC-PREN', 'WC-SALA', 'WC-MADU', 'WC-EMPA', 'WC-CFRI'
+    ];
+
+    // Inicializar operaciones si no existen
+    if (op.operaciones.length === 0) {
+      for (const wc of workCenters) {
+        await this.prisma.ordenProduccionOperacion.create({
+          data: {
+            ordenProduccionId: op.id,
+            workCenter: wc,
+            estado: 'PENDIENTE',
+          },
+        });
+      }
+    }
+
+    // Si la orden está en PLANIFICADA y el workCenter es WC-PAST, iniciar la orden general
+    if (op.estado === 'PLANIFICADA' && workCenter === 'WC-PAST') {
+      await this.prisma.ordenProduccion.update({
+        where: { id: opId },
+        data: {
+          estado: 'EN_PROCESO',
+          fechaInicio: new Date(),
+        },
+      });
+    }
+
+    // Actualizar la operación específica a EN_PROCESO
+    const updatedOperacion = await this.prisma.ordenProduccionOperacion.update({
+      where: {
+        ordenProduccionId_workCenter: {
+          ordenProduccionId: opId,
+          workCenter,
+        },
+      },
+      data: {
+        estado: 'EN_PROCESO',
+        fechaInicio: new Date(),
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+      },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: `COMENZAR_OPERACION_${workCenter}`,
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ opId, workCenter }),
+      },
+    });
+
+    return updatedOperacion;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Post('operaciones/:opId/:workCenter/finalizar')
+  async finalizarOperacion(
+    @Param('opId') opId: string,
+    @Param('workCenter') workCenter: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    const { datosJson, cantidadProducida, loteNumero, mermas } = body;
+
+    const op = await this.prisma.ordenProduccion.findUnique({
+      where: { id: opId },
+      include: {
+        operaciones: true,
+        receta: {
+          include: {
+            productoFinal: true,
+            detalles: true,
+          },
+        },
+      },
+    });
+
+    if (!op) {
+      throw new BadRequestException('La orden de producción no existe.');
+    }
+
+    const operacion = op.operaciones.find((o) => o.workCenter === workCenter);
+    if (!operacion) {
+      throw new BadRequestException('La operación especificada no existe en esta orden.');
+    }
+
+    if (operacion.estado !== 'EN_PROCESO') {
+      throw new BadRequestException('Solo se pueden finalizar operaciones que estén EN_PROCESO.');
+    }
+
+    const fechaFin = new Date();
+    const fechaInicio = operacion.fechaInicio || new Date();
+    const duracionSegundos = Math.round((fechaFin.getTime() - fechaInicio.getTime()) / 1000);
+
+    const updatedOperacion = await this.prisma.ordenProduccionOperacion.update({
+      where: {
+        ordenProduccionId_workCenter: {
+          ordenProduccionId: opId,
+          workCenter,
+        },
+      },
+      data: {
+        estado: 'COMPLETADA',
+        fechaFin,
+        duracionSegundos,
+        datosJson: datosJson ? JSON.stringify(datosJson) : null,
+      },
+    });
+
+    // Si es el último paso (Cámara Fría), completar toda la orden de producción
+    if (workCenter === 'WC-CFRI') {
+      if (cantidadProducida == null || !loteNumero) {
+        throw new BadRequestException('Para finalizar el último paso, la cantidad real y el lote son obligatorios.');
+      }
+
+      // Buscar proveedor interno o primer proveedor para asociar al lote producido
+      let proveedor = await this.prisma.proveedor.findFirst({
+        where: { codigo: 'INTERNO' },
+      });
+      if (!proveedor) {
+        proveedor = await this.prisma.proveedor.findFirst();
+        if (!proveedor) {
+          throw new BadRequestException(
+            'Debe registrar al menos un proveedor en el sistema antes de generar lotes de producción.',
+          );
+        }
+      }
+
+      const cd = await this.prisma.sucursal.findFirst({
+        where: { codigo: 'SUC-001' },
+      });
+      if (!cd) {
+        throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
+      }
+      const cdId = cd.id;
+
+      await this.prisma.$transaction(async (tx) => {
+        const cantProd = parseFloat(cantidadProducida);
+        const cantPlan = op.cantidadPlanificada;
+        const rendimientoReal = cantPlan > 0 ? (cantProd / cantPlan) * 100 : 100;
+        const variacion = cantProd - cantPlan;
+
+        // Descontar materias primas mediante FEFO (si no se completó en picking)
+        if (!op.pickingCompletado) {
+          for (const reqDetalle of op.receta.detalles) {
+            const totalRequerido = reqDetalle.cantidadRequerida * cantPlan;
+
+            const consumidoPrevio = await tx.ordenProduccionDetalle.aggregate({
+              where: {
+                ordenProduccionId: op.id,
+                productoId: reqDetalle.productoId,
+                loteId: { not: null },
+              },
+              _sum: { cantidadConsumida: true },
+            });
+            const yaConsumido = consumidoPrevio._sum.cantidadConsumida || 0;
+
+            let pendientePorDescontar = Math.max(0, totalRequerido - yaConsumido);
+            if (pendientePorDescontar <= 0) continue;
+
+            const lotesDisponibles = await tx.lote.findMany({
+              where: {
+                productoId: reqDetalle.productoId,
+                cantidadActual: { gt: 0 },
+                estado: 'APROBADO',
+              },
+              orderBy: { fechaVencimiento: 'asc' },
+            });
+
+            for (const lote of lotesDisponibles) {
+              if (pendientePorDescontar <= 0) break;
+
+              const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+
+              await tx.lote.update({
+                where: { id: lote.id },
+                data: { cantidadActual: { decrement: aDescontar } },
+              });
+
+              await tx.ordenProduccionDetalle.create({
+                data: {
+                  ordenProduccionId: op.id,
+                  productoId: reqDetalle.productoId,
+                  loteId: lote.id,
+                  cantidadConsumida: aDescontar,
+                },
+              });
+
+              await tx.movimientoInventario.create({
+                data: {
+                  tipo: 'SALIDA',
+                  productoId: reqDetalle.productoId,
+                  loteId: lote.id,
+                  sucursalOrigenId: cdId,
+                  cantidad: aDescontar,
+                  motivo: `Consumo materia prima en OP ${op.numeroOrden} desde Ruta Operaciones`,
+                  usuarioId: req.user.id,
+                },
+              });
+
+              const inv = await tx.inventario.findUnique({
+                where: { productoId_sucursalId: { productoId: reqDetalle.productoId, sucursalId: cdId } },
+              });
+              if (inv) {
+                await tx.inventario.update({
+                  where: { id: inv.id },
+                  data: { existencia: { decrement: aDescontar } },
+                });
+              } else {
+                await tx.inventario.create({
+                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, existencia: -aDescontar },
+                });
+              }
+
+              pendientePorDescontar -= aDescontar;
+            }
+
+            if (pendientePorDescontar > 0) {
+              const inv = await tx.inventario.findUnique({
+                where: { productoId_sucursalId: { productoId: reqDetalle.productoId, sucursalId: cdId } },
+              });
+              if (inv) {
+                await tx.inventario.update({
+                  where: { id: inv.id },
+                  data: { existencia: { decrement: pendientePorDescontar } },
+                });
+              } else {
+                await tx.inventario.create({
+                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, existencia: -pendientePorDescontar },
+                });
+              }
+
+              await tx.ordenProduccionDetalle.create({
+                data: {
+                  ordenProduccionId: op.id,
+                  productoId: reqDetalle.productoId,
+                  cantidadConsumida: pendientePorDescontar,
+                },
+              });
+
+              await tx.movimientoInventario.create({
+                data: {
+                  tipo: 'SALIDA',
+                  productoId: reqDetalle.productoId,
+                  sucursalOrigenId: cdId,
+                  cantidad: pendientePorDescontar,
+                  motivo: `Consumo materia prima (Déficit) en OP ${op.numeroOrden} desde Ruta Operaciones`,
+                  usuarioId: req.user.id,
+                },
+              });
+            }
+          }
+        }
+
+        // Registrar mermas si las hay
+        if (mermas && Array.isArray(mermas)) {
+          for (const m of mermas) {
+            await tx.merma.create({
+              data: {
+                ordenProduccionId: op.id,
+                productoId: m.productoId,
+                cantidad: parseFloat(m.cantidad),
+                motivo: m.motivo || 'PROCESO',
+                responsableId: req.user.id,
+              },
+            });
+
+            const invM = await tx.inventario.findUnique({
+              where: { productoId_sucursalId: { productoId: m.productoId, sucursalId: cdId } },
+            });
+            if (invM) {
+              await tx.inventario.update({
+                where: { id: invM.id },
+                data: { existencia: { decrement: parseFloat(m.cantidad) } },
+              });
+            }
+          }
+        }
+
+        // Crear/Actualizar Lote para el producto terminado
+        const vidaUtil = op.receta.productoFinal.vidaUtilDias || 30;
+        const fechaVen = new Date();
+        fechaVen.setDate(fechaVen.getDate() + vidaUtil);
+
+        const existingLote = await tx.lote.findFirst({
+          where: {
+            OR: [
+              { ordenProduccionId: op.id },
+              { numeroLote: loteNumero }
+            ]
+          },
+        });
+
+        let nuevoLote;
+        if (existingLote) {
+          nuevoLote = await tx.lote.update({
+            where: { id: existingLote.id },
+            data: {
+              numeroLote: loteNumero,
+              fechaProduccion: new Date(),
+              fechaVencimiento: fechaVen,
+              cantidadInicial: cantProd,
+              cantidadActual: cantProd,
+              estado: 'APROBADO',
+              ordenProduccionId: op.id,
+            },
+          });
+        } else {
+          nuevoLote = await tx.lote.create({
+            data: {
+              numeroLote: loteNumero,
+              productoId: op.receta.productoFinalId,
+              fechaProduccion: new Date(),
+              fechaVencimiento: fechaVen,
+              proveedorId: proveedor.id,
+              temperaturaRequeridaMin: op.receta.productoFinal.temperaturaMin || 2,
+              temperaturaRequeridaMax: op.receta.productoFinal.temperaturaMax || 6,
+              cantidadInicial: cantProd,
+              cantidadActual: cantProd,
+              estado: 'APROBADO',
+              ordenProduccionId: op.id,
+            },
+          });
+        }
+
+        // Incrementar inventario del producto terminado
+        const invFinal = await tx.inventario.findUnique({
+          where: { productoId_sucursalId: { productoId: op.receta.productoFinalId, sucursalId: cdId } },
+        });
+
+        if (invFinal) {
+          await tx.inventario.update({
+            where: { id: invFinal.id },
+            data: { existencia: { increment: cantProd } },
+          });
+        } else {
+          await tx.inventario.create({
+            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, existencia: cantProd },
+          });
+        }
+
+        await tx.movimientoInventario.create({
+          data: {
+            tipo: 'ENTRADA',
+            productoId: op.receta.productoFinalId,
+            loteId: nuevoLote.id,
+            sucursalDestinoId: cdId,
+            cantidad: cantProd,
+            motivo: `Ingreso por Producción finalizada Orden ${op.numeroOrden} desde Ruta Operaciones`,
+            usuarioId: req.user.id,
+          },
+        });
+
+        // Actualizar estado de la Orden de Producción
+        await tx.ordenProduccion.update({
+          where: { id: op.id },
+          data: {
+            estado: 'COMPLETADA',
+            cantidadProducida: cantProd,
+            rendimientoReal,
+            variacion,
+            fechaFin: new Date(),
+          },
+        });
+      });
+    }
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: `FINALIZAR_OPERACION_${workCenter}`,
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ opId, workCenter, duration: duracionSegundos }),
+      },
+    });
+
+    return updatedOperacion;
   }
 }
