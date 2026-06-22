@@ -133,6 +133,10 @@ export default function RutaOperaciones() {
   const [currentWcId, setCurrentWcId] = useState<string>('');
   const [formData, setFormData] = useState<Record<string, string>>({});
   
+  // Modal de Historial de Ruta
+  const [openHistorial, setOpenHistorial] = useState(false);
+  const [historialOrden, setHistorialOrden] = useState<any>(null);
+  
   // Campos finales para el último paso (Cámara Fría)
   const [cantidadProducida, setCantidadProducida] = useState('');
   const [loteNumero, setLoteNumero] = useState('');
@@ -651,50 +655,35 @@ export default function RutaOperaciones() {
                           );
                         })()}
 
-                        {/* Historial de pasos completados */}
+                        {/* Historial de pasos completados (Botón compacto para ahorrar espacio) */}
                         {completedSteps.length > 0 && (
-                          <Box sx={{ mt: 2 }}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 700, mb: 1 }}
+                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<History sx={{ fontSize: 16 }} />}
+                              onClick={() => {
+                                setHistorialOrden(orden);
+                                setOpenHistorial(true);
+                              }}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                py: 0.5,
+                                px: 1.5,
+                                borderRadius: 2,
+                                borderColor: 'rgba(255, 255, 255, 0.12)',
+                                color: 'text.secondary',
+                                '&:hover': {
+                                  borderColor: 'primary.main',
+                                  color: 'primary.light',
+                                  backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                                },
+                              }}
                             >
-                              <History sx={{ fontSize: 14 }} /> Historial de Ruta:
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
-                              {completedSteps.map((step: any) => {
-                                let labelInfo = '';
-                                if (step.datosJson) {
-                                  try {
-                                    const parsed = JSON.parse(step.datosJson);
-                                    if (step.workCenter === 'WC-PAST') {
-                                      labelInfo = `${parsed.temp_pasteurizacion || '-'}°C`;
-                                    } else if (step.workCenter === 'WC-CUAJ') {
-                                      labelInfo = `${parsed.temp_cuajado || '-'}°C`;
-                                    } else if (step.workCenter === 'WC-COCC') {
-                                      labelInfo = `${parsed.temp_coccion || '-'}°C`;
-                                    } else if (step.workCenter === 'WC-DESU') {
-                                      labelInfo = `pH: ${parsed.ph_suero || '-'}`;
-                                    } else if (step.workCenter === 'WC-EMPA') {
-                                      labelInfo = `${parsed.peso_neto_total || '-'} kg`;
-                                    }
-                                  } catch {}
-                                }
-                                return (
-                                  <Box
-                                    key={step.id}
-                                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                  >
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                      ✓ {step.workCenter}
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ color: 'primary.light', fontWeight: 600 }}>
-                                      {labelInfo} ({getFormatDuration(step.duracionSegundos || 0)})
-                                    </Typography>
-                                  </Box>
-                                );
-                              })}
-                            </Box>
+                              Ver Historial ({completedSteps.length})
+                            </Button>
                           </Box>
                         )}
                       </CardContent>
@@ -852,6 +841,106 @@ export default function RutaOperaciones() {
           </Button>
           <Button variant="contained" color="success" onClick={handleConfirmarFinalizar} sx={{ fontWeight: 700 }}>
             {currentWcId === 'WC-CFRI' ? 'Completar Orden' : 'Finalizar Paso'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Historial de Ruta */}
+      <Dialog
+        open={openHistorial}
+        onClose={() => setOpenHistorial(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <History sx={{ color: 'primary.main' }} /> Historial de Ruta de Operaciones
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3 }}>
+          {historialOrden && (
+            <Box>
+              <Typography variant="subtitle2" color="primary.light" sx={{ fontWeight: 800, mb: 0.5 }}>
+                {historialOrden.numeroOrden}
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
+                {historialOrden.receta.nombre}
+              </Typography>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {historialOrden.operaciones
+                  .filter((o: any) => o.estado === 'COMPLETADA')
+                  .map((step: any) => {
+                    const detailsList: { label: string; value: any }[] = [];
+                    if (step.datosJson) {
+                      try {
+                        const parsed = JSON.parse(step.datosJson);
+                        const fields = WORK_CENTER_FIELDS[step.workCenter] || [];
+                        fields.forEach((f) => {
+                          if (parsed[f.name] !== undefined && parsed[f.name] !== '') {
+                            detailsList.push({
+                              label: f.label,
+                              value: `${parsed[f.name]}${f.suffix ? ' ' + f.suffix : ''}`,
+                            });
+                          }
+                        });
+                      } catch {}
+                    }
+
+                    const wcInfo = WORK_CENTERS.find((w) => w.id === step.workCenter);
+
+                    return (
+                      <Box
+                        key={step.id}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.light' }}>
+                            ✓ {step.workCenter} — {wcInfo?.name || ''}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                            {getFormatDuration(step.duracionSegundos || 0)}
+                          </Typography>
+                        </Box>
+                        {detailsList.length > 0 ? (
+                          <Box sx={{ pl: 1.5, borderLeft: '2px solid rgba(16, 185, 129, 0.4)' }}>
+                            {detailsList.map((d, idx) => (
+                              <Typography key={idx} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                <span style={{ fontWeight: 600, color: '#9ca3af' }}>{d.label}:</span> {d.value}
+                              </Typography>
+                            ))}
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1.5 }}>
+                            Sin parámetros registrados
+                          </Typography>
+                        )}
+                        {step.fechaFin && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'right', fontSize: '0.68rem' }}>
+                            Finalizado: {dayjs(step.fechaFin).format('DD/MM/YYYY HH:mm')}
+                          </Typography>
+                        )}
+                      </Box>
+                    );
+                  })}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenHistorial(false)} variant="contained" fullWidth>
+            Cerrar Historial
           </Button>
         </DialogActions>
       </Dialog>
