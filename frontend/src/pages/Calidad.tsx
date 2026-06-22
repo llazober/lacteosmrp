@@ -100,6 +100,16 @@ export default function Calidad() {
     observaciones: '',
   });
 
+  const [openInsumo, setOpenInsumo] = useState(false);
+  const [insumoForm, setInsumoForm] = useState({
+    loteId: '',
+    temperatura: '',
+    ph: '',
+    parametrosCriticos: '',
+    resultado: 'APROBADO',
+    observaciones: '',
+  });
+
   const [openInspeccion, setOpenInspeccion] = useState(false);
   const [inspeccionForm, setInspeccionForm] = useState({
     tipo: 'PROCESO',
@@ -131,6 +141,7 @@ export default function Calidad() {
   // Firma Digital Simulada
   const [firmaDigital, setFirmaDigital] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasInsumoRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
   // Evidencia Imagen Simulada
@@ -176,8 +187,14 @@ export default function Calidad() {
   };
 
   // --- DRAWING CANVAS FOR DIGITAL SIGNATURE ---
+  const getActiveCanvas = () => {
+    if (openLeche) return canvasRef.current;
+    if (openInsumo) return canvasInsumoRef.current;
+    return null;
+  };
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = getActiveCanvas();
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -188,7 +205,7 @@ export default function Calidad() {
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    const canvas = canvasRef.current;
+    const canvas = getActiveCanvas();
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -204,7 +221,7 @@ export default function Calidad() {
   };
 
   const clearCanvas = () => {
-    const canvas = canvasRef.current;
+    const canvas = getActiveCanvas();
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -213,7 +230,7 @@ export default function Calidad() {
   };
 
   const saveSignature = () => {
-    const canvas = canvasRef.current;
+    const canvas = getActiveCanvas();
     if (!canvas) return;
     setFirmaDigital(canvas.toDataURL());
   };
@@ -279,6 +296,42 @@ export default function Calidad() {
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al guardar control.');
+    }
+  };
+
+  // --- HANDLERS CONTROLES INSUMOS ---
+  const handleRegistrarInsumo = async () => {
+    try {
+      setErrorMsg(null);
+      const { loteId, temperatura, ph, parametrosCriticos, resultado, observaciones } = insumoForm;
+
+      if (!loteId) {
+        throw new Error('Debe seleccionar un lote.');
+      }
+      if (!parametrosCriticos) {
+        throw new Error('Los parámetros críticos evaluados son obligatorios.');
+      }
+
+      await apiFetch('/calidad/inspeccion', {
+        method: 'POST',
+        body: JSON.stringify({
+          tipo: 'RECEPCION_INSUMO',
+          ordenProduccionId: null,
+          loteId,
+          temperatura: temperatura ? parseFloat(temperatura) : null,
+          ph: ph ? parseFloat(ph) : null,
+          parametrosCriticos,
+          resultado,
+          observaciones: observaciones + (firmaDigital ? ` | Firmado Digitalmente.` : ''),
+        }),
+      });
+
+      setSuccessMsg('Control de calidad de insumo registrado.');
+      setOpenInsumo(false);
+      clearCanvas();
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al guardar control de insumo.');
     }
   };
 
@@ -384,26 +437,46 @@ export default function Calidad() {
 
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           {activeTab === 0 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'CALIDAD') && (
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<Add />}
-              onClick={() => {
-                setLecheForm({
-                  loteId: '',
-                  temperatura: '',
-                  grasa: '',
-                  proteina: '',
-                  acidez: '',
-                  antibioticos: false,
-                  resultado: 'APROBADO',
-                  observaciones: '',
-                });
-                setOpenLeche(true);
-              }}
-            >
-              Auditar Recepción Leche
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<Add />}
+                onClick={() => {
+                  setLecheForm({
+                    loteId: '',
+                    temperatura: '',
+                    grasa: '',
+                    proteina: '',
+                    acidez: '',
+                    antibioticos: false,
+                    resultado: 'APROBADO',
+                    observaciones: '',
+                  });
+                  setOpenLeche(true);
+                }}
+              >
+                Auditar Recepción Leche
+              </Button>
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<Add />}
+                onClick={() => {
+                  setInsumoForm({
+                    loteId: '',
+                    temperatura: '',
+                    ph: '',
+                    parametrosCriticos: '',
+                    resultado: 'APROBADO',
+                    observaciones: '',
+                  });
+                  setOpenInsumo(true);
+                }}
+              >
+                Auditar Recepción Insumo
+              </Button>
+            </Box>
           )}
 
           {activeTab === 1 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'CALIDAD') && (
@@ -521,17 +594,30 @@ export default function Calidad() {
                           size="small"
                           sx={{ fontSize: '0.75rem', py: 0.5 }}
                           onClick={() => {
-                            setLecheForm({
-                              loteId: lote.id,
-                              temperatura: '',
-                              grasa: '',
-                              proteina: '',
-                              acidez: '',
-                              antibioticos: false,
-                              resultado: 'APROBADO',
-                              observaciones: '',
-                            });
-                            setOpenLeche(true);
+                            const esLeche = lote.producto.sku.includes('LECHE');
+                            if (esLeche) {
+                              setLecheForm({
+                                loteId: lote.id,
+                                temperatura: '',
+                                grasa: '',
+                                proteina: '',
+                                acidez: '',
+                                antibioticos: false,
+                                resultado: 'APROBADO',
+                                observaciones: '',
+                              });
+                              setOpenLeche(true);
+                            } else {
+                              setInsumoForm({
+                                loteId: lote.id,
+                                temperatura: '',
+                                ph: '',
+                                parametrosCriticos: '',
+                                resultado: 'APROBADO',
+                                observaciones: '',
+                              });
+                              setOpenInsumo(true);
+                            }
                           }}
                         >
                           Auditar e Ingresar
@@ -797,7 +883,7 @@ export default function Calidad() {
                     label="Lote de Leche Cruda"
                     onChange={(e) => setLecheForm({ ...lecheForm, loteId: e.target.value })}
                   >
-                    {lotes.map((l) => (
+                    {lotes.filter((l: any) => l.producto.sku.includes('LECHE')).map((l) => (
                       <MenuItem key={l.id} value={l.id}>
                         {l.numeroLote} ({l.cantidadActual} {l.producto.unidadMedida}){l.estado === 'PENDIENTE' ? ' - [PENDIENTE]' : ''}
                       </MenuItem>
@@ -912,6 +998,119 @@ export default function Calidad() {
         <DialogActions>
           <Button onClick={() => setOpenLeche(false)}>Cancelar</Button>
           <Button onClick={handleRegistrarLeche} variant="contained" color="success">
+            Registrar e Ingresar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- DIALOG AUDITAR INSUMO --- */}
+      <Dialog open={openInsumo} onClose={() => setOpenInsumo(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Registrar Control de Calidad de Insumo / Materia Prima</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <Box sx={{ gridColumn: 'span 2' }}>
+                <FormControl fullWidth>
+                  <InputLabel>Lote de Insumo / Materia Prima</InputLabel>
+                  <Select
+                    value={insumoForm.loteId}
+                    label="Lote de Insumo / Materia Prima"
+                    onChange={(e) => setInsumoForm({ ...insumoForm, loteId: e.target.value })}
+                  >
+                    {lotes.filter((l: any) => !l.producto.sku.includes('LECHE')).map((l) => (
+                      <MenuItem key={l.id} value={l.id}>
+                        {l.numeroLote} - {l.producto.descripcion} ({l.cantidadActual} {l.producto.unidadMedida}){l.estado === 'PENDIENTE' ? ' - [PENDIENTE]' : ''}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box>
+                <TextField
+                  label="Temperatura Controlada (°C) (Opcional)"
+                  type="number"
+                  fullWidth
+                  value={insumoForm.temperatura}
+                  onChange={(e) => setInsumoForm({ ...insumoForm, temperatura: e.target.value })}
+                  placeholder="Ej: 4.5 °C"
+                />
+              </Box>
+              <Box>
+                <TextField
+                  label="Nivel de pH (Opcional)"
+                  type="number"
+                  fullWidth
+                  value={insumoForm.ph}
+                  onChange={(e) => setInsumoForm({ ...insumoForm, ph: e.target.value })}
+                  placeholder="Ej: 6.5"
+                />
+              </Box>
+              <Box sx={{ gridColumn: 'span 2' }}>
+                <TextField
+                  label="Checklist y Parámetros Críticos Evaluados"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={insumoForm.parametrosCriticos}
+                  onChange={(e) => setInsumoForm({ ...insumoForm, parametrosCriticos: e.target.value })}
+                  placeholder="Ej: Aspecto visual óptimo, envase sellado herméticamente, fecha de vencimiento válida."
+                />
+              </Box>
+              <Box sx={{ gridColumn: 'span 2' }}>
+                <FormControl fullWidth>
+                  <InputLabel>Resultado de Control</InputLabel>
+                  <Select
+                    value={insumoForm.resultado}
+                    label="Resultado de Control"
+                    onChange={(e) => setInsumoForm({ ...insumoForm, resultado: e.target.value })}
+                  >
+                    <MenuItem value="APROBADO">Aprobado (Ingreso a Almacén)</MenuItem>
+                    <MenuItem value="CUARENTENA">Retener en Cuarentena</MenuItem>
+                    <MenuItem value="RECHAZADO">Rechazar Insumo</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box sx={{ gridColumn: 'span 2' }}>
+                <TextField
+                  label="Observaciones Inspector"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={insumoForm.observaciones}
+                  onChange={(e) => setInsumoForm({ ...insumoForm, observaciones: e.target.value })}
+                />
+              </Box>
+            </Box>
+
+            {/* --- FIRMA DIGITAL SIMULADA --- */}
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Brush fontSize="small" color="primary" /> Firma Digital Autorizada Inspector Calidad:
+              </Typography>
+              <Box sx={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2, p: 1, textAlign: 'center', backgroundColor: '#090d16' }}>
+                <canvas
+                  ref={canvasInsumoRef}
+                  width={400}
+                  height={120}
+                  style={{ cursor: 'crosshair', backgroundColor: '#090d16' }}
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                />
+                <Box sx={{ mt: 1, textAlign: 'right' }}>
+                  <Button size="small" variant="text" color="error" onClick={clearCanvas}>
+                    Limpiar Firma
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenInsumo(false)}>Cancelar</Button>
+          <Button onClick={handleRegistrarInsumo} variant="contained" color="success">
             Registrar e Ingresar
           </Button>
         </DialogActions>
