@@ -116,6 +116,7 @@ model Producto {
   ordenProduccionDetalles OrdenProduccionDetalle[]
   mermas          Merma[]
   solicitudesReabastecimiento SolicitudReabastecimiento[]
+  billOfOperations BillOfOperations[]
 }
 
 model Proveedor {
@@ -751,6 +752,7 @@ model OrdenProduccionOperacion {
   fechaFin           DateTime?
   duracionSegundos   Int?
   datosJson          String?         // JSON string containing QA parameters
+  datosRequeridos    String?         // Template de campos requeridos para esta orden
   usuarioId          String?
   usuarioNombre      String?
   createdAt          DateTime        @default(now())
@@ -759,4 +761,19 @@ model OrdenProduccionOperacion {
   ordenProduccion    OrdenProduccion @relation(fields: [ordenProduccionId], references: [id], onDelete: Cascade)
 
   @@unique([ordenProduccionId, workCenter])
+}
+
+model BillOfOperations {
+  id              String   @id @default(uuid())
+  productoId      String
+  workCenter      String   // WC-PAST, WC-CUAJ, etc.
+  orden           Int      // 1, 2, 3... for sequence
+  duracionEstimada Int     @default(30) // in minutes
+  datosRequeridos String?  // JSON string representing fields to show, e.g. [{"label": "Temp", "name": "temp", "type": "number", "required": true}]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  producto        Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@unique([productoId, workCenter])
 }

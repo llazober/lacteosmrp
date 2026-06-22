@@ -223,6 +223,13 @@ export class ProduccionController {
       );
     }
 
+    const receta = await this.prisma.receta.findUnique({
+      where: { id: recetaId },
+    });
+    if (!receta) {
+      throw new BadRequestException('La receta especificada no existe.');
+    }
+
     const count = await this.prisma.ordenProduccion.count();
     const numeroOrden = `OP-${String(count + 1).padStart(6, '0')}`;
 
@@ -237,6 +244,9 @@ export class ProduccionController {
         estado: 'PLANIFICADA',
       },
     });
+
+    // Inicializar operaciones inmediatamente
+    await this.inicializarOperaciones(op.id, receta.productoFinalId);
 
     // Auditoría
     await this.prisma.auditoria.create({
@@ -282,27 +292,8 @@ export class ProduccionController {
       },
     });
 
-    // Inicializar operaciones si no existen
-    const workCenters = [
-      'WC-PAST', 'WC-CUAJ', 'WC-CORTE', 'WC-COCC', 'WC-DESU',
-      'WC-MOLD', 'WC-PREN', 'WC-SALA', 'WC-MADU', 'WC-EMPA', 'WC-CFRI'
-    ];
-    for (const wc of workCenters) {
-      await this.prisma.ordenProduccionOperacion.upsert({
-        where: {
-          ordenProduccionId_workCenter: {
-            ordenProduccionId: id,
-            workCenter: wc,
-          },
-        },
-        create: {
-          ordenProduccionId: id,
-          workCenter: wc,
-          estado: 'PENDIENTE',
-        },
-        update: {},
-      });
-    }
+    // Inicializar operaciones
+    await this.inicializarOperaciones(id, op.receta.productoFinalId);
 
     // Auditoría
     await this.prisma.auditoria.create({
@@ -1708,7 +1699,7 @@ export class ProduccionController {
   ) {
     const op = await this.prisma.ordenProduccion.findUnique({
       where: { id: opId },
-      include: { operaciones: true },
+      include: { operaciones: true, receta: true },
     });
 
     if (!op) {
@@ -1721,22 +1712,9 @@ export class ProduccionController {
       );
     }
 
-    const workCenters = [
-      'WC-PAST', 'WC-CUAJ', 'WC-CORTE', 'WC-COCC', 'WC-DESU',
-      'WC-MOLD', 'WC-PREN', 'WC-SALA', 'WC-MADU', 'WC-EMPA', 'WC-CFRI'
-    ];
-
     // Inicializar operaciones si no existen
     if (op.operaciones.length === 0) {
-      for (const wc of workCenters) {
-        await this.prisma.ordenProduccionOperacion.create({
-          data: {
-            ordenProduccionId: op.id,
-            workCenter: wc,
-            estado: 'PENDIENTE',
-          },
-        });
-      }
+      await this.inicializarOperaciones(opId, op.receta.productoFinalId);
     }
 
     // Si la orden está en PLANIFICADA y el workCenter es WC-PAST, iniciar la orden general
@@ -2105,5 +2083,252 @@ export class ProduccionController {
     });
 
     return updatedOperacion;
+  }
+
+  @Get('bill-of-operations/:productoId')
+  async getBillOfOperations(@Param('productoId') productoId: string) {
+    const customBoo = await this.prisma.billOfOperations.findMany({
+      where: { productoId },
+      orderBy: { orden: 'asc' },
+    });
+
+    if (customBoo.length > 0) {
+      return customBoo;
+    }
+
+    // Si no tiene ruta configurada, retornamos los centros de trabajo por defecto
+    const defaultWorkCenters = [
+      { id: 'WC-PAST', name: 'Pasteurización', desc: 'Pasteurizar y enfriar la leche', duration: 45, fields: [
+        { label: 'Temperatura Pasteurización', name: 'temp_pasteurizacion', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Pasteurización', name: 'ph_pasteurizacion', type: 'number', required: true },
+        { label: 'Temperatura Enfriamiento', name: 'temp_enfriamiento', type: 'number', required: true, suffix: '°C' },
+      ]},
+      { id: 'WC-CUAJ', name: 'Cuajado', desc: 'Agregar cultivo, cuajo y reposo', duration: 40, fields: [
+        { label: 'Lote de Cultivo', name: 'lote_cultivo', type: 'text', required: true },
+        { label: 'Dosis de Cultivo', name: 'dosis_cultivo', type: 'number', required: true, suffix: 'g/L' },
+        { label: 'Lote de Cuajo', name: 'lote_cuajo', type: 'text', required: true },
+        { label: 'Dosis de Cuajo', name: 'dosis_cuajo', type: 'number', required: true, suffix: 'mL/L' },
+        { label: 'Temperatura Cuajado', name: 'temp_cuajado', type: 'number', required: true, suffix: '°C' },
+        { label: 'Tiempo de Reposo', name: 'tiempo_reposo', type: 'number', required: true, suffix: 'min' },
+      ]},
+      { id: 'WC-CORTE', name: 'Corte de Cuajada', desc: 'Corte y agitación de la cuajada', duration: 15, fields: [
+        { label: 'Tamaño de Grano', name: 'tamano_grano', type: 'text', required: true, suffix: 'mm' },
+        { label: 'Tiempo de Agitación', name: 'tiempo_agitacion', type: 'number', required: true, suffix: 'min' },
+        { label: 'Velocidad de Agitación', name: 'velocidad_agitacion', type: 'number', required: true, suffix: 'RPM' },
+      ]},
+      { id: 'WC-COCC', name: 'Cocción', desc: 'Cocción controlada de la mezcla', duration: 30, fields: [
+        { label: 'Temperatura Cocción', name: 'temp_coccion', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Final Cocción', name: 'ph_coccion', type: 'number', required: true },
+      ]},
+      { id: 'WC-DESU', name: 'Desuerado', desc: 'Separación del suero de la leche', duration: 20, fields: [
+        { label: 'Volumen Suero Obtenido', name: 'volumen_suero', type: 'number', required: true, suffix: 'L' },
+        { label: 'pH Suero', name: 'ph_suero', type: 'number', required: true },
+      ]},
+      { id: 'WC-MOLD', name: 'Moldeado', desc: 'Llenado de moldes con cuajada', duration: 25, fields: [
+        { label: 'Cantidad de Moldes Llenados', name: 'cantidad_moldes', type: 'number', required: true, suffix: 'uds' },
+        { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
+      ]},
+      { id: 'WC-PREN', name: 'Prensado', desc: 'Aplicar presión para compactar', duration: 120, fields: [
+        { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
+        { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
+      ]},
+      { id: 'WC-SALA', name: 'Salado', desc: 'Inmersión en tina de salmuera', duration: 60, fields: [
+        { label: 'Concentración Salmuera', name: 'concentracion_salmuera', type: 'number', required: true, suffix: '% o °Baumé' },
+        { label: 'Temperatura Salmuera', name: 'temp_salmuera', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Salmuera', name: 'ph_salmuera', type: 'number', required: true },
+      ]},
+      { id: 'WC-MADU', name: 'Maduración', desc: 'Control de temperatura y humedad en cámara', duration: 1440, fields: [
+        { label: 'Temperatura Cámara', name: 'temp_camara', type: 'number', required: true, suffix: '°C' },
+        { label: 'Humedad Relativa', name: 'humedad_relativa', type: 'number', required: true, suffix: '%' },
+        { label: 'Tiempo Maduración Planificado', name: 'tiempo_maduracion_dias', type: 'number', required: true, suffix: 'días' },
+      ]},
+      { id: 'WC-EMPA', name: 'Empaque', desc: 'Empaque, etiquetado y pesaje de quesos', duration: 30, fields: [
+        { label: 'Unidades Empacadas', name: 'unidades_empacadas', type: 'number', required: true, suffix: 'uds' },
+        { label: 'Lote Bolsa/Empaque', name: 'lote_empaque', type: 'text', required: true },
+        { label: 'Peso Neto Total', name: 'peso_neto_total', type: 'number', required: true, suffix: 'kg' },
+      ]},
+      { id: 'WC-CFRI', name: 'Cámara Fría', desc: 'Almacenamiento y despacho del producto terminado', duration: 60, fields: [
+        { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
+        { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
+        { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
+      ]},
+    ];
+
+    return defaultWorkCenters.map((wc, idx) => ({
+      productoId,
+      workCenter: wc.id,
+      orden: idx + 1,
+      duracionEstimada: wc.duration,
+      datosRequeridos: JSON.stringify(wc.fields),
+    }));
+  }
+
+  @Post('bill-of-operations/:productoId')
+  async saveBillOfOperations(
+    @Param('productoId') productoId: string,
+    @Body() body: { operations: any[] },
+    @Request() req: any,
+  ) {
+    const { operations } = body;
+
+    // Primero limpiamos las existentes
+    await this.prisma.billOfOperations.deleteMany({
+      where: { productoId },
+    });
+
+    // Guardamos la nueva configuración
+    const saved: any[] = [];
+    for (const op of operations) {
+      const created = await this.prisma.billOfOperations.create({
+        data: {
+          productoId,
+          workCenter: op.workCenter,
+          orden: parseInt(op.orden),
+          duracionEstimada: parseInt(op.duracionEstimada),
+          datosRequeridos: typeof op.datosRequeridos === 'string' 
+            ? op.datosRequeridos 
+            : JSON.stringify(op.datosRequeridos),
+        },
+      });
+      saved.push(created);
+    }
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'GUARDAR_BILL_OF_OPERATIONS',
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ productoId, count: saved.length }),
+      },
+    });
+
+    return saved;
+  }
+
+  @Delete('bill-of-operations/:productoId')
+  async deleteBillOfOperations(
+    @Param('productoId') productoId: string,
+    @Request() req: any,
+  ) {
+    const deleted = await this.prisma.billOfOperations.deleteMany({
+      where: { productoId },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'RESTAURAR_BILL_OF_OPERATIONS',
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ productoId }),
+      },
+    });
+
+    return deleted;
+  }
+
+  private async inicializarOperaciones(ordenId: string, productoId: string) {
+    const customBoo = await this.prisma.billOfOperations.findMany({
+      where: { productoId },
+      orderBy: { orden: 'asc' },
+    });
+
+    const defaultWorkCenters = [
+      { id: 'WC-PAST', fields: [
+        { label: 'Temperatura Pasteurización', name: 'temp_pasteurizacion', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Pasteurización', name: 'ph_pasteurizacion', type: 'number', required: true },
+        { label: 'Temperatura Enfriamiento', name: 'temp_enfriamiento', type: 'number', required: true, suffix: '°C' },
+      ]},
+      { id: 'WC-CUAJ', fields: [
+        { label: 'Lote de Cultivo', name: 'lote_cultivo', type: 'text', required: true },
+        { label: 'Dosis de Cultivo', name: 'dosis_cultivo', type: 'number', required: true, suffix: 'g/L' },
+        { label: 'Lote de Cuajo', name: 'lote_cuajo', type: 'text', required: true },
+        { label: 'Dosis de Cuajo', name: 'dosis_cuajo', type: 'number', required: true, suffix: 'mL/L' },
+        { label: 'Temperatura Cuajado', name: 'temp_cuajado', type: 'number', required: true, suffix: '°C' },
+        { label: 'Tiempo de Reposo', name: 'tiempo_reposo', type: 'number', required: true, suffix: 'min' },
+      ]},
+      { id: 'WC-CORTE', fields: [
+        { label: 'Tamaño de Grano', name: 'tamano_grano', type: 'text', required: true, suffix: 'mm' },
+        { label: 'Tiempo de Agitación', name: 'tiempo_agitacion', type: 'number', required: true, suffix: 'min' },
+        { label: 'Velocidad de Agitación', name: 'velocidad_agitacion', type: 'number', required: true, suffix: 'RPM' },
+      ]},
+      { id: 'WC-COCC', fields: [
+        { label: 'Temperatura Cocción', name: 'temp_coccion', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Final Cocción', name: 'ph_coccion', type: 'number', required: true },
+      ]},
+      { id: 'WC-DESU', fields: [
+        { label: 'Volumen Suero Obtenido', name: 'volumen_suero', type: 'number', required: true, suffix: 'L' },
+        { label: 'pH Suero', name: 'ph_suero', type: 'number', required: true },
+      ]},
+      { id: 'WC-MOLD', fields: [
+        { label: 'Cantidad de Moldes Llenados', name: 'cantidad_moldes', type: 'number', required: true, suffix: 'uds' },
+        { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
+      ]},
+      { id: 'WC-PREN', fields: [
+        { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
+        { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
+      ]},
+      { id: 'WC-SALA', fields: [
+        { label: 'Concentración Salmuera', name: 'concentracion_salmuera', type: 'number', required: true, suffix: '% o °Baumé' },
+        { label: 'Temperatura Salmuera', name: 'temp_salmuera', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Salmuera', name: 'ph_salmuera', type: 'number', required: true },
+      ]},
+      { id: 'WC-MADU', fields: [
+        { label: 'Temperatura Cámara', name: 'temp_camara', type: 'number', required: true, suffix: '°C' },
+        { label: 'Humedad Relativa', name: 'humedad_relativa', type: 'number', required: true, suffix: '%' },
+        { label: 'Tiempo Maduración Planificado', name: 'tiempo_maduracion_dias', type: 'number', required: true, suffix: 'días' },
+      ]},
+      { id: 'WC-EMPA', fields: [
+        { label: 'Unidades Empacadas', name: 'unidades_empacadas', type: 'number', required: true, suffix: 'uds' },
+        { label: 'Lote Bolsa/Empaque', name: 'lote_empaque', type: 'text', required: true },
+        { label: 'Peso Neto Total', name: 'peso_neto_total', type: 'number', required: true, suffix: 'kg' },
+      ]},
+      { id: 'WC-CFRI', fields: [
+        { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
+        { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
+        { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
+      ]},
+    ];
+
+    if (customBoo.length > 0) {
+      for (const step of customBoo) {
+        await this.prisma.ordenProduccionOperacion.upsert({
+          where: {
+            ordenProduccionId_workCenter: {
+              ordenProduccionId: ordenId,
+              workCenter: step.workCenter,
+            },
+          },
+          create: {
+            ordenProduccionId: ordenId,
+            workCenter: step.workCenter,
+            estado: 'PENDIENTE',
+            datosRequeridos: step.datosRequeridos,
+          },
+          update: {},
+        });
+      }
+    } else {
+      for (const wc of defaultWorkCenters) {
+        await this.prisma.ordenProduccionOperacion.upsert({
+          where: {
+            ordenProduccionId_workCenter: {
+              ordenProduccionId: ordenId,
+              workCenter: wc.id,
+            },
+          },
+          create: {
+            ordenProduccionId: ordenId,
+            workCenter: wc.id,
+            estado: 'PENDIENTE',
+            datosRequeridos: JSON.stringify(wc.fields),
+          },
+          update: {},
+        });
+      }
+    }
   }
 }

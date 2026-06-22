@@ -132,6 +132,7 @@ export default function RutaOperaciones() {
   const [selectedOrden, setSelectedOrden] = useState<any>(null);
   const [currentWcId, setCurrentWcId] = useState<string>('');
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [currentFields, setCurrentFields] = useState<any[]>([]);
   
   // Modal de Historial de Ruta
   const [openHistorial, setOpenHistorial] = useState(false);
@@ -175,23 +176,17 @@ export default function RutaOperaciones() {
       if (inProgress) {
         activeWc = inProgress.workCenter;
       } else {
-        for (let i = 0; i < WORK_CENTERS.length; i++) {
-          const currentWc = WORK_CENTERS[i].id;
-          const op = orden.operaciones.find((o: any) => o.workCenter === currentWc);
-          const opEstado = op ? op.estado : 'PENDIENTE';
+        // Ordenar las operaciones de la orden según la secuencia global en WORK_CENTERS
+        const orderOps = [...orden.operaciones].sort((a, b) => {
+          const indexA = WORK_CENTERS.findIndex(w => w.id === a.workCenter);
+          const indexB = WORK_CENTERS.findIndex(w => w.id === b.workCenter);
+          return indexA - indexB;
+        });
 
-          if (opEstado === 'PENDIENTE') {
-            if (i === 0) {
-              activeWc = currentWc;
-            } else {
-              const prevWc = WORK_CENTERS[i - 1].id;
-              const prevOp = orden.operaciones.find((o: any) => o.workCenter === prevWc);
-              if (prevOp && prevOp.estado === 'COMPLETADA') {
-                activeWc = currentWc;
-              }
-            }
-            break;
-          }
+        // El primer paso que sigue PENDIENTE es el activo
+        const nextOp = orderOps.find((op: any) => op.estado === 'PENDIENTE');
+        if (nextOp) {
+          activeWc = nextOp.workCenter;
         }
       }
     }
@@ -230,12 +225,24 @@ export default function RutaOperaciones() {
       elapsedSeconds = Math.round((new Date().getTime() - new Date(operacion.fechaInicio).getTime()) / 1000);
     }
 
+    // Obtener campos requeridos dinámicos o por defecto
+    let fields = WORK_CENTER_FIELDS[wcId] || [];
+    if (operacion && operacion.datosRequeridos) {
+      try {
+        fields = typeof operacion.datosRequeridos === 'string'
+          ? JSON.parse(operacion.datosRequeridos)
+          : operacion.datosRequeridos;
+      } catch (e) {
+        console.error('Error parsing custom fields:', e);
+      }
+    }
+    setCurrentFields(fields);
+
     // Inicializar inputs
     const initialData: Record<string, string> = {};
-    const fields = WORK_CENTER_FIELDS[wcId] || [];
-    fields.forEach((f) => {
-      const nameLower = f.name.toLowerCase();
-      const labelLower = f.label.toLowerCase();
+    fields.forEach((f: any) => {
+      const nameLower = (f.name || '').toLowerCase();
+      const labelLower = (f.label || '').toLowerCase();
       const isDurationField = nameLower.startsWith('tiempo_') || 
                               nameLower.includes('duracion') || 
                               labelLower.includes('tiempo') || 
@@ -765,7 +772,7 @@ export default function RutaOperaciones() {
               gap: 2,
             }}
           >
-            {(WORK_CENTER_FIELDS[currentWcId] || []).map((field) => (
+            {currentFields.map((field) => (
               <Box key={field.name}>
                 <TextField
                   fullWidth

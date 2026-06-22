@@ -43,8 +43,24 @@ import {
   Scale,
   Warehouse,
   Edit,
+  ArrowUpward,
+  ArrowDownward,
+  RestartAlt,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
+const WORK_CENTERS_LIST = [
+  { id: 'WC-PAST', name: 'Pasteurización' },
+  { id: 'WC-CUAJ', name: 'Cuajado' },
+  { id: 'WC-CORTE', name: 'Corte de Cuajada' },
+  { id: 'WC-COCC', name: 'Cocción' },
+  { id: 'WC-DESU', name: 'Desuerado' },
+  { id: 'WC-MOLD', name: 'Moldeado' },
+  { id: 'WC-PREN', name: 'Prensado' },
+  { id: 'WC-SALA', name: 'Salado' },
+  { id: 'WC-MADU', name: 'Maduración' },
+  { id: 'WC-EMPA', name: 'Empaque' },
+  { id: 'WC-CFRI', name: 'Cámara Fría' },
+];
 
 export default function Produccion() {
   const usuario = useAuthStore((state) => state.usuario);
@@ -160,6 +176,143 @@ export default function Produccion() {
   // Feedback
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Bill of Operations states
+  const [openBoo, setOpenBoo] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [booOperations, setBooOperations] = useState<any[]>([]);
+
+  const handleConfigurarBoo = async (producto: any) => {
+    try {
+      setErrorMsg(null);
+      setSelectedProduct(producto);
+      const res = await apiFetch(`/produccion/bill-of-operations/${producto.id}`);
+      const parsed = res.map((op: any) => ({
+        ...op,
+        datosRequeridos: typeof op.datosRequeridos === 'string'
+          ? JSON.parse(op.datosRequeridos)
+          : op.datosRequeridos || [],
+      }));
+      parsed.sort((a: any, b: any) => a.orden - b.orden);
+      setBooOperations(parsed);
+      setOpenBoo(true);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al obtener la hoja de ruta.');
+    }
+  };
+
+  const handleGuardarBoo = async () => {
+    try {
+      setErrorMsg(null);
+      const payload = {
+        operations: booOperations.map((op, idx) => ({
+          workCenter: op.workCenter,
+          orden: idx + 1,
+          duracionEstimada: parseInt(op.duracionEstimada) || 30,
+          datosRequeridos: op.datosRequeridos,
+        })),
+      };
+
+      await apiFetch(`/produccion/bill-of-operations/${selectedProduct.id}`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setSuccessMsg(`Hoja de Ruta (BOO) guardada con éxito para ${selectedProduct.descripcion}.`);
+      setOpenBoo(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al guardar la hoja de ruta.');
+    }
+  };
+
+  const handleRestaurarDefectoBoo = async () => {
+    if (!window.confirm('¿Está seguro de restaurar los valores por defecto para este producto? Se eliminará la configuración personalizada.')) return;
+    try {
+      setErrorMsg(null);
+      await apiFetch(`/produccion/bill-of-operations/${selectedProduct.id}`, {
+        method: 'DELETE',
+      });
+      setSuccessMsg(`Hoja de Ruta restablecida a los valores por defecto.`);
+      setOpenBoo(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al restaurar la hoja de ruta.');
+    }
+  };
+
+  const handleAddBooStep = () => {
+    const nextOrder = booOperations.length + 1;
+    setBooOperations([
+      ...booOperations,
+      {
+        workCenter: 'WC-PAST',
+        orden: nextOrder,
+        duracionEstimada: 30,
+        datosRequeridos: [],
+      },
+    ]);
+  };
+
+  const handleRemoveBooStep = (index: number) => {
+    const updated = [...booOperations];
+    updated.splice(index, 1);
+    const reordered = updated.map((op, idx) => ({ ...op, orden: idx + 1 }));
+    setBooOperations(reordered);
+  };
+
+  const handleMoveStep = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === booOperations.length - 1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const updated = [...booOperations];
+    
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+
+    const reordered = updated.map((op, idx) => ({ ...op, orden: idx + 1 }));
+    setBooOperations(reordered);
+  };
+
+  const handleStepChange = (index: number, field: string, value: any) => {
+    const updated = [...booOperations];
+    updated[index] = {
+      ...updated[index],
+      [field]: value,
+    };
+    setBooOperations(updated);
+  };
+
+  const handleAddBooParam = (stepIndex: number) => {
+    const updated = [...booOperations];
+    const params = updated[stepIndex].datosRequeridos || [];
+    updated[stepIndex].datosRequeridos = [
+      ...params,
+      { label: 'Nuevo Parámetro', name: 'nuevo_parametro', type: 'number', required: true },
+    ];
+    setBooOperations(updated);
+  };
+
+  const handleRemoveBooParam = (stepIndex: number, paramIndex: number) => {
+    const updated = [...booOperations];
+    const params = [...(updated[stepIndex].datosRequeridos || [])];
+    params.splice(paramIndex, 1);
+    updated[stepIndex].datosRequeridos = params;
+    setBooOperations(updated);
+  };
+
+  const handleParamChange = (stepIndex: number, paramIndex: number, field: string, value: any) => {
+    const updated = [...booOperations];
+    const params = [...(updated[stepIndex].datosRequeridos || [])];
+    params[paramIndex] = {
+      ...params[paramIndex],
+      [field]: value,
+    };
+    updated[stepIndex].datosRequeridos = params;
+    setBooOperations(updated);
+  };
 
   useEffect(() => {
     cargarDatos();
@@ -698,9 +851,12 @@ export default function Produccion() {
                       </Typography>
                     </Box>
                   </CardContent>
-                  <CardActions sx={{ justifyContent: 'flex-end', p: 2, pt: 0 }}>
+                  <CardActions sx={{ justifyContent: 'flex-end', p: 2, pt: 0, gap: 1 }}>
                     {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                       <>
+                        <Button size="small" variant="outlined" color="primary" onClick={() => handleConfigurarBoo(r.productoFinal)}>
+                          Ruta (BOO)
+                        </Button>
                         <Button size="small" variant="outlined" onClick={() => handleEditarReceta(r)}>
                           Editar
                         </Button>
@@ -1598,6 +1754,227 @@ export default function Produccion() {
           <Button onClick={handleGuardarEditarOrden} variant="contained" color="primary">
             Guardar Cambios
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal para configurar la Hoja de Ruta (Bill of Operations) */}
+      <Dialog
+        open={openBoo}
+        onClose={() => setOpenBoo(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+            maxHeight: '90vh',
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Configurar Hoja de Ruta (BOO)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Producto: {selectedProduct?.descripcion} ({selectedProduct?.sku})
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setOpenBoo(false)} size="small">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {booOperations.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 2 }}>
+              <Typography color="text.secondary">
+                No hay operaciones configuradas para esta ruta. Agregue un paso para comenzar o guarde para usar el flujo estándar.
+              </Typography>
+            </Paper>
+          ) : (
+            booOperations.map((op, idx) => (
+              <Paper
+                key={idx}
+                sx={{
+                  p: 2.5,
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderRadius: 2,
+                  position: 'relative',
+                }}
+              >
+                {/* Header del paso */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Chip label={`Paso ${idx + 1}`} color="primary" size="small" sx={{ fontWeight: 700 }} />
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>Centro de Trabajo</InputLabel>
+                      <Select
+                        value={op.workCenter}
+                        label="Centro de Trabajo"
+                        onChange={(e) => handleStepChange(idx, 'workCenter', e.target.value)}
+                      >
+                        {WORK_CENTERS_LIST.map((wc) => (
+                          <MenuItem key={wc.id} value={wc.id}>
+                            {wc.name} ({wc.id})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      label="Duración (min)"
+                      type="number"
+                      value={op.duracionEstimada}
+                      onChange={(e) => handleStepChange(idx, 'duracionEstimada', e.target.value)}
+                      sx={{ width: 110 }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveStep(idx, 'up')}
+                      disabled={idx === 0}
+                      color="inherit"
+                    >
+                      <ArrowUpward fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleMoveStep(idx, 'down')}
+                      disabled={idx === booOperations.length - 1}
+                      color="inherit"
+                    >
+                      <ArrowDownward fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveBooStep(idx)}
+                      color="error"
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 1.5, borderColor: 'rgba(255,255,255,0.06)' }} />
+
+                {/* Subsección Parámetros */}
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.light' }}>
+                      Campos de Control Requeridos
+                    </Typography>
+                    <Button
+                      size="small"
+                      startIcon={<Add />}
+                      onClick={() => handleAddBooParam(idx)}
+                      sx={{ fontSize: '0.75rem', py: 0.25 }}
+                    >
+                      Agregar Campo
+                    </Button>
+                  </Box>
+
+                  {(!op.datosRequeridos || op.datosRequeridos.length === 0) ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 1 }}>
+                      Sin parámetros de control requeridos para este paso.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {op.datosRequeridos.map((param: any, pIdx: number) => (
+                        <Box
+                          key={pIdx}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            flexWrap: 'wrap',
+                            p: 1.5,
+                            borderRadius: 1,
+                            backgroundColor: 'rgba(0,0,0,0.2)',
+                          }}
+                        >
+                          <TextField
+                            size="small"
+                            label="Etiqueta (Label)"
+                            value={param.label || ''}
+                            onChange={(e) => handleParamChange(idx, pIdx, 'label', e.target.value)}
+                            sx={{ flexGrow: 1, minWidth: 150 }}
+                          />
+                          <TextField
+                            size="small"
+                            label="Nombre Campo (ID)"
+                            value={param.name || ''}
+                            onChange={(e) => handleParamChange(idx, pIdx, 'name', e.target.value)}
+                            sx={{ width: 150 }}
+                          />
+                          <FormControl size="small" sx={{ width: 120 }}>
+                            <InputLabel>Tipo</InputLabel>
+                            <Select
+                              value={param.type || 'number'}
+                              label="Tipo"
+                              onChange={(e) => handleParamChange(idx, pIdx, 'type', e.target.value)}
+                            >
+                              <MenuItem value="number">Número</MenuItem>
+                              <MenuItem value="text">Texto</MenuItem>
+                              <MenuItem value="date">Fecha</MenuItem>
+                            </Select>
+                          </FormControl>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox
+                              checked={!!param.required}
+                              onChange={(e) => handleParamChange(idx, pIdx, 'required', e.target.checked)}
+                            />
+                            <Typography variant="caption">Obligatorio</Typography>
+                          </Box>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveBooParam(idx, pIdx)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              </Paper>
+            ))
+          )}
+
+          <Button
+            variant="outlined"
+            startIcon={<Add />}
+            onClick={handleAddBooStep}
+            fullWidth
+            sx={{ borderStyle: 'dashed', py: 1.5, borderRadius: 2 }}
+          >
+            Agregar Centro de Trabajo / Paso
+          </Button>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2.5, justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<RestartAlt />}
+            onClick={handleRestaurarDefectoBoo}
+          >
+            Restaurar Defecto
+          </Button>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button variant="outlined" onClick={() => setOpenBoo(false)}>
+              Cancelar
+            </Button>
+            <Button variant="contained" color="success" onClick={handleGuardarBoo} sx={{ fontWeight: 700 }}>
+              Guardar Hoja de Ruta
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>
