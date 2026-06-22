@@ -18,6 +18,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  LinearProgress,
 } from '@mui/material';
 import {
   PlayArrow,
@@ -105,6 +106,20 @@ const WORK_CENTER_FIELDS: Record<
   ],
 };
 
+const EXPECTED_DURATIONS: Record<string, number> = {
+  'WC-PAST': 45,   // 45 min
+  'WC-CUAJ': 40,   // 40 min
+  'WC-CORTE': 15,  // 15 min
+  'WC-COCC': 30,   // 30 min
+  'WC-DESU': 20,   // 20 min
+  'WC-MOLD': 25,   // 25 min
+  'WC-PREN': 120,  // 2 horas (120 min)
+  'WC-SALA': 60,   // 1 hora (60 min)
+  'WC-MADU': 1440, // 24 horas (1440 min)
+  'WC-EMPA': 30,   // 30 min
+  'WC-CFRI': 60,   // 1 hora (60 min)
+};
+
 export default function RutaOperaciones() {
   const [activeTab, setActiveTab] = useState(0);
   const [ordenes, setOrdenes] = useState<any[]>([]);
@@ -122,8 +137,14 @@ export default function RutaOperaciones() {
   const [cantidadProducida, setCantidadProducida] = useState('');
   const [loteNumero, setLoteNumero] = useState('');
 
+  const [now, setNow] = useState(new Date());
+
   useEffect(() => {
     cargarOrdenes();
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   const cargarOrdenes = async () => {
@@ -186,11 +207,35 @@ export default function RutaOperaciones() {
     setSelectedOrden(orden);
     setCurrentWcId(wcId);
     
-    // Inicializar inputs vacíos
+    // Calcular tiempo transcurrido en segundos
+    const operacion = orden.operaciones.find((o: any) => o.workCenter === wcId);
+    let elapsedSeconds = 0;
+    if (operacion && operacion.fechaInicio) {
+      elapsedSeconds = Math.round((new Date().getTime() - new Date(operacion.fechaInicio).getTime()) / 1000);
+    }
+
+    // Inicializar inputs
     const initialData: Record<string, string> = {};
     const fields = WORK_CENTER_FIELDS[wcId] || [];
     fields.forEach((f) => {
-      initialData[f.name] = '';
+      const nameLower = f.name.toLowerCase();
+      const labelLower = f.label.toLowerCase();
+      const isDurationField = nameLower.startsWith('tiempo_') || 
+                              nameLower.includes('duracion') || 
+                              labelLower.includes('tiempo') || 
+                              labelLower.includes('duración');
+
+      if (isDurationField) {
+        if (f.suffix === 'min') {
+          initialData[f.name] = Math.round(elapsedSeconds / 60).toString();
+        } else if (f.suffix === 'horas') {
+          initialData[f.name] = (elapsedSeconds / 3600).toFixed(1);
+        } else {
+          initialData[f.name] = elapsedSeconds.toString();
+        }
+      } else {
+        initialData[f.name] = '';
+      }
     });
     setFormData(initialData);
 
@@ -517,30 +562,82 @@ export default function RutaOperaciones() {
                           </Box>
                         </Box>
 
-                        {isStarted && operacion.fechaInicio && (
-                          <Box
-                            sx={{
-                              p: 1.5,
-                              mb: 2,
-                              borderRadius: 2,
-                              backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                              border: '1px solid rgba(16, 185, 129, 0.15)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 1,
-                            }}
-                          >
-                            <Timer sx={{ color: 'success.main', fontSize: 18 }} />
-                            <Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                Iniciado el:
-                              </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.light' }}>
-                                {dayjs(operacion.fechaInicio).format('DD/MM HH:mm:ss')}
-                              </Typography>
+                        {isStarted && operacion.fechaInicio && (() => {
+                          const elapsedMinutes = Math.max(
+                            0,
+                            (now.getTime() - new Date(operacion.fechaInicio).getTime()) / 60000
+                          );
+                          const expectedMin = EXPECTED_DURATIONS[targetWc] || 30;
+                          const progressPercent = Math.min(100, (elapsedMinutes / expectedMin) * 100);
+                          const isOvertime = elapsedMinutes > expectedMin;
+
+                          // Formatear transcurrido
+                          let timeDisplay = `${Math.round(elapsedMinutes)} min`;
+                          if (elapsedMinutes >= 60) {
+                            const hrs = Math.floor(elapsedMinutes / 60);
+                            const mins = Math.round(elapsedMinutes % 60);
+                            timeDisplay = `${hrs}h ${mins}m`;
+                          }
+
+                          return (
+                            <Box sx={{ mb: 2 }}>
+                              <Box
+                                sx={{
+                                  p: 1.5,
+                                  borderRadius: 2,
+                                  backgroundColor: isOvertime
+                                    ? 'rgba(239, 68, 68, 0.05)'
+                                    : 'rgba(16, 185, 129, 0.05)',
+                                  border: '1px solid',
+                                  borderColor: isOvertime
+                                    ? 'rgba(239, 68, 68, 0.2)'
+                                    : 'rgba(16, 185, 129, 0.15)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  mb: 1,
+                                }}
+                              >
+                                <Timer sx={{ color: isOvertime ? 'error.main' : 'success.main', fontSize: 18 }} />
+                                <Box sx={{ flex: 1 }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Iniciado el:
+                                    </Typography>
+                                    {isOvertime && (
+                                      <Chip
+                                        label="Excedido"
+                                        size="small"
+                                        color="error"
+                                        sx={{ height: 16, fontSize: '0.65rem', fontWeight: 800 }}
+                                      />
+                                    )}
+                                  </Box>
+                                  <Typography variant="body2" sx={{ fontWeight: 700, color: isOvertime ? 'error.light' : 'success.light' }}>
+                                    {dayjs(operacion.fechaInicio).format('DD/MM HH:mm:ss')}
+                                  </Typography>
+                                </Box>
+                              </Box>
+
+                              <Box sx={{ px: 0.5 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Transcurrido: <span style={{ fontWeight: 700, color: '#fff' }}>{timeDisplay}</span>
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Meta: {expectedMin >= 60 ? `${(expectedMin / 60).toFixed(1)}h` : `${expectedMin}m`}
+                                  </Typography>
+                                </Box>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={progressPercent}
+                                  color={isOvertime ? 'error' : 'success'}
+                                  sx={{ height: 6, borderRadius: 3 }}
+                                />
+                              </Box>
                             </Box>
-                          </Box>
-                        )}
+                          );
+                        })()}
 
                         {/* Historial de pasos completados */}
                         {completedSteps.length > 0 && (
