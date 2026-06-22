@@ -13,7 +13,7 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 6. [Ciclo de Cuentas por Pagar (Procure-to-Pay)](#6-ciclo-de-cuentas-por-pagar-procure-to-pay)
 7. [Historial y Reporte de Ventas](#7-historial-y-reporte-de-ventas)
 8. [Asistente Inteligente ERP AI](#8-asistente-inteligente-erp-ai)
-9. [Módulo de Producción Láctea](#9-módulo-de-producción-láctea)
+9. [Módulo de Producción Láctea, Planificación y Ruta de Operaciones](#9-módulo-de-producción-láctea)
 10. [Módulo de Control de Calidad y Cumplimiento](#10-módulo-de-control-de-calidad-y-cumplimiento)
 11. [Chat Operativo](#11-chat-operativo)
 12. [Administración de Personal y Auditoría](#12-administración-de-personal-y-auditoría)
@@ -152,7 +152,23 @@ El módulo de **Producción Láctea** permite digitalizar el ciclo de manufactur
     *   **Historial de Mermas**: Tabla de auditoría con la fecha, el producto afectado, el tipo de merma, la cantidad, el motivo y el usuario responsable.
     *   **Registro Manual**: Permite declarar mermas puntuales seleccionando un producto, el motivo (ej. *EVAPORACION*, *DERRAME*, *MALA_CALIDAD*) y la cantidad a dar de baja directamente de una sucursal.
 
+### Planificación de la Producción
+*   **Propósito**: Calcular científicamente las necesidades de producción consolidadas en base al stock actual, pronóstico de ventas y órdenes abiertas.
+*   **Modos de Cálculo**:
+    *   **Modo Estándar**: Compara el inventario actual (físico + en tránsito de traslados + OPs abiertas) de cada sucursal contra la proyección de ventas de los últimos 30 días multiplicada por la cobertura deseada.
+    *   **Forzar Mínimo de Seguridad**: Si se activa esta opción, el sistema garantiza que la meta de inventario sea al menos el stock mínimo de seguridad definido en la ficha del producto (útil para tiendas nuevas o productos de baja rotación).
+*   **Generación de Órdenes**: Al procesar la propuesta de planificación, se consolidan las cantidades y se generan automáticamente las Órdenes de Trabajo (OP) correspondientes en la Planta Principal en estado `PLANIFICADA`.
+
+### Ruta de Operaciones (Kanban de Seguimiento en Piso)
+*   **Propósito**: Monitorear y registrar el paso de una orden de producción a través de los diferentes Centros de Trabajo (Work Centers) de la planta (Pasteurización, Cuajado, Cocción, Empaque, etc.).
+*   **Funcionalidades**:
+    *   **Tablero Kanban**: Permite gestionar y cambiar de estado las operaciones de producción a lo largo de su flujo operativo (*Pendiente*, *En Proceso*, *Pausado*, *Finalizado*).
+    *   **Parámetros de Proceso**: Exige al operador registrar parámetros obligatorios de control (ej. temperatura de pasteurización, pH, volumen de suero, cantidad de moldes, o peso neto al empacar) antes de completar cada etapa.
+    *   **Alertas de Tiempo Meta (Blinking)**: Si una operación en curso excede el tiempo meta programado para esa fase de producción, la tarjeta del Kanban parpadea en rojo para alertar visualmente al supervisor y operador en el piso.
+    *   **Finalización e Incremento de Stock**: Al terminar la última etapa en el centro de trabajo de Cámara Fría, la operación se finaliza e ingresa automáticamente el stock del producto terminado y sus lotes correspondientes.
+
 ---
+
 
 ## 10. Módulo de Control de Calidad y Cumplimiento
 
