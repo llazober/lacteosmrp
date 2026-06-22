@@ -1715,6 +1715,12 @@ export class ProduccionController {
       throw new BadRequestException('La orden de producción no existe.');
     }
 
+    if (workCenter === 'WC-PAST' && !op.pickingCompletado) {
+      throw new BadRequestException(
+        'No se puede iniciar la pasteurización (WC-PAST) si el picking de materia prima no está completado.',
+      );
+    }
+
     const workCenters = [
       'WC-PAST', 'WC-CUAJ', 'WC-CORTE', 'WC-COCC', 'WC-DESU',
       'WC-MOLD', 'WC-PREN', 'WC-SALA', 'WC-MADU', 'WC-EMPA', 'WC-CFRI'

@@ -162,30 +162,42 @@ export default function RutaOperaciones() {
   };
 
   const getActiveWorkCenter = (orden: any) => {
+    let activeWc: string | null = null;
+
     if (!orden.operaciones || orden.operaciones.length === 0) {
-      if (orden.estado === 'PLANIFICADA') return 'WC-PAST';
+      if (orden.estado === 'PLANIFICADA') activeWc = 'WC-PAST';
+    } else {
+      const inProgress = orden.operaciones.find((op: any) => op.estado === 'EN_PROCESO');
+      if (inProgress) {
+        activeWc = inProgress.workCenter;
+      } else {
+        for (let i = 0; i < WORK_CENTERS.length; i++) {
+          const currentWc = WORK_CENTERS[i].id;
+          const op = orden.operaciones.find((o: any) => o.workCenter === currentWc);
+          const opEstado = op ? op.estado : 'PENDIENTE';
+
+          if (opEstado === 'PENDIENTE') {
+            if (i === 0) {
+              activeWc = currentWc;
+            } else {
+              const prevWc = WORK_CENTERS[i - 1].id;
+              const prevOp = orden.operaciones.find((o: any) => o.workCenter === prevWc);
+              if (prevOp && prevOp.estado === 'COMPLETADA') {
+                activeWc = currentWc;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Si el work center activo es Pasteurización (WC-PAST) y el picking no está completado, ocultar de la ruta
+    if (activeWc === 'WC-PAST' && !orden.pickingCompletado) {
       return null;
     }
 
-    const inProgress = orden.operaciones.find((op: any) => op.estado === 'EN_PROCESO');
-    if (inProgress) return inProgress.workCenter;
-
-    for (let i = 0; i < WORK_CENTERS.length; i++) {
-      const currentWc = WORK_CENTERS[i].id;
-      const op = orden.operaciones.find((o: any) => o.workCenter === currentWc);
-      const opEstado = op ? op.estado : 'PENDIENTE';
-
-      if (opEstado === 'PENDIENTE') {
-        if (i === 0) return currentWc;
-        const prevWc = WORK_CENTERS[i - 1].id;
-        const prevOp = orden.operaciones.find((o: any) => o.workCenter === prevWc);
-        if (prevOp && prevOp.estado === 'COMPLETADA') {
-          return currentWc;
-        }
-        break;
-      }
-    }
-    return null;
+    return activeWc;
   };
 
   const handleComenzar = async (ordenId: string, wcId: string) => {
