@@ -513,6 +513,14 @@ export default function RutaOperaciones() {
                 const operacion = orden.operaciones.find((o: any) => o.workCenter === targetWc);
                 const isStarted = operacion?.estado === 'EN_PROCESO';
 
+                // Calcular si es horas extra (overtime)
+                let isOvertimeCard = false;
+                if (isStarted && operacion?.fechaInicio) {
+                  const elapsedMinutes = (now.getTime() - new Date(operacion.fechaInicio).getTime()) / 60000;
+                  const expectedMin = operacion.duracionEstimada || EXPECTED_DURATIONS[targetWc] || 30;
+                  isOvertimeCard = elapsedMinutes > expectedMin;
+                }
+
                 // Buscar datos de pasos anteriores para mostrar como historial
                 const completedSteps = orden.operaciones.filter((o: any) => o.estado === 'COMPLETADA');
 
@@ -523,23 +531,36 @@ export default function RutaOperaciones() {
                         backgroundColor: '#111827',
                         borderRadius: 3,
                         border: '1px solid',
-                        borderColor: isStarted ? 'primary.main' : 'rgba(255, 255, 255, 0.08)',
-                        boxShadow: isStarted ? '0 0 15px rgba(2, 132, 199, 0.15)' : 'none',
+                        borderColor: isOvertimeCard 
+                          ? 'error.main' 
+                          : (isStarted ? 'primary.main' : 'rgba(255, 255, 255, 0.08)'),
+                        boxShadow: isOvertimeCard
+                          ? '0 0 15px rgba(239, 68, 68, 0.25)'
+                          : (isStarted ? '0 0 15px rgba(2, 132, 199, 0.15)' : 'none'),
                         transition: 'all 0.3s ease',
                         position: 'relative',
                         overflow: 'hidden',
                         '&:hover': {
                           transform: 'translateY(-4px)',
-                          boxShadow: isStarted
-                            ? '0 6px 20px rgba(2, 132, 199, 0.25)'
-                            : '0 4px 15px rgba(0, 0, 0, 0.4)',
+                          boxShadow: isOvertimeCard
+                            ? '0 6px 20px rgba(239, 68, 68, 0.4)'
+                            : (isStarted
+                              ? '0 6px 20px rgba(2, 132, 199, 0.25)'
+                              : '0 4px 15px rgba(0, 0, 0, 0.4)'),
                         },
                         ...(isStarted && {
-                          animation: 'pulseGreen 2s infinite ease-in-out',
+                          animation: isOvertimeCard 
+                            ? 'pulseRed 1s infinite ease-in-out' 
+                            : 'pulseGreen 2s infinite ease-in-out',
                           '@keyframes pulseGreen': {
                             '0%': { borderColor: 'rgba(2, 132, 199, 0.5)' },
                             '50%': { borderColor: 'rgba(16, 185, 129, 0.9)' },
                             '100%': { borderColor: 'rgba(2, 132, 199, 0.5)' },
+                          },
+                          '@keyframes pulseRed': {
+                            '0%': { borderColor: 'rgba(239, 68, 68, 0.4)', boxShadow: '0 0 5px rgba(239, 68, 68, 0.2)' },
+                            '50%': { borderColor: 'rgba(239, 68, 68, 1)', boxShadow: '0 0 20px rgba(239, 68, 68, 0.5)' },
+                            '100%': { borderColor: 'rgba(239, 68, 68, 0.4)', boxShadow: '0 0 5px rgba(239, 68, 68, 0.2)' },
                           },
                         }),
                       }}
@@ -590,7 +611,7 @@ export default function RutaOperaciones() {
                             0,
                             (now.getTime() - new Date(operacion.fechaInicio).getTime()) / 60000
                           );
-                          const expectedMin = EXPECTED_DURATIONS[targetWc] || 30;
+                          const expectedMin = operacion.duracionEstimada || EXPECTED_DURATIONS[targetWc] || 30;
                           const progressPercent = Math.min(100, (elapsedMinutes / expectedMin) * 100);
                           const isOvertime = elapsedMinutes > expectedMin;
 

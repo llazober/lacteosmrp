@@ -2293,6 +2293,20 @@ export class ProduccionController {
       ]},
     ];
 
+    const defaultDurations: Record<string, number> = {
+      'WC-PAST': 30,
+      'WC-CUAJ': 45,
+      'WC-CORTE': 10,
+      'WC-COCC': 20,
+      'WC-DESU': 15,
+      'WC-MOLD': 15,
+      'WC-PREN': 120,
+      'WC-SALA': 60,
+      'WC-MADU': 14400,
+      'WC-EMPA': 30,
+      'WC-CFRI': 60,
+    };
+
     if (customBoo.length > 0) {
       for (const step of customBoo) {
         await this.prisma.ordenProduccionOperacion.upsert({
@@ -2306,6 +2320,7 @@ export class ProduccionController {
             ordenProduccionId: ordenId,
             workCenter: step.workCenter,
             estado: 'PENDIENTE',
+            duracionEstimada: step.duracionEstimada,
             datosRequeridos: step.datosRequeridos,
           },
           update: {},
@@ -2324,6 +2339,7 @@ export class ProduccionController {
             ordenProduccionId: ordenId,
             workCenter: wc.id,
             estado: 'PENDIENTE',
+            duracionEstimada: defaultDurations[wc.id] || 30,
             datosRequeridos: JSON.stringify(wc.fields),
           },
           update: {},

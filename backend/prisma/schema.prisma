@@ -751,6 +751,7 @@ model OrdenProduccionOperacion {
   fechaInicio        DateTime?
   fechaFin           DateTime?
   duracionSegundos   Int?
+  duracionEstimada   Int             @default(30) // Duración estimada en minutos
   datosJson          String?         // JSON string containing QA parameters
   datosRequeridos    String?         // Template de campos requeridos para esta orden
   usuarioId          String?
