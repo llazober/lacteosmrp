@@ -57,8 +57,15 @@ export class AuthGuard implements CanActivate {
         requiredPermission = isRead ? 'VER_PRODUCTOS' : 'GESTIONAR_PRODUCTOS';
       else if (className === 'SucursalesController')
         requiredPermission = isRead ? 'VER_SUCURSALES' : 'GESTIONAR_SUCURSALES';
-      else if (className === 'ProduccionController')
-        requiredPermission = isRead ? 'VER_PRODUCCION' : 'GESTIONAR_PRODUCCION';
+      else if (className === 'ProduccionController') {
+        if (request.url.includes('/planificacion')) {
+          requiredPermission = isRead ? 'VER_PLANIFICACION_PRODUCCION' : 'GESTIONAR_PLANIFICACION_PRODUCCION';
+        } else if (request.url.includes('/operaciones')) {
+          requiredPermission = isRead ? 'VER_RUTA_OPERACIONES' : 'GESTIONAR_RUTA_OPERACIONES';
+        } else {
+          requiredPermission = isRead ? 'VER_PRODUCCION' : 'GESTIONAR_PRODUCCION';
+        }
+      }
       else if (className === 'PosController')
         requiredPermission = isRead ? 'VER_POS' : 'REALIZAR_VENTAS';
       else if (className === 'LotesController')
@@ -112,6 +119,10 @@ export class AuthGuard implements CanActivate {
               'GESTIONAR_LOTES',
               'VER_PRODUCCION',
               'GESTIONAR_PRODUCCION',
+              'VER_PLANIFICACION_PRODUCCION',
+              'GESTIONAR_PLANIFICACION_PRODUCCION',
+              'VER_RUTA_OPERACIONES',
+              'GESTIONAR_RUTA_OPERACIONES',
               'VER_COMPRAS',
               'GESTIONAR_COMPRAS',
               'VER_CHAT',

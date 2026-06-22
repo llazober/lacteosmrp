@@ -195,8 +195,8 @@ function MainLayout() {
     { text: 'Trazabilidad de Lotes', icon: <TrazabilidadIcon />, path: '/trazabilidad', roles: [], permission: 'VER_TRAZABILIDAD' },
     { text: 'Inventarios', icon: <InventarioIcon />, path: '/inventario', roles: [], permission: 'VER_INVENTARIO' },
     { text: 'Producción', icon: <ProduccionIcon />, path: '/produccion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PRODUCCION' },
-    { text: 'Planificación de Producción', icon: <PlanificacionIcon />, path: '/produccion/planificacion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PRODUCCION' },
-    { text: 'Ruta de Operaciones', icon: <RutaIcon />, path: '/produccion/operaciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PRODUCCION' },
+    { text: 'Planificación de Producción', icon: <PlanificacionIcon />, path: '/produccion/planificacion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PLANIFICACION_PRODUCCION' },
+    { text: 'Ruta de Operaciones', icon: <RutaIcon />, path: '/produccion/operaciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_RUTA_OPERACIONES' },
     { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'], permission: 'VER_CALIDAD' },
     { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [], permission: 'VER_COMPRAS' },
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
@@ -472,19 +472,42 @@ function MainLayout() {
           <Route path="/frio" element={<Frio />} />
           <Route path="/trazabilidad" element={<Trazabilidad />} />
           <Route path="/inventario" element={<Inventario />} />
-          {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' ? (
-            <>
-              <Route path="/produccion" element={<Produccion />} />
-              <Route path="/produccion/planificacion" element={<PlanificacionProduccion />} />
-              <Route path="/produccion/operaciones" element={<RutaOperaciones />} />
-            </>
-          ) : (
-            <>
-              <Route path="/produccion" element={<Navigate to="/" />} />
-              <Route path="/produccion/planificacion" element={<Navigate to="/" />} />
-              <Route path="/produccion/operaciones" element={<Navigate to="/" />} />
-            </>
-          )}
+          <Route
+            path="/produccion"
+            element={
+              usuario?.rol === 'ADMINISTRADOR' ||
+              usuario?.rol === 'SUPERVISOR' ||
+              usuario?.permisos?.includes('VER_PRODUCCION') ? (
+                <Produccion />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route
+            path="/produccion/planificacion"
+            element={
+              usuario?.rol === 'ADMINISTRADOR' ||
+              usuario?.rol === 'SUPERVISOR' ||
+              usuario?.permisos?.includes('VER_PLANIFICACION_PRODUCCION') ? (
+                <PlanificacionProduccion />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route
+            path="/produccion/operaciones"
+            element={
+              usuario?.rol === 'ADMINISTRADOR' ||
+              usuario?.rol === 'SUPERVISOR' ||
+              usuario?.permisos?.includes('VER_RUTA_OPERACIONES') ? (
+                <RutaOperaciones />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
           {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'CALIDAD' ? (
             <Route path="/calidad" element={<Calidad />} />
           ) : (
