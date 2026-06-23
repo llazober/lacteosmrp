@@ -374,9 +374,22 @@ export default function Produccion() {
         throw new Error('El nombre, producto final y al menos un ingrediente son obligatorios.');
       }
 
+      const finalProd = productos.find((p) => p.id === productoFinalId);
+      if (finalProd && finalProd.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(cantidadEsperada) % 1 !== 0) {
+          throw new Error(`Para recetas del producto final "${finalProd.descripcion}" (Unidades), el rendimiento estimado (cantidad esperada) debe ser un número entero.`);
+        }
+      }
+
       for (const d of detalles) {
         if (!d.productoId || !d.cantidadRequerida || parseFloat(d.cantidadRequerida) <= 0) {
           throw new Error('Todos los ingredientes deben tener un insumo y una cantidad mayor a 0.');
+        }
+        const ingProd = productos.find((p) => p.id === d.productoId);
+        if (ingProd && ingProd.unidadMedida?.toUpperCase() === 'UNIDAD') {
+          if (parseFloat(d.cantidadRequerida) % 1 !== 0) {
+            throw new Error(`Para el ingrediente "${ingProd.descripcion}" (Unidades), la cantidad requerida debe ser un número entero.`);
+          }
         }
       }
 
@@ -455,6 +468,14 @@ export default function Produccion() {
         throw new Error('Todos los campos son obligatorios.');
       }
 
+      const receta = recetas.find((r) => r.id === recetaId);
+      const prod = productos.find((p) => p.id === receta?.productoFinalId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(cantidadPlanificada) % 1 !== 0) {
+          throw new Error(`Para el producto "${prod.descripcion}" (Unidades), la cantidad planificada debe ser un número entero.`);
+        }
+      }
+
       await apiFetch('/produccion/ordenes', {
         method: 'POST',
         body: JSON.stringify({
@@ -492,6 +513,14 @@ export default function Produccion() {
   const handleConfirmarPicking = async () => {
     try {
       setErrorMsg(null);
+      for (const ing of pickingData.ingredientes) {
+        const prod = productos.find((p) => p.id === ing.productoId);
+        if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+          if (parseFloat(ing.cantidadPicked) % 1 !== 0) {
+            throw new Error(`Para el ingrediente "${prod.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`);
+          }
+        }
+      }
       const res = await apiFetch(`/produccion/ordenes/${selectedPickingOrder.id}/picking`, {
         method: 'POST',
         body: JSON.stringify({
@@ -546,6 +575,13 @@ export default function Produccion() {
   const handleGuardarEditarOrden = async () => {
     try {
       setErrorMsg(null);
+      const orderObj = ordenes.find((o) => o.id === editarOrdenForm.id);
+      const prod = productos.find((p) => p.id === orderObj?.receta?.productoFinalId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(editarOrdenForm.cantidadPlanificada) % 1 !== 0) {
+          throw new Error(`Para el producto "${prod.descripcion}" (Unidades), la cantidad planificada debe ser un número entero.`);
+        }
+      }
       await apiFetch(`/produccion/ordenes/${editarOrdenForm.id}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -585,6 +621,13 @@ export default function Produccion() {
 
       if (!productoId || !cantidad || !motivo || !finalSucursalId) {
         throw new Error('Todos los campos son obligatorios.');
+      }
+
+      const prod = productos.find((p) => p.id === productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(cantidad) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), la cantidad de merma debe ser un número entero.`);
+        }
       }
 
       await apiFetch('/produccion/mermas', {

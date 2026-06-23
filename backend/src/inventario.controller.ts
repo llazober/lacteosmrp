@@ -50,6 +50,21 @@ export class InventarioController {
       throw new BadRequestException('Producto y Sucursal son obligatorios.');
     }
 
+    const producto = await this.prisma.producto.findUnique({
+      where: { id: productoId },
+    });
+    if (producto && producto.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (
+        (existencia != null && parseFloat(existencia) % 1 !== 0) ||
+        (existMin != null && parseFloat(existMin) % 1 !== 0) ||
+        (existMax != null && parseFloat(existMax) % 1 !== 0)
+      ) {
+        throw new BadRequestException(
+          'Para productos en Unidades, las existencias deben ser números enteros.',
+        );
+      }
+    }
+
     const exist = await this.prisma.inventario.findUnique({
       where: { productoId_sucursalId: { productoId, sucursalId } },
     });
@@ -102,6 +117,18 @@ export class InventarioController {
     });
     if (!prev) {
       throw new BadRequestException('Registro de inventario no encontrado.');
+    }
+
+    if (prev.producto.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (
+        (existencia != null && parseFloat(existencia) % 1 !== 0) ||
+        (existMin != null && parseFloat(existMin) % 1 !== 0) ||
+        (existMax != null && parseFloat(existMax) % 1 !== 0)
+      ) {
+        throw new BadRequestException(
+          'Para productos en Unidades, las existencias deben ser números enteros.',
+        );
+      }
     }
 
     const inv = await this.prisma.inventario.update({
@@ -217,6 +244,15 @@ export class InventarioController {
       throw new BadRequestException('La cantidad debe ser mayor que cero.');
     }
 
+    const prod = await this.prisma.producto.findUnique({
+      where: { id: productoId },
+    });
+    if (prod && prod.unidadMedida.toUpperCase() === 'UNIDAD' && cantNum % 1 !== 0) {
+      throw new BadRequestException(
+        'Para productos en Unidades, la cantidad de ajuste debe ser un número entero.',
+      );
+    }
+
     // Verificar / Crear registro de inventario
     const inv = await this.prisma.inventario.findUnique({
       where: { productoId_sucursalId: { productoId, sucursalId } },
@@ -323,6 +359,15 @@ export class InventarioController {
     if (cantNum <= 0) {
       throw new BadRequestException(
         'La cantidad de merma debe ser mayor que cero.',
+      );
+    }
+
+    const prod = await this.prisma.producto.findUnique({
+      where: { id: productoId },
+    });
+    if (prod && prod.unidadMedida.toUpperCase() === 'UNIDAD' && cantNum % 1 !== 0) {
+      throw new BadRequestException(
+        'Para productos en Unidades, la cantidad de merma debe ser un número entero.',
       );
     }
 
@@ -483,6 +528,16 @@ export class InventarioController {
 
       // 2. Crear detalles
       for (const prod of productos) {
+        const prodDb = await tx.producto.findUnique({
+          where: { id: prod.productoId },
+        });
+        const qtyNum = parseFloat(prod.cantidad);
+        if (prodDb && prodDb.unidadMedida.toUpperCase() === 'UNIDAD' && qtyNum % 1 !== 0) {
+          throw new BadRequestException(
+            `Para el producto "${prodDb.descripcion}" (Unidades), la cantidad a transferir debe ser un número entero.`,
+          );
+        }
+
         // Verificar existencia en origen
         const invOrigen = await tx.inventario.findUnique({
           where: {

@@ -391,6 +391,13 @@ export default function Inventario() {
         throw new Error('Todos los campos son obligatorios.');
       }
 
+      const prod = productos.find((p) => p.id === productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(cantidad) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), la cantidad de merma debe ser un número entero.`);
+        }
+      }
+
       const response = await apiFetch('/inventario/merma', {
         method: 'POST',
         body: JSON.stringify({
@@ -424,6 +431,12 @@ export default function Inventario() {
   const handleAsociarSubmit = async () => {
     try {
       setErrorMsg(null);
+      const prod = productos.find((p) => p.id === asociarForm.productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(asociarForm.existencia) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), la existencia inicial debe ser un número entero.`);
+        }
+      }
       await apiFetch('/inventario', {
         method: 'POST',
         body: JSON.stringify({
@@ -445,6 +458,11 @@ export default function Inventario() {
   const handleEditSubmit = async () => {
     try {
       setErrorMsg(null);
+      if (selectedInv?.producto && selectedInv.producto.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(editForm.existencia) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${selectedInv.producto.descripcion}), la existencia debe ser un número entero.`);
+        }
+      }
       await apiFetch(`/inventario/${selectedInv.id}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -527,6 +545,12 @@ export default function Inventario() {
   const handleRegistrarLoteSubmit = async () => {
     try {
       setErrorMsg(null);
+      const prod = productos.find((p) => p.id === loteForm.productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(loteForm.cantidadInicial) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), la cantidad inicial del lote debe ser un número entero.`);
+        }
+      }
       await apiFetch('/lotes', {
         method: 'POST',
         body: JSON.stringify({
@@ -579,6 +603,15 @@ export default function Inventario() {
   const handleEditarLoteSubmit = async () => {
     try {
       setErrorMsg(null);
+      const prod = productos.find((p) => p.id === editarLoteForm.productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (
+          (editarLoteForm.cantidadInicial !== undefined && parseFloat(editarLoteForm.cantidadInicial) % 1 !== 0) ||
+          (editarLoteForm.cantidadActual !== undefined && parseFloat(editarLoteForm.cantidadActual) % 1 !== 0)
+        ) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), las cantidades inicial y actual del lote deben ser números enteros.`);
+        }
+      }
       await apiFetch(`/lotes/${selectedLote.id}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -714,6 +747,12 @@ export default function Inventario() {
   const handleAjusteSubmit = async () => {
     try {
       setErrorMsg(null);
+      const prod = productos.find((p) => p.id === ajusteForm.productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(ajusteForm.cantidad) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), la cantidad de ajuste debe ser un número entero.`);
+        }
+      }
       await apiFetch('/inventario/ajuste', {
         method: 'POST',
         body: JSON.stringify(ajusteForm),
@@ -2227,6 +2266,14 @@ export default function Inventario() {
                     const prodObj = productos.find(p => p.id === transferForm.productoId);
                     const loteObj = lotes.find(l => l.id === transferForm.loteId);
                     if (!prodObj || !loteObj) return;
+
+                    if (prodObj.unidadMedida?.toUpperCase() === 'UNIDAD') {
+                      if (parseFloat(transferForm.cantidad) % 1 !== 0) {
+                        setErrorMsg(`Para el producto "${prodObj.descripcion}" (Unidades), la cantidad a transferir debe ser un número entero.`);
+                        return;
+                      }
+                    }
+                    setErrorMsg(null);
 
                     setTransferItems([
                       ...transferItems,

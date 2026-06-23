@@ -376,6 +376,12 @@ export default function RutaOperaciones() {
         if (!cantidadProducida || !loteNumero) {
           throw new Error('La cantidad producida y el lote final son requeridos para completar el proceso.');
         }
+        const prod = selectedOrden?.receta?.productoFinal;
+        if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+          if (parseFloat(cantidadProducida) % 1 !== 0) {
+            throw new Error(`Para el producto "${prod.descripcion}" (Unidades), la cantidad producida debe ser un número entero.`);
+          }
+        }
         payload.cantidadProducida = parseFloat(cantidadProducida);
         payload.loteNumero = loteNumero;
       }

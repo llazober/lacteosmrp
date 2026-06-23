@@ -70,6 +70,29 @@ export class ProduccionController {
       throw new BadRequestException('El producto final seleccionado no está marcado como manufacturado.');
     }
 
+    if (prod.unidadMedida.toUpperCase() === 'UNIDAD') {
+      const qtyExpectedNum = parseFloat(cantidadEsperada || 1);
+      if (qtyExpectedNum % 1 !== 0) {
+        throw new BadRequestException(
+          'Para productos en Unidades, el rendimiento esperado debe ser un número entero.',
+        );
+      }
+    }
+
+    for (const item of detalles) {
+      const ingProd = await this.prisma.producto.findUnique({
+        where: { id: item.productoId },
+      });
+      if (ingProd && ingProd.unidadMedida.toUpperCase() === 'UNIDAD') {
+        const qtyReqNum = parseFloat(item.cantidadRequerida);
+        if (qtyReqNum % 1 !== 0) {
+          throw new BadRequestException(
+            `Para el ingrediente "${ingProd.descripcion}" (Unidades), la cantidad requerida debe ser un número entero.`,
+          );
+        }
+      }
+    }
+
     const receta = await this.prisma.$transaction(async (tx) => {
       const r = await tx.receta.create({
         data: {
@@ -133,6 +156,37 @@ export class ProduccionController {
       }
       if (!prod.esManufacturado) {
         throw new BadRequestException('El producto final seleccionado no está marcado como manufacturado.');
+      }
+    }
+
+    if (productoFinalId || cantidadEsperada != null) {
+      const targetProdId = productoFinalId || (await this.prisma.receta.findUnique({ where: { id } }))?.productoFinalId;
+      if (targetProdId) {
+        const prod = await this.prisma.producto.findUnique({ where: { id: targetProdId } });
+        if (prod && prod.unidadMedida.toUpperCase() === 'UNIDAD') {
+          const qtyExpected = cantidadEsperada != null ? parseFloat(cantidadEsperada) : (await this.prisma.receta.findUnique({ where: { id } }))?.cantidadEsperada;
+          if (qtyExpected != null && qtyExpected % 1 !== 0) {
+            throw new BadRequestException(
+              'Para productos en Unidades, el rendimiento esperado debe ser un número entero.',
+            );
+          }
+        }
+      }
+    }
+
+    if (detalles && Array.isArray(detalles)) {
+      for (const item of detalles) {
+        const ingProd = await this.prisma.producto.findUnique({
+          where: { id: item.productoId },
+        });
+        if (ingProd && ingProd.unidadMedida.toUpperCase() === 'UNIDAD') {
+          const qtyReqNum = parseFloat(item.cantidadRequerida);
+          if (qtyReqNum % 1 !== 0) {
+            throw new BadRequestException(
+              `Para el ingrediente "${ingProd.descripcion}" (Unidades), la cantidad requerida debe ser un número entero.`,
+            );
+          }
+        }
       }
     }
 
@@ -247,9 +301,18 @@ export class ProduccionController {
 
     const receta = await this.prisma.receta.findUnique({
       where: { id: recetaId },
+      include: { productoFinal: true },
     });
     if (!receta) {
       throw new BadRequestException('La receta especificada no existe.');
+    }
+
+    if (receta.productoFinal && receta.productoFinal.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (parseFloat(cantidadPlanificada) % 1 !== 0) {
+        throw new BadRequestException(
+          'Para productos en Unidades, la cantidad planificada debe ser un número entero.',
+        );
+      }
     }
 
     const count = await this.prisma.ordenProduccion.count();
@@ -365,6 +428,27 @@ export class ProduccionController {
       throw new BadRequestException(
         'Solo se pueden completar órdenes en estado EN_PROCESO.',
       );
+    }
+
+    if (op.receta.productoFinal && op.receta.productoFinal.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (parseFloat(cantidadProducida) % 1 !== 0) {
+        throw new BadRequestException(
+          'Para productos en Unidades, la cantidad real producida debe ser un número entero.',
+        );
+      }
+    }
+
+    if (mermas && Array.isArray(mermas)) {
+      for (const m of mermas) {
+        const mProd = await this.prisma.producto.findUnique({
+          where: { id: m.productoId },
+        });
+        if (mProd && mProd.unidadMedida.toUpperCase() === 'UNIDAD' && parseFloat(m.cantidad) % 1 !== 0) {
+          throw new BadRequestException(
+            `Para el producto merma "${mProd.descripcion}" (Unidades), la cantidad debe ser un número entero.`,
+          );
+        }
+      }
     }
 
     // Buscar proveedor interno o primer proveedor para asociar al lote producido
@@ -784,6 +868,17 @@ export class ProduccionController {
       throw new BadRequestException(
         'El producto, la cantidad, el motivo y la sucursal son obligatorios.',
       );
+    }
+
+    const prodDb = await this.prisma.producto.findUnique({
+      where: { id: productoId },
+    });
+    if (prodDb && prodDb.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (parseFloat(cantidad) % 1 !== 0) {
+        throw new BadRequestException(
+          'Para productos en Unidades, la cantidad de merma debe ser un número entero.',
+        );
+      }
     }
 
     const merma = await this.prisma.$transaction(async (tx) => {
@@ -1298,6 +1393,14 @@ export class ProduccionController {
           continue;
         }
 
+        if (reqDetalle.producto && reqDetalle.producto.unidadMedida.toUpperCase() === 'UNIDAD') {
+          if (cantidadAPreparar % 1 !== 0) {
+            throw new BadRequestException(
+              `Para el ingrediente "${reqDetalle.producto.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`,
+            );
+          }
+        }
+
         let pendientePorDescontar = cantidadAPreparar;
 
         // A: Si se escaneó/seleccionó un lote específico, descontar primero de ese lote
@@ -1512,6 +1615,7 @@ export class ProduccionController {
         receta: {
           include: {
             detalles: true,
+            productoFinal: true,
           },
         },
       },
@@ -1519,6 +1623,14 @@ export class ProduccionController {
 
     if (!op) {
       throw new BadRequestException('La orden de producción no existe.');
+    }
+
+    if (cantidadPlanificada != null && op.receta.productoFinal && op.receta.productoFinal.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (parseFloat(cantidadPlanificada) % 1 !== 0) {
+        throw new BadRequestException(
+          'Para productos en Unidades, la cantidad planificada debe ser un número entero.',
+        );
+      }
     }
 
     const cd = await this.prisma.sucursal.findFirst({
@@ -1839,6 +1951,27 @@ export class ProduccionController {
     if (workCenter === 'WC-CFRI') {
       if (cantidadProducida == null || !loteNumero) {
         throw new BadRequestException('Para finalizar el último paso, la cantidad real y el lote son obligatorios.');
+      }
+
+      if (op.receta.productoFinal && op.receta.productoFinal.unidadMedida.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(cantidadProducida) % 1 !== 0) {
+          throw new BadRequestException(
+            'Para productos en Unidades, la cantidad real producida debe ser un número entero.',
+          );
+        }
+      }
+
+      if (mermas && Array.isArray(mermas)) {
+        for (const m of mermas) {
+          const mProd = await this.prisma.producto.findUnique({
+            where: { id: m.productoId },
+          });
+          if (mProd && mProd.unidadMedida.toUpperCase() === 'UNIDAD' && parseFloat(m.cantidad) % 1 !== 0) {
+            throw new BadRequestException(
+              `Para el producto merma "${mProd.descripcion}" (Unidades), la cantidad debe ser un número entero.`,
+            );
+          }
+        }
       }
 
       // Buscar proveedor interno o primer proveedor para asociar al lote producido

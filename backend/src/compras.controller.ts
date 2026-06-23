@@ -60,10 +60,19 @@ export class ComprasController {
     const count = await this.prisma.ordenCompra.count();
     const numeroOrden = `OC-${String(count + 1).padStart(5, '0')}`;
 
-    // Calcular total
+    // Calcular total and validate quantities
     let total = 0;
     for (const p of productos) {
-      total += parseFloat(p.cantidad) * parseFloat(p.costoUnitario);
+      const prodDb = await this.prisma.producto.findUnique({
+        where: { id: p.productoId },
+      });
+      const qtyNum = parseFloat(p.cantidad);
+      if (prodDb && prodDb.unidadMedida.toUpperCase() === 'UNIDAD' && qtyNum % 1 !== 0) {
+        throw new BadRequestException(
+          `Para el producto "${prodDb.descripcion}" (Unidades), la cantidad debe ser un número entero.`,
+        );
+      }
+      total += qtyNum * parseFloat(p.costoUnitario);
     }
 
     const oc = await this.prisma.$transaction(async (tx) => {
@@ -169,6 +178,15 @@ export class ComprasController {
       for (const loteInfo of lotes) {
         const cantidadRecibidaAhora = parseFloat(loteInfo.cantidadRecibida);
         if (cantidadRecibidaAhora <= 0) continue; // Si se recibe 0 de este item, saltar
+
+        const prodDb = await tx.producto.findUnique({
+          where: { id: loteInfo.productoId },
+        });
+        if (prodDb && prodDb.unidadMedida.toUpperCase() === 'UNIDAD' && cantidadRecibidaAhora % 1 !== 0) {
+          throw new BadRequestException(
+            `Para el producto "${prodDb.descripcion}" (Unidades), la cantidad recibida debe ser un número entero.`,
+          );
+        }
 
         // Validar número lote único
         const existLote = await tx.lote.findUnique({
@@ -311,7 +329,16 @@ export class ComprasController {
     if (productos && productos.length > 0) {
       total = 0;
       for (const p of productos) {
-        total += parseFloat(p.cantidad) * parseFloat(p.costoUnitario);
+        const prodDb = await this.prisma.producto.findUnique({
+          where: { id: p.productoId },
+        });
+        const qtyNum = parseFloat(p.cantidad);
+        if (prodDb && prodDb.unidadMedida.toUpperCase() === 'UNIDAD' && qtyNum % 1 !== 0) {
+          throw new BadRequestException(
+            `Para el producto "${prodDb.descripcion}" (Unidades), la cantidad debe ser un número entero.`,
+          );
+        }
+        total += qtyNum * parseFloat(p.costoUnitario);
       }
     }
 

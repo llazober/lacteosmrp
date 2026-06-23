@@ -68,6 +68,17 @@ export class LotesController {
       );
     }
 
+    const product = await this.prisma.producto.findUnique({ where: { id: productoId } });
+    if (!product) {
+      throw new BadRequestException('El producto no existe.');
+    }
+
+    if (product.unidadMedida.toUpperCase() === 'UNIDAD' && parseFloat(cantidadInicial) % 1 !== 0) {
+      throw new BadRequestException(
+        'Para productos en Unidades, la cantidad inicial del lote debe ser un número entero.',
+      );
+    }
+
     const exist = await this.prisma.lote.findUnique({ where: { numeroLote: finalNumeroLote } });
     if (exist) {
       throw new BadRequestException(
@@ -160,6 +171,19 @@ export class LotesController {
     const loteExistente = await this.prisma.lote.findUnique({ where: { id } });
     if (!loteExistente) {
       throw new BadRequestException('Lote no encontrado.');
+    }
+
+    const targetProdId = productoId || loteExistente.productoId;
+    const product = await this.prisma.producto.findUnique({ where: { id: targetProdId } });
+    if (product && product.unidadMedida.toUpperCase() === 'UNIDAD') {
+      if (
+        (cantidadInicial !== undefined && parseFloat(cantidadInicial) % 1 !== 0) ||
+        (cantidadActual !== undefined && parseFloat(cantidadActual) % 1 !== 0)
+      ) {
+        throw new BadRequestException(
+          'Para productos en Unidades, la cantidad inicial y actual del lote deben ser números enteros.',
+        );
+      }
     }
 
     if (numeroLote && numeroLote !== loteExistente.numeroLote) {

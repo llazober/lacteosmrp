@@ -302,6 +302,11 @@ export class PosController {
         }
 
         const cantNum = parseFloat(prod.cantidad);
+        if (dbProd && dbProd.unidadMedida.toUpperCase() === 'UNIDAD' && cantNum % 1 !== 0) {
+          throw new BadRequestException(
+            `Para el producto "${dbProd.descripcion}" (Unidades), la cantidad de venta debe ser un número entero.`,
+          );
+        }
         if (dbLote.cantidadActual < cantNum) {
           throw new BadRequestException(
             `El lote "${dbLote.numeroLote}" no tiene stock suficiente para la venta. Disponible: ${dbLote.cantidadActual}`,

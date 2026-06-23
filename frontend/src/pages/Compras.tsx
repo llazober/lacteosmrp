@@ -119,6 +119,12 @@ export default function Compras() {
       setErrorMsg('Este producto ya ha sido agregado. Edite la línea correspondiente o elimínela para volver a agregarla.');
       return;
     }
+    if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+      if (parseFloat(nuevoItem.cantidad) % 1 !== 0) {
+        setErrorMsg(`Para productos en Unidades (${prod.descripcion}), la cantidad debe ser un número entero.`);
+        return;
+      }
+    }
     setOcForm({
       ...ocForm,
       productos: [
@@ -155,6 +161,12 @@ export default function Compras() {
     if (editarOcForm.productos.some((p: any) => p.productoId === nuevoItemEdit.productoId)) {
       setErrorMsg('Este producto ya ha sido agregado. Edite la línea correspondiente o elimínela para volver a agregarla.');
       return;
+    }
+    if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+      if (parseFloat(nuevoItemEdit.cantidad) % 1 !== 0) {
+        setErrorMsg(`Para productos en Unidades (${prod.descripcion}), la cantidad debe ser un número entero.`);
+        return;
+      }
     }
     setEditarOcForm({
       ...editarOcForm,
@@ -333,6 +345,15 @@ export default function Compras() {
   const handleRecepcionSubmit = async () => {
     try {
       setErrorMsg(null);
+      for (const lote of recepcionLotes) {
+        const prod = productos.find((p) => p.id === lote.productoId);
+        if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+          if (parseFloat(lote.cantidadRecibida) % 1 !== 0) {
+            setErrorMsg(`Para el producto "${lote.productoNombre}" (Unidades), la cantidad recibida debe ser un número entero.`);
+            return;
+          }
+        }
+      }
       await apiFetch(`/compras/${selectedOC.id}/recepcion`, {
         method: 'PUT',
         body: JSON.stringify({ lotes: recepcionLotes }),
