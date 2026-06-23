@@ -28,6 +28,8 @@ import {
   Biotech,
   Warehouse,
   History,
+  Comment,
+  ReportProblem,
 } from '@mui/icons-material';
 import { apiFetch } from '../store/useAuthStore';
 import dayjs from 'dayjs';
@@ -142,6 +144,12 @@ export default function RutaOperaciones() {
   const [cantidadProducida, setCantidadProducida] = useState('');
   const [loteNumero, setLoteNumero] = useState('');
 
+  // Notas/Observaciones de Desviación
+  const [openNotas, setOpenNotas] = useState(false);
+  const [notasTexto, setNotasTexto] = useState('');
+  const [notasWcId, setNotasWcId] = useState('');
+  const [savingNotas, setSavingNotas] = useState(false);
+
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -224,6 +232,8 @@ export default function RutaOperaciones() {
     if (operacion && operacion.fechaInicio) {
       elapsedSeconds = Math.round((new Date().getTime() - new Date(operacion.fechaInicio).getTime()) / 1000);
     }
+
+    setNotasTexto(operacion?.notas || '');
 
     // Obtener campos requeridos dinámicos o por defecto
     let fields = WORK_CENTER_FIELDS[wcId] || [];
@@ -364,12 +374,42 @@ export default function RutaOperaciones() {
     printWindow.document.close();
   };
 
+  const handleOpenNotas = (orden: any, wcId: string) => {
+    setSelectedOrden(orden);
+    setNotasWcId(wcId);
+    const operacion = orden.operaciones.find((o: any) => o.workCenter === wcId);
+    setNotasTexto(operacion?.notas || '');
+    setOpenNotas(true);
+  };
+
+  const handleSaveNotas = async () => {
+    if (!selectedOrden) return;
+    setSavingNotas(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      await apiFetch(`/produccion/operaciones/${selectedOrden.id}/${notasWcId}/notas`, {
+        method: 'PUT',
+        body: JSON.stringify({ notas: notasTexto }),
+      });
+      setSuccessMsg('Notas/Desviación guardadas correctamente.');
+      setOpenNotas(false);
+      await cargarOrdenes();
+    } catch (e: any) {
+      console.error(e);
+      setErrorMsg(e.message || 'Error al guardar las notas.');
+    } finally {
+      setSavingNotas(false);
+    }
+  };
+
   const handleConfirmarFinalizar = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
       const payload: any = {
         datosJson: formData,
+        notas: notasTexto,
       };
 
       if (currentWcId === 'WC-CFRI') {
@@ -684,14 +724,40 @@ export default function RutaOperaciones() {
                                   color={isOvertime ? 'error' : 'success'}
                                   sx={{ height: 6, borderRadius: 3 }}
                                 />
+                                {isOvertime && (
+                                  <Box sx={{ mt: 1.5 }}>
+                                    <Button
+                                      fullWidth
+                                      size="small"
+                                      variant="outlined"
+                                      color="error"
+                                      startIcon={<ReportProblem />}
+                                      onClick={() => handleOpenNotas(orden, targetWc)}
+                                      sx={{
+                                        textTransform: 'none',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        borderRadius: 2,
+                                        borderWidth: 2,
+                                        borderColor: 'error.main',
+                                        color: 'error.light',
+                                        '&:hover': {
+                                          borderWidth: 2,
+                                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                        }
+                                      }}
+                                    >
+                                      Registrar Desviación de Tiempo
+                                    </Button>
+                                  </Box>
+                                )}
                               </Box>
                             </Box>
                           );
                         })()}
 
-                        {/* Historial de pasos completados (Botón compacto para ahorrar espacio) */}
-                        {completedSteps.length > 0 && (
-                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                        <Box sx={{ mt: 2, display: 'flex', gap: 1.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                          {completedSteps.length > 0 && (
                             <Button
                               size="small"
                               variant="outlined"
@@ -716,10 +782,36 @@ export default function RutaOperaciones() {
                                 },
                               }}
                             >
-                              Ver Historial ({completedSteps.length})
+                              Historial ({completedSteps.length})
                             </Button>
-                          </Box>
-                        )}
+                          )}
+
+                          {isStarted && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Comment sx={{ fontSize: 16 }} />}
+                              onClick={() => handleOpenNotas(orden, targetWc)}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                py: 0.5,
+                                px: 1.5,
+                                borderRadius: 2,
+                                borderColor: operacion?.notas ? 'success.main' : 'rgba(255, 255, 255, 0.12)',
+                                color: operacion?.notas ? 'success.light' : 'text.secondary',
+                                '&:hover': {
+                                  borderColor: 'primary.main',
+                                  color: 'primary.light',
+                                  backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                                },
+                              }}
+                            >
+                              {operacion?.notas ? 'Editar Notas' : 'Notas/Desviación'}
+                            </Button>
+                          )}
+                        </Box>
                       </CardContent>
 
                       <CardActions sx={{ p: 3, pt: 0, justifyContent: 'flex-end' }}>
@@ -868,6 +960,40 @@ export default function RutaOperaciones() {
               </Box>
             </>
           )}
+
+          <Divider sx={{ my: 3, borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+          {(() => {
+            const op = selectedOrden?.operaciones?.find((o: any) => o.workCenter === currentWcId);
+            if (!op || !op.fechaInicio) return null;
+            const elapsed = (new Date().getTime() - new Date(op.fechaInicio).getTime()) / 60000;
+            const expected = op.duracionEstimada || EXPECTED_DURATIONS[currentWcId] || 30;
+            if (elapsed > expected) {
+              return (
+                <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }} icon={<ReportProblem />}>
+                  <strong>Desviación de Tiempo Detectada:</strong> Se han registrado {Math.round(elapsed)} minutos transcurridos, superando la meta de {expected} minutos. Por favor documente la justificación en las Notas de abajo.
+                </Alert>
+              );
+            }
+            return null;
+          })()}
+
+          <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 800 }}>
+            Notas y Justificación de Desviación
+          </Typography>
+          <TextField
+            fullWidth
+            label="Comentarios / Observaciones"
+            placeholder="Documenta cualquier desviación del proceso normal, retraso, justificación, etc."
+            multiline
+            rows={3}
+            value={notasTexto}
+            onChange={(e) => setNotasTexto(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              },
+            }}
+          />
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
           <Button variant="outlined" onClick={() => setOpenFinalizar(false)}>
@@ -965,6 +1091,16 @@ export default function RutaOperaciones() {
                             Finalizado: {dayjs(step.fechaFin).format('DD/MM/YYYY HH:mm')}
                           </Typography>
                         )}
+                        {step.notas && (
+                          <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, backgroundColor: 'rgba(239, 68, 68, 0.04)', borderLeft: '3px solid', borderColor: 'error.main' }}>
+                            <Typography variant="caption" color="error.light" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 700, mb: 0.5 }}>
+                              <ReportProblem sx={{ fontSize: 14 }} /> Nota de Desviación / Observación:
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontSize: '0.78rem', color: 'text.primary' }}>
+                              {step.notas}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
                     );
                   })}
@@ -975,6 +1111,76 @@ export default function RutaOperaciones() {
         <DialogActions sx={{ p: 2.5 }}>
           <Button onClick={() => setOpenHistorial(false)} variant="contained" fullWidth>
             Cerrar Historial
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Notas / Desviación */}
+      <Dialog
+        open={openNotas}
+        onClose={() => setOpenNotas(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <Comment sx={{ color: 'primary.main' }} /> Notas / Desviación de Proceso
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
+          {selectedOrden && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" color="primary.light" sx={{ fontWeight: 700 }}>
+                {selectedOrden.numeroOrden} — {selectedOrden.receta.nombre}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Centro de Trabajo: {WORK_CENTERS.find((w) => w.id === notasWcId)?.name} ({notasWcId})
+              </Typography>
+            </Box>
+          )}
+
+          {(() => {
+            const op = selectedOrden?.operaciones?.find((o: any) => o.workCenter === notasWcId);
+            if (!op || !op.fechaInicio) return null;
+            const elapsed = (new Date().getTime() - new Date(op.fechaInicio).getTime()) / 60000;
+            const expected = op.duracionEstimada || EXPECTED_DURATIONS[notasWcId] || 30;
+            if (elapsed > expected) {
+              return (
+                <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }} icon={<ReportProblem />}>
+                  <strong>Desviación de Tiempo:</strong> Se han registrado {Math.round(elapsed)} minutos transcurridos (Meta: {expected} min). Por favor documente el motivo de esta desviación.
+                </Alert>
+              );
+            }
+            return null;
+          })()}
+
+          <TextField
+            fullWidth
+            label="Escribe aquí las observaciones o desviación"
+            placeholder="Documenta cualquier desviación del proceso normal, retraso, justificación, etc."
+            multiline
+            rows={4}
+            value={notasTexto}
+            onChange={(e) => setNotasTexto(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button variant="outlined" onClick={() => setOpenNotas(false)}>
+            Cancelar
+          </Button>
+          <Button variant="contained" color="primary" onClick={handleSaveNotas} disabled={savingNotas} sx={{ fontWeight: 700 }}>
+            {savingNotas ? 'Guardando...' : 'Guardar Notas'}
           </Button>
         </DialogActions>
       </Dialog>

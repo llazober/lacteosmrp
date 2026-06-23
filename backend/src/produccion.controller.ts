@@ -2002,7 +2002,7 @@ export class ProduccionController {
     @Request() req: any,
     @Body() body: any,
   ) {
-    const { datosJson, cantidadProducida, loteNumero, mermas } = body;
+    const { datosJson, cantidadProducida, loteNumero, mermas, notas } = body;
 
     const op = await this.prisma.ordenProduccion.findUnique({
       where: { id: opId },
@@ -2053,6 +2053,7 @@ export class ProduccionController {
         fechaFin,
         duracionSegundos,
         datosJson: datosJson ? JSON.stringify(datosJson) : null,
+        notas: notas || null,
       },
     });
 
@@ -2349,6 +2350,27 @@ export class ProduccionController {
       },
     });
 
+    return updatedOperacion;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Put('operaciones/:opId/:workCenter/notas')
+  async guardarNotasOperacion(
+    @Param('opId') opId: string,
+    @Param('workCenter') workCenter: string,
+    @Body('notas') notas: string,
+  ) {
+    const updatedOperacion = await this.prisma.ordenProduccionOperacion.update({
+      where: {
+        ordenProduccionId_workCenter: {
+          ordenProduccionId: opId,
+          workCenter,
+        },
+      },
+      data: {
+        notas: notas || null,
+      },
+    });
     return updatedOperacion;
   }
 
