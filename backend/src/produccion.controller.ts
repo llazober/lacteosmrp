@@ -303,7 +303,7 @@ export class ProduccionController {
         creadoPor: true,
         responsable: true,
         detalles: {
-          include: { producto: true },
+          include: { producto: true, lote: true },
         },
         mermas: {
           include: { producto: true },

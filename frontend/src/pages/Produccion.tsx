@@ -134,6 +134,8 @@ export default function Produccion() {
   });
 
   const [openOrden, setOpenOrden] = useState(false);
+  const [openConsumos, setOpenConsumos] = useState(false);
+  const [selectedOrdenConsumos, setSelectedOrdenConsumos] = useState<any>(null);
   const [ordenForm, setOrdenForm] = useState({
     recetaId: '',
     sucursalId: '',
@@ -979,7 +981,7 @@ export default function Produccion() {
                           )}
                           {op.estado === 'COMPLETADA' && (
                             <Tooltip title="Ver detalles de consumos">
-                              <IconButton color="info" onClick={(e) => e.stopPropagation()}>
+                              <IconButton color="info" onClick={(e) => { e.stopPropagation(); setSelectedOrdenConsumos(op); setOpenConsumos(true); }}>
                                 <Visibility />
                               </IconButton>
                             </Tooltip>
@@ -1895,6 +1897,159 @@ export default function Produccion() {
               Guardar Hoja de Ruta
             </Button>
           </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para Ver Detalles de Consumo (Materias Primas y Mermas) */}
+      <Dialog
+        open={openConsumos}
+        onClose={() => setOpenConsumos(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <Visibility sx={{ color: 'primary.main' }} /> Detalles de Consumo — {selectedOrdenConsumos?.numeroOrden}
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3 }}>
+          {selectedOrdenConsumos && (
+            <Box>
+              {/* Información General */}
+              <Paper sx={{ p: 2.5, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.light', mb: 1.5 }}>
+                  INFORMACIÓN GENERAL DE LA ORDEN
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Producto Final:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {selectedOrdenConsumos.receta?.productoFinal?.descripcion} ({selectedOrdenConsumos.receta?.productoFinal?.sku})
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Receta Utilizada:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{selectedOrdenConsumos.receta?.nombre}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Cantidad Planificada vs. Producida:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {selectedOrdenConsumos.cantidadPlanificada} vs. {selectedOrdenConsumos.cantidadProducida} {selectedOrdenConsumos.receta?.productoFinal?.unidadMedida}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Rendimiento Real / Variación:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: selectedOrdenConsumos.rendimientoReal >= 100 ? 'success.light' : 'warning.light' }}>
+                      {selectedOrdenConsumos.rendimientoReal?.toFixed(1)}% ({selectedOrdenConsumos.variacion >= 0 ? '+' : ''}{selectedOrdenConsumos.variacion} {selectedOrdenConsumos.receta?.productoFinal?.unidadMedida})
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Responsable de la Orden:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{selectedOrdenConsumos.responsable?.nombre || 'No asignado'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Fecha de Producción:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {selectedOrdenConsumos.fechaFin ? new Date(selectedOrdenConsumos.fechaFin).toLocaleString() : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+
+              {/* Materias Primas Consumidas */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                📦 Materias Primas y Lotes Consumidos
+              </Typography>
+              {!selectedOrdenConsumos.detalles || selectedOrdenConsumos.detalles.length === 0 ? (
+                <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                  No se registraron consumos de materias primas o insumos específicos para esta orden.
+                </Alert>
+              ) : (
+                <Table sx={{ mb: 3, border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                  <TableHead sx={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Insumo / Materia Prima</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Lote Utilizado</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Cantidad Consumida</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedOrdenConsumos.detalles.map((det: any) => (
+                      <TableRow key={det.id} sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.01)' } }}>
+                        <TableCell sx={{ fontWeight: 600 }}>{det.producto?.descripcion}</TableCell>
+                        <TableCell color="text.secondary">{det.producto?.sku}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={det.lote?.numeroLote || 'Sin Lote / Consumo Directo'} 
+                            size="small" 
+                            color={det.lote ? 'primary' : 'default'} 
+                            variant="outlined" 
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                          {det.cantidadConsumida} {det.producto?.unidadMedida}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+
+              {/* Mermas (Desechos) */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                ⚠️ Mermas y Desechos Registrados
+              </Typography>
+              {!selectedOrdenConsumos.mermas || selectedOrdenConsumos.mermas.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1, mb: 1 }}>
+                  Sin mermas registradas durante la producción de este lote.
+                </Typography>
+              ) : (
+                <Table sx={{ border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                  <TableHead sx={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Producto Merma</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>SKU</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Motivo de la Merma</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>Cantidad Merma</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedOrdenConsumos.mermas.map((mer: any) => (
+                      <TableRow key={mer.id} sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.01)' } }}>
+                        <TableCell sx={{ fontWeight: 600 }}>{mer.producto?.descripcion}</TableCell>
+                        <TableCell color="text.secondary">{mer.producto?.sku}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={mer.motivo || 'OTROS'} 
+                            size="small" 
+                            color="error" 
+                            variant="outlined" 
+                            sx={{ fontWeight: 800, fontSize: '0.68rem' }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: 'error.light' }}>
+                          {mer.cantidad} {mer.producto?.unidadMedida}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button variant="contained" onClick={() => setOpenConsumos(false)} sx={{ fontWeight: 700 }}>
+            Cerrar Detalles
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -173,6 +173,7 @@ model Lote {
   ventaDetalles        VentaDetalle[]
   transferenciaDetalles TransferenciaDetalle[]
   movimientos          MovimientoInventario[]
+  ordenDetalles        OrdenProduccionDetalle[]
 }
 
 model Inventario {
@@ -598,6 +599,7 @@ model OrdenProduccionDetalle {
 
   ordenProduccion   OrdenProduccion @relation(fields: [ordenProduccionId], references: [id], onDelete: Cascade)
   producto          Producto        @relation(fields: [productoId], references: [id])
+  lote              Lote?           @relation(fields: [loteId], references: [id])
 }
 
 model Merma {
