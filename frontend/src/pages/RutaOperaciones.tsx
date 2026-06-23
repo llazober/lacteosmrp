@@ -19,6 +19,10 @@ import {
   CircularProgress,
   Divider,
   LinearProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   PlayArrow,
@@ -31,7 +35,7 @@ import {
   Comment,
   ReportProblem,
 } from '@mui/icons-material';
-import { apiFetch } from '../store/useAuthStore';
+import { apiFetch, useAuthStore } from '../store/useAuthStore';
 import dayjs from 'dayjs';
 
 const WORK_CENTERS = [
@@ -152,8 +156,16 @@ export default function RutaOperaciones() {
 
   const [now, setNow] = useState(new Date());
 
+  // Inicio de Operación / Asignación de Operario
+  const [openComenzar, setOpenComenzar] = useState(false);
+  const [comenzarOrdenId, setComenzarOrdenId] = useState('');
+  const [comenzarWcId, setComenzarWcId] = useState('');
+  const [operarioSeleccionado, setOperarioSeleccionado] = useState('');
+  const [listaUsuarios, setListaUsuarios] = useState<any[]>([]);
+
   useEffect(() => {
     cargarOrdenes();
+    cargarUsuarios();
     const timer = setInterval(() => {
       setNow(new Date());
     }, 5000);
@@ -171,6 +183,15 @@ export default function RutaOperaciones() {
       setErrorMsg(e.message || 'Error al cargar las órdenes activas.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cargarUsuarios = async () => {
+    try {
+      const users = await apiFetch('/usuarios');
+      setListaUsuarios(users || []);
+    } catch (e) {
+      console.log('No se pudo cargar la lista de usuarios (falta de permisos), se usará texto manual.');
     }
   };
 
@@ -207,12 +228,13 @@ export default function RutaOperaciones() {
     return activeWc;
   };
 
-  const handleComenzar = async (ordenId: string, wcId: string) => {
+  const handleComenzar = async (ordenId: string, wcId: string, operatorName?: string) => {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
       await apiFetch(`/produccion/operaciones/${ordenId}/${wcId}/comenzar`, {
         method: 'POST',
+        body: JSON.stringify({ usuarioNombre: operatorName }),
       });
       setSuccessMsg(`Operación iniciada con éxito.`);
       await cargarOrdenes();
@@ -220,6 +242,19 @@ export default function RutaOperaciones() {
       console.error(e);
       setErrorMsg(e.message || 'Error al iniciar la operación.');
     }
+  };
+
+  const handleOpenComenzar = (ordenId: string, wcId: string) => {
+    const currentUser = useAuthStore.getState().usuario;
+    setComenzarOrdenId(ordenId);
+    setComenzarWcId(wcId);
+    setOperarioSeleccionado(currentUser?.nombre || '');
+    setOpenComenzar(true);
+  };
+
+  const handleConfirmarComenzar = async () => {
+    setOpenComenzar(false);
+    await handleComenzar(comenzarOrdenId, comenzarWcId, operarioSeleccionado);
   };
 
   const handleOpenFinalizar = (orden: any, wcId: string) => {
@@ -652,6 +687,17 @@ export default function RutaOperaciones() {
                           </Box>
                         </Box>
 
+                        {operacion?.usuarioNombre && (
+                          <Box sx={{ mb: 2, p: 1.5, borderRadius: 2, backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                              👤 Operario:
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.light' }}>
+                              {operacion.usuarioNombre}
+                            </Typography>
+                          </Box>
+                        )}
+
                         {isStarted && operacion.fechaInicio && (() => {
                           const elapsedMinutes = Math.max(
                             0,
@@ -821,7 +867,7 @@ export default function RutaOperaciones() {
                             variant="contained"
                             color="primary"
                             startIcon={<PlayArrow />}
-                            onClick={() => handleComenzar(orden.id, targetWc)}
+                            onClick={() => handleOpenComenzar(orden.id, targetWc)}
                             sx={{ fontWeight: 700 }}
                           >
                             Comenzar Operación
@@ -1086,6 +1132,11 @@ export default function RutaOperaciones() {
                             Sin parámetros registrados
                           </Typography>
                         )}
+                        {step.usuarioNombre && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, mb: 0.5 }}>
+                            👤 <span style={{ fontWeight: 600, color: '#9ca3af' }}>Operario:</span> {step.usuarioNombre}
+                          </Typography>
+                        )}
                         {step.fechaFin && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'right', fontSize: '0.68rem' }}>
                             Finalizado: {dayjs(step.fechaFin).format('DD/MM/YYYY HH:mm')}
@@ -1181,6 +1232,78 @@ export default function RutaOperaciones() {
           </Button>
           <Button variant="contained" color="primary" onClick={handleSaveNotas} disabled={savingNotas} sx={{ fontWeight: 700 }}>
             {savingNotas ? 'Guardando...' : 'Guardar Notas'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Confirmación para Iniciar Operación / Asignación de Operario */}
+      <Dialog
+        open={openComenzar}
+        onClose={() => setOpenComenzar(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <PlayArrow sx={{ color: 'primary.main' }} /> Comenzar Operación
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Selecciona o ingresa el nombre del operario responsable para iniciar esta operación:
+          </Typography>
+
+          {listaUsuarios.length > 0 && (
+            <FormControl fullWidth sx={{ mb: 2.5 }}>
+              <InputLabel id="select-operario-label">Seleccionar de la Lista</InputLabel>
+              <Select
+                labelId="select-operario-label"
+                value={listaUsuarios.some(u => u.nombre === operarioSeleccionado) ? operarioSeleccionado : ''}
+                label="Seleccionar de la Lista"
+                onChange={(e) => setOperarioSeleccionado(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  },
+                }}
+              >
+                <MenuItem value="">
+                  <em>Ninguno - Escribir manualmente</em>
+                </MenuItem>
+                {listaUsuarios.map((u) => (
+                  <MenuItem key={u.id} value={u.nombre}>
+                    {u.nombre} ({u.rol})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <TextField
+            fullWidth
+            label="Nombre del Operario Responsable"
+            placeholder="Nombre del operario"
+            value={operarioSeleccionado}
+            onChange={(e) => setOperarioSeleccionado(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button variant="outlined" onClick={() => setOpenComenzar(false)}>
+            Cancelar
+          </Button>
+          <Button variant="contained" color="primary" onClick={handleConfirmarComenzar} disabled={!operarioSeleccionado.trim()} sx={{ fontWeight: 700 }}>
+            Iniciar Paso
           </Button>
         </DialogActions>
       </Dialog>

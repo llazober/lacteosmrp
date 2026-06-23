@@ -1932,7 +1932,10 @@ export class ProduccionController {
     @Param('opId') opId: string,
     @Param('workCenter') workCenter: string,
     @Request() req: any,
+    @Body() body: any,
   ) {
+    const { usuarioNombre } = body || {};
+
     const op = await this.prisma.ordenProduccion.findUnique({
       where: { id: opId },
       include: { operaciones: true, receta: true },
@@ -1976,7 +1979,7 @@ export class ProduccionController {
         estado: 'EN_PROCESO',
         fechaInicio: new Date(),
         usuarioId: req.user.id,
-        usuarioNombre: req.user.nombre,
+        usuarioNombre: usuarioNombre || req.user.nombre,
       },
     });
 
