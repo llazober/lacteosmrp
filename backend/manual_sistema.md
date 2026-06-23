@@ -157,7 +157,7 @@ El módulo de **Producción Láctea** permite digitalizar el ciclo de manufactur
 *   **Modos de Cálculo**:
     *   **Modo Estándar**: Compara el inventario actual (físico + en tránsito de traslados + OPs abiertas) de cada sucursal contra la proyección de ventas de los últimos 30 días multiplicada por la cobertura deseada.
     *   **Forzar Mínimo de Seguridad**: Si se activa esta opción, el sistema garantiza que la meta de inventario sea al menos el stock mínimo de seguridad definido en la ficha del producto (útil para tiendas nuevas o productos de baja rotación).
-*   **Generación de Órdenes**: Al procesar la propuesta de planificación, se consolidan las cantidades y se generan automáticamente las Órdenes de Trabajo (OP) correspondientes en la Planta Principal en estado `PLANIFICADA`.
+*   **Generación de Órdenes**: Al procesar la propuesta de planificación, se consolidan las cantidades y se generan automáticamente las Órdenes de Producción (OP) correspondientes en la Planta Principal en estado `PLANIFICADA`.
 
 ### Ruta de Operaciones (Kanban de Seguimiento en Piso)
 *   **Propósito**: Monitorear y registrar el paso de una orden de producción a través de los diferentes Centros de Trabajo (Work Centers) de la planta (Pasteurización, Cuajado, Cocción, Empaque, etc.).

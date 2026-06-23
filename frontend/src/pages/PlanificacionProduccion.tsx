@@ -191,7 +191,7 @@ export default function PlanificacionProduccion() {
                 fontWeight: 700,
               }}
             >
-              Generar Órdenes de Trabajo
+              Generar Órdenes de Producción
             </Button>
           </Box>
         </Box>
@@ -288,7 +288,7 @@ export default function PlanificacionProduccion() {
         }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
-          <Assignment sx={{ color: '#10b981' }} /> Órdenes de Trabajo Generadas
+          <Assignment sx={{ color: '#10b981' }} /> Órdenes de Producción Generadas
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
