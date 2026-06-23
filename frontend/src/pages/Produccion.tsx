@@ -136,6 +136,8 @@ export default function Produccion() {
   const [openOrden, setOpenOrden] = useState(false);
   const [openConsumos, setOpenConsumos] = useState(false);
   const [selectedOrdenConsumos, setSelectedOrdenConsumos] = useState<any>(null);
+  const [openReadOnlyPicking, setOpenReadOnlyPicking] = useState(false);
+  const [readOnlyPickingData, setReadOnlyPickingData] = useState<any>(null);
   const [ordenForm, setOrdenForm] = useState({
     recetaId: '',
     sucursalId: '',
@@ -495,6 +497,17 @@ export default function Produccion() {
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al planificar orden.');
+    }
+  };
+
+  const handleOpenReadOnlyPicking = async (order: any) => {
+    try {
+      setErrorMsg(null);
+      const data = await apiFetch(`/produccion/ordenes/${order.id}/picking`);
+      setReadOnlyPickingData(data);
+      setOpenReadOnlyPicking(true);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al obtener datos de picking.');
     }
   };
 
@@ -953,6 +966,11 @@ export default function Produccion() {
                       </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                          <Tooltip title="Ver Pick List (Lectura)">
+                            <IconButton color="secondary" onClick={(e) => { e.stopPropagation(); handleOpenReadOnlyPicking(op); }} size="small">
+                              <Assignment fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           {(op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                             <>
                               <Tooltip title="Editar Cantidad Planificada">
@@ -2049,6 +2067,86 @@ export default function Produccion() {
         <DialogActions sx={{ p: 2.5 }}>
           <Button variant="contained" onClick={() => setOpenConsumos(false)} sx={{ fontWeight: 700 }}>
             Cerrar Detalles
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para Ver Pick List (Materia Prima Entregada/Issued) en Modo Lectura */}
+      <Dialog
+        open={openReadOnlyPicking}
+        onClose={() => setOpenReadOnlyPicking(false)}
+        maxWidth="lg"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <Assignment sx={{ color: 'secondary.main' }} /> Lista de Selección (Pick List) - Orden {readOnlyPickingData?.numeroOrden}
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3 }}>
+          {readOnlyPickingData && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                Vista de lectura de materias primas e insumos de la orden de producción. Los valores muestran lo que fue entregado (Issued) y el estado general de recolección.
+              </Alert>
+
+              <Table>
+                <TableHead sx={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Insumo / Materia Prima</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">Requerido</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">Entregado (Issued)</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">Stock en Planta (CD)</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="center">Estado</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {readOnlyPickingData.ingredientes.map((ing: any) => {
+                    const qtyReq = parseFloat(ing.cantidadRequerida || 0);
+                    const qtyIssued = parseFloat(ing.yaEntregado || 0);
+                    const isFullyIssued = qtyIssued >= qtyReq;
+
+                    return (
+                      <TableRow key={ing.productoId} hover sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.01)' } }}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
+                          <Typography variant="caption" color="text.secondary">{ing.sku}</Typography>
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>
+                          {ing.cantidadRequerida} {ing.unidadMedida}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: isFullyIssued ? 'success.light' : qtyIssued > 0 ? 'warning.light' : 'text.secondary' }}>
+                          {qtyIssued} {ing.unidadMedida}
+                        </TableCell>
+                        <TableCell align="right" color="text.secondary">
+                          {ing.stockDisponible} {ing.unidadMedida}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={isFullyIssued ? 'Totalmente Entregado' : qtyIssued > 0 ? 'Parcial' : 'Pendiente'}
+                            size="small"
+                            color={isFullyIssued ? 'success' : qtyIssued > 0 ? 'warning' : 'default'}
+                            variant="outlined"
+                            sx={{ fontWeight: 800, fontSize: '0.7rem' }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button variant="contained" onClick={() => setOpenReadOnlyPicking(false)} sx={{ fontWeight: 700 }}>
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>
