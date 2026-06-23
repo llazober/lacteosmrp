@@ -24,7 +24,12 @@ export class ProduccionController {
       include: {
         productoFinal: true,
         detalles: {
-          include: { producto: true },
+          include: {
+            producto: true,
+            sustitutos: {
+              include: { producto: true },
+            },
+          },
         },
       },
       orderBy: { nombre: 'asc' },
@@ -105,13 +110,24 @@ export class ProduccionController {
       });
 
       for (const item of detalles) {
-        await tx.recetaDetalle.create({
+        const rd = await tx.recetaDetalle.create({
           data: {
             recetaId: r.id,
             productoId: item.productoId,
             cantidadRequerida: parseFloat(item.cantidadRequerida),
           },
         });
+
+        if (item.sustitutoIds && Array.isArray(item.sustitutoIds)) {
+          for (const sustId of item.sustitutoIds) {
+            await tx.recetaDetalleSustituto.create({
+              data: {
+                recetaDetalleId: rd.id,
+                productoId: sustId,
+              },
+            });
+          }
+        }
       }
 
       return r;
@@ -208,13 +224,24 @@ export class ProduccionController {
         // Borrar antiguos detalles y crear nuevos
         await tx.recetaDetalle.deleteMany({ where: { recetaId: id } });
         for (const item of detalles) {
-          await tx.recetaDetalle.create({
+          const rd = await tx.recetaDetalle.create({
             data: {
               recetaId: id,
               productoId: item.productoId,
               cantidadRequerida: parseFloat(item.cantidadRequerida),
             },
           });
+
+          if (item.sustitutoIds && Array.isArray(item.sustitutoIds)) {
+            for (const sustId of item.sustitutoIds) {
+              await tx.recetaDetalleSustituto.create({
+                data: {
+                  recetaDetalleId: rd.id,
+                  productoId: sustId,
+                },
+              });
+            }
+          }
         }
       }
 
@@ -1252,6 +1279,9 @@ export class ProduccionController {
             detalles: {
               include: {
                 producto: true,
+                sustitutos: {
+                  include: { producto: true },
+                },
               },
             },
           },
@@ -1287,9 +1317,49 @@ export class ProduccionController {
       });
       const stockDisponible = inv ? inv.existencia : 0;
 
+      // Obtener stock y lotes para cada sustituto
+      const sustitutosInfo: any[] = [];
+      for (const sust of reqDetalle.sustitutos) {
+        const invSust = await this.prisma.inventario.findUnique({
+          where: {
+            productoId_sucursalId: {
+              productoId: sust.productoId,
+              sucursalId: cdId,
+            },
+          },
+        });
+        const stockSust = invSust ? invSust.existencia : 0;
+
+        const lotesSust = await this.prisma.lote.findMany({
+          where: {
+            productoId: sust.productoId,
+            cantidadActual: { gt: 0 },
+            estado: 'APROBADO',
+          },
+          orderBy: { fechaVencimiento: 'asc' },
+        });
+
+        sustitutosInfo.push({
+          productoId: sust.productoId,
+          sku: sust.producto.sku,
+          descripcion: sust.producto.descripcion,
+          unidadMedida: sust.producto.unidadMedida || 'U',
+          stockDisponible: parseFloat(stockSust.toFixed(2)),
+          lotesDisponibles: lotesSust.map((l) => ({
+            id: l.id,
+            numeroLote: l.numeroLote,
+            cantidadActual: l.cantidadActual,
+          })),
+        });
+      }
+
       // Filtrar detalles que correspondan a picking físico real (con lote asignado)
+      // Tanto del producto requerido como de sus sustitutos
+      const substituteIds = reqDetalle.sustitutos.map((s) => s.productoId);
+      const allowedProductIds = [reqDetalle.productoId, ...substituteIds];
+
       const consumidoRecords = op.detalles.filter(
-        (d) => d.productoId === reqDetalle.productoId && d.loteId !== null,
+        (d) => allowedProductIds.includes(d.productoId) && d.loteId !== null,
       );
       const yaEntregado = consumidoRecords.reduce((sum, r) => sum + r.cantidadConsumida, 0);
       const cantidadPicked = Math.max(0, cantidadRequerida - yaEntregado);
@@ -1322,6 +1392,7 @@ export class ProduccionController {
           numeroLote: l.numeroLote,
           cantidadActual: l.cantidadActual,
         })),
+        sustitutos: sustitutosInfo,
       });
     }
 
@@ -1355,7 +1426,12 @@ export class ProduccionController {
         receta: {
           include: {
             detalles: {
-              include: { producto: true },
+              include: {
+                producto: true,
+                sustitutos: {
+                  include: { producto: true },
+                },
+              },
             },
           },
         },
@@ -1381,9 +1457,12 @@ export class ProduccionController {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Procesar el picking actual de manera incremental (no eliminamos ni revertimos detalles anteriores)
+      // 1. Procesar el picking actual de manera incremental
       for (const reqDetalle of op.receta.detalles) {
-        const itemPicking = detalles.find((d: any) => d.productoId === reqDetalle.productoId);
+        // Encontrar por reqProductoId (nuevo formato) o productoId (antiguo formato)
+        const itemPicking = detalles.find(
+          (d: any) => (d.reqProductoId || d.productoId) === reqDetalle.productoId,
+        );
         if (!itemPicking || !itemPicking.picked) {
           continue;
         }
@@ -1393,10 +1472,30 @@ export class ProduccionController {
           continue;
         }
 
-        if (reqDetalle.producto && reqDetalle.producto.unidadMedida.toUpperCase() === 'UNIDAD') {
+        const actualProductoId = itemPicking.productoId || reqDetalle.productoId;
+
+        // Validar que el producto sea el original o un sustituto aprobado
+        const substituteIds = reqDetalle.sustitutos.map((s) => s.productoId);
+        if (actualProductoId !== reqDetalle.productoId && !substituteIds.includes(actualProductoId)) {
+          throw new BadRequestException(
+            `El producto seleccionado no es un sustituto válido para "${reqDetalle.producto.descripcion}".`,
+          );
+        }
+
+        let actualProducto = reqDetalle.producto;
+        if (actualProductoId !== reqDetalle.productoId) {
+          const sustObj = reqDetalle.sustitutos.find((s) => s.productoId === actualProductoId);
+          if (sustObj) {
+            actualProducto = sustObj.producto;
+          } else {
+            actualProducto = (await tx.producto.findUnique({ where: { id: actualProductoId } })) || reqDetalle.producto;
+          }
+        }
+
+        if (actualProducto && actualProducto.unidadMedida.toUpperCase() === 'UNIDAD') {
           if (cantidadAPreparar % 1 !== 0) {
             throw new BadRequestException(
-              `Para el ingrediente "${reqDetalle.producto.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`,
+              `Para el ingrediente "${actualProducto.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`,
             );
           }
         }
@@ -1408,13 +1507,13 @@ export class ProduccionController {
           const lote = await tx.lote.findFirst({
             where: {
               numeroLote: itemPicking.loteNumero,
-              productoId: reqDetalle.productoId,
+              productoId: actualProductoId,
             },
           });
 
           if (!lote) {
             throw new BadRequestException(
-              `El lote escaneado "${itemPicking.loteNumero}" no existe o no corresponde al ingrediente "${reqDetalle.producto.descripcion}".`,
+              `El lote escaneado "${itemPicking.loteNumero}" no existe o no corresponde al ingrediente "${actualProducto.descripcion}".`,
             );
           }
 
@@ -1435,7 +1534,7 @@ export class ProduccionController {
             const inv = await tx.inventario.findUnique({
               where: {
                 productoId_sucursalId: {
-                  productoId: reqDetalle.productoId,
+                  productoId: actualProductoId,
                   sucursalId: cdId,
                 },
               },
@@ -1448,7 +1547,7 @@ export class ProduccionController {
             } else {
               await tx.inventario.create({
                 data: {
-                  productoId: reqDetalle.productoId,
+                  productoId: actualProductoId,
                   sucursalId: cdId,
                   existencia: -aDescontar,
                 },
@@ -1458,7 +1557,7 @@ export class ProduccionController {
             await tx.ordenProduccionDetalle.create({
               data: {
                 ordenProduccionId: op.id,
-                productoId: reqDetalle.productoId,
+                productoId: actualProductoId,
                 loteId: lote.id,
                 cantidadConsumida: aDescontar,
               },
@@ -1467,7 +1566,7 @@ export class ProduccionController {
             await tx.movimientoInventario.create({
               data: {
                 tipo: 'SALIDA',
-                productoId: reqDetalle.productoId,
+                productoId: actualProductoId,
                 loteId: lote.id,
                 sucursalOrigenId: cdId,
                 cantidad: aDescontar,
@@ -1484,7 +1583,7 @@ export class ProduccionController {
         if (pendientePorDescontar > 0) {
           const lotesDisponibles = await tx.lote.findMany({
             where: {
-              productoId: reqDetalle.productoId,
+              productoId: actualProductoId,
               cantidadActual: { gt: 0 },
               estado: 'APROBADO',
               NOT: itemPicking.loteNumero ? { numeroLote: itemPicking.loteNumero } : undefined,
@@ -1505,7 +1604,7 @@ export class ProduccionController {
             const inv = await tx.inventario.findUnique({
               where: {
                 productoId_sucursalId: {
-                  productoId: reqDetalle.productoId,
+                  productoId: actualProductoId,
                   sucursalId: cdId,
                 },
               },
@@ -1518,7 +1617,7 @@ export class ProduccionController {
             } else {
               await tx.inventario.create({
                 data: {
-                  productoId: reqDetalle.productoId,
+                  productoId: actualProductoId,
                   sucursalId: cdId,
                   existencia: -aDescontar,
                 },
@@ -1528,7 +1627,7 @@ export class ProduccionController {
             await tx.ordenProduccionDetalle.create({
               data: {
                 ordenProduccionId: op.id,
-                productoId: reqDetalle.productoId,
+                productoId: actualProductoId,
                 loteId: lote.id,
                 cantidadConsumida: aDescontar,
               },
@@ -1537,7 +1636,7 @@ export class ProduccionController {
             await tx.movimientoInventario.create({
               data: {
                 tipo: 'SALIDA',
-                productoId: reqDetalle.productoId,
+                productoId: actualProductoId,
                 loteId: lote.id,
                 sucursalOrigenId: cdId,
                 cantidad: aDescontar,
@@ -1551,15 +1650,18 @@ export class ProduccionController {
         }
       }
 
-      // 2. Determinar si aún hay shortage para la orden sumando todos los detalles recolectados con lote asignado
+      // 2. Determinar si aún hay shortage para la orden sumando todos los detalles recolectados con lote asignado (original + sustitutos)
       let tieneShortage = false;
       for (const reqDetalle of op.receta.detalles) {
         const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
 
+        const substituteIds = reqDetalle.sustitutos.map((s) => s.productoId);
+        const allowedProductIds = [reqDetalle.productoId, ...substituteIds];
+
         const aggregate = await tx.ordenProduccionDetalle.aggregate({
           where: {
             ordenProduccionId: op.id,
-            productoId: reqDetalle.productoId,
+            productoId: { in: allowedProductIds },
             loteId: { not: null },
           },
           _sum: {
@@ -1909,7 +2011,14 @@ export class ProduccionController {
         receta: {
           include: {
             productoFinal: true,
-            detalles: true,
+            detalles: {
+              include: {
+                producto: true,
+                sustitutos: {
+                  include: { producto: true },
+                },
+              },
+            },
           },
         },
       },
@@ -2006,10 +2115,13 @@ export class ProduccionController {
           for (const reqDetalle of op.receta.detalles) {
             const totalRequerido = reqDetalle.cantidadRequerida * cantPlan;
 
+            const substituteIds = reqDetalle.sustitutos.map((s) => s.productoId);
+            const allowedProductIds = [reqDetalle.productoId, ...substituteIds];
+
             const consumidoPrevio = await tx.ordenProduccionDetalle.aggregate({
               where: {
                 ordenProduccionId: op.id,
-                productoId: reqDetalle.productoId,
+                productoId: { in: allowedProductIds },
                 loteId: { not: null },
               },
               _sum: { cantidadConsumida: true },

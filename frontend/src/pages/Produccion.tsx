@@ -130,7 +130,7 @@ export default function Produccion() {
     productoFinalId: '',
     cantidadEsperada: '100',
     costoEstimado: '0',
-    detalles: [] as { productoId: string; cantidadRequerida: string }[],
+    detalles: [] as { productoId: string; cantidadRequerida: string; sustitutoIds?: string[] }[],
   });
 
   const [openOrden, setOpenOrden] = useState(false);
@@ -349,7 +349,7 @@ export default function Produccion() {
   const handleAgregarIngrediente = () => {
     setRecetaForm({
       ...recetaForm,
-      detalles: [...recetaForm.detalles, { productoId: '', cantidadRequerida: '' }],
+      detalles: [...recetaForm.detalles, { productoId: '', cantidadRequerida: '', sustitutoIds: [] }],
     });
   };
 
@@ -401,7 +401,8 @@ export default function Produccion() {
         costoEstimado: parseFloat(costoEstimado),
         detalles: detalles.map(d => ({
           productoId: d.productoId,
-          cantidadRequerida: parseFloat(d.cantidadRequerida)
+          cantidadRequerida: parseFloat(d.cantidadRequerida),
+          sustitutoIds: d.sustitutoIds || []
         }))
       };
 
@@ -449,6 +450,7 @@ export default function Produccion() {
       detalles: r.detalles.map((d: any) => ({
         productoId: d.productoId,
         cantidadRequerida: String(d.cantidadRequerida),
+        sustitutoIds: d.sustitutos ? d.sustitutos.map((s: any) => s.productoId) : [],
       })),
     });
     setOpenReceta(true);
@@ -502,6 +504,7 @@ export default function Produccion() {
       const ingredientes = data.ingredientes.map((i: any) => ({
         ...i,
         picked: i.picked || false,
+        selectedProductoId: i.productoId,
       }));
       setPickingData({ ...data, ingredientes });
       setOpenPicking(true);
@@ -514,7 +517,8 @@ export default function Produccion() {
     try {
       setErrorMsg(null);
       for (const ing of pickingData.ingredientes) {
-        const prod = productos.find((p) => p.id === ing.productoId);
+        const actualProdId = ing.selectedProductoId || ing.productoId;
+        const prod = productos.find((p) => p.id === actualProdId);
         if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
           if (parseFloat(ing.cantidadPicked) % 1 !== 0) {
             throw new Error(`Para el ingrediente "${prod.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`);
@@ -525,7 +529,8 @@ export default function Produccion() {
         method: 'POST',
         body: JSON.stringify({
           detalles: pickingData.ingredientes.map((i: any) => ({
-            productoId: i.productoId,
+            reqProductoId: i.productoId,
+            productoId: i.selectedProductoId || i.productoId,
             cantidadPicked: parseFloat(i.cantidadPicked),
             picked: i.picked,
             loteNumero: i.loteNumero || '',
@@ -798,11 +803,18 @@ export default function Produccion() {
                     </Typography>
                     <Box sx={{ pl: 1 }}>
                       {r.detalles.map((d: any) => (
-                        <Box key={d.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                          <Typography variant="body2">{d.producto.descripcion}</Typography>
-                          <Typography variant="body2" color="primary.main" sx={{ fontWeight: 600 }}>
-                            {d.cantidadRequerida} {d.producto.unidadMedida}
-                          </Typography>
+                        <Box key={d.id} sx={{ py: 0.75, borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{d.producto.descripcion}</Typography>
+                            <Typography variant="body2" color="primary.main" sx={{ fontWeight: 700 }}>
+                              {d.cantidadRequerida} {d.producto.unidadMedida}
+                            </Typography>
+                          </Box>
+                          {d.sustitutos && d.sustitutos.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, pl: 1 }}>
+                              Sustitutos: {d.sustitutos.map((s: any) => s.producto.descripcion).join(', ')}
+                            </Typography>
+                          )}
                         </Box>
                       ))}
                     </Box>
@@ -1218,40 +1230,79 @@ export default function Produccion() {
             </Box>
 
             {recetaForm.detalles.map((d, index) => (
-              <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '7fr 4fr 1fr', gap: 2, alignItems: 'center' }}>
-                <Box>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Materia Prima / Insumo</InputLabel>
-                    <Select
-                      value={d.productoId}
-                      label="Materia Prima / Insumo"
-                      onChange={(e) => handleIngredienteChange(index, 'productoId', e.target.value)}
-                    >
-                      {productos
-                        .filter((p) => p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'MP' || p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS')
-                        .map((p) => (
-                          <MenuItem key={p.id} value={p.id}>
-                            {p.descripcion} ({p.sku})
-                          </MenuItem>
-                        ))}
-                    </Select>
-                  </FormControl>
+              <Box key={index} sx={{ p: 2, border: '1px dashed rgba(255, 255, 255, 0.1)', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '7fr 4fr 1fr', gap: 2, alignItems: 'center' }}>
+                  <Box>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Materia Prima / Insumo</InputLabel>
+                      <Select
+                        value={d.productoId}
+                        label="Materia Prima / Insumo"
+                        onChange={(e) => handleIngredienteChange(index, 'productoId', e.target.value)}
+                      >
+                        {productos
+                          .filter((p) => p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'MP' || p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS')
+                          .map((p) => (
+                            <MenuItem key={p.id} value={p.id}>
+                              {p.descripcion} ({p.sku})
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  <Box>
+                    <TextField
+                      label={`Cantidad (${productos.find((p) => p.id === d.productoId)?.unidadMedida || ''})`}
+                      type="number"
+                      size="small"
+                      fullWidth
+                      value={d.cantidadRequerida}
+                      onChange={(e) => handleIngredienteChange(index, 'cantidadRequerida', e.target.value)}
+                    />
+                  </Box>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <IconButton color="error" onClick={() => handleQuitarIngrediente(index)}>
+                      <Delete />
+                    </IconButton>
+                  </Box>
                 </Box>
-                <Box>
-                  <TextField
-                    label={`Cantidad (${productos.find((p) => p.id === d.productoId)?.unidadMedida || ''})`}
-                    type="number"
-                    size="small"
-                    fullWidth
-                    value={d.cantidadRequerida}
-                    onChange={(e) => handleIngredienteChange(index, 'cantidadRequerida', e.target.value)}
-                  />
-                </Box>
-                <Box sx={{ textAlign: 'center' }}>
-                  <IconButton color="error" onClick={() => handleQuitarIngrediente(index)}>
-                    <Delete />
-                  </IconButton>
-                </Box>
+                
+                {d.productoId && (
+                  <Box>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Productos Sustitutos Autorizados</InputLabel>
+                      <Select
+                        multiple
+                        value={d.sustitutoIds || []}
+                        label="Productos Sustitutos Autorizados"
+                        onChange={(e) => {
+                          const val = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
+                          const list = [...recetaForm.detalles];
+                          list[index] = { ...list[index], sustitutoIds: val };
+                          setRecetaForm({ ...recetaForm, detalles: list });
+                        }}
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(selected as string[]).map((value) => {
+                              const prod = productos.find(p => p.id === value);
+                              return (
+                                <Chip key={value} label={prod ? prod.descripcion : value} size="small" />
+                              );
+                            })}
+                          </Box>
+                        )}
+                      >
+                        {productos
+                          .filter((p) => (p.tipoProducto === 'MATERIA_PRIMA' || p.tipoProducto === 'MP' || p.tipoProducto === 'INSUMO' || p.tipoProducto === 'INS') && p.id !== d.productoId)
+                          .map((p) => (
+                            <MenuItem key={p.id} value={p.id}>
+                              {p.descripcion} ({p.sku})
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                )}
               </Box>
             ))}
           </Box>
@@ -1432,37 +1483,79 @@ export default function Produccion() {
                 </TableHead>
                 <TableBody>
                   {pickingData.ingredientes.map((ing: any, idx: number) => {
+                    const selectedId = ing.selectedProductoId || ing.productoId;
+                    const isSubstitute = selectedId !== ing.productoId;
+
+                    let currentStock = ing.stockDisponible;
+                    let currentLotes = ing.lotesDisponibles || [];
+                    let currentUnit = ing.unidadMedida;
+
+                    if (isSubstitute) {
+                      const sust = ing.sustitutos?.find((s: any) => s.productoId === selectedId);
+                      if (sust) {
+                        currentStock = sust.stockDisponible;
+                        currentLotes = sust.lotesDisponibles || [];
+                        currentUnit = sust.unidadMedida;
+                      }
+                    }
+
                     const qtyReq = parseFloat(ing.cantidadRequerida || 0);
                     const qtyYaEntregado = parseFloat(ing.yaEntregado || 0);
                     const qtyPicked = parseFloat(ing.cantidadPicked || 0) || 0;
                     const balRequired = Math.max(0, qtyReq - qtyYaEntregado - qtyPicked);
-                    const isShortage = ing.stockDisponible < qtyPicked;
+                    const isShortage = currentStock < qtyPicked;
 
                     return (
                       <TableRow key={ing.productoId} hover>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
                           <Typography variant="caption" color="text.secondary">{ing.sku}</Typography>
+                          {ing.sustitutos && ing.sustitutos.length > 0 && (
+                            <Box sx={{ mt: 1, maxWidth: 220 }}>
+                              <FormControl size="small" fullWidth>
+                                <Select
+                                  value={selectedId}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const newIng = [...pickingData.ingredientes];
+                                    newIng[idx].selectedProductoId = val;
+                                    newIng[idx].loteNumero = ''; // reset selected lot
+                                    setPickingData({ ...pickingData, ingredientes: newIng });
+                                  }}
+                                  sx={{ fontSize: '0.75rem', height: '28px' }}
+                                >
+                                  <MenuItem value={ing.productoId} sx={{ fontSize: '0.75rem' }}>
+                                    {ing.descripcion} (Original)
+                                  </MenuItem>
+                                  {ing.sustitutos.map((s: any) => (
+                                    <MenuItem key={s.productoId} value={s.productoId} sx={{ fontSize: '0.75rem' }}>
+                                      {s.descripcion} (Sustituto)
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Box>
+                          )}
                         </TableCell>
                         <TableCell align="right">
                           {ing.cantidadRequerida} {ing.unidadMedida}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold', color: qtyYaEntregado > 0 ? '#10b981' : 'inherit' }}>
-                          {qtyYaEntregado} {ing.unidadMedida}
+                          {qtyYaEntregado} {currentUnit}
                         </TableCell>
                         <TableCell
                           align="right"
                           sx={{
-                            color: ing.stockDisponible < (qtyReq - qtyYaEntregado) ? '#f87171' : 'inherit',
-                            fontWeight: ing.stockDisponible < (qtyReq - qtyYaEntregado) ? 700 : 'normal',
+                            color: currentStock < (qtyReq - qtyYaEntregado) ? '#f87171' : 'inherit',
+                            fontWeight: currentStock < (qtyReq - qtyYaEntregado) ? 700 : 'normal',
                           }}
                         >
-                          {ing.stockDisponible} {ing.unidadMedida}
+                          {currentStock} {currentUnit}
                         </TableCell>
                         <TableCell>
                           <Autocomplete
                             freeSolo
-                            options={ing.lotesDisponibles ? ing.lotesDisponibles.map((l: any) => l.numeroLote) : []}
+                            options={currentLotes ? currentLotes.map((l: any) => l.numeroLote) : []}
                             value={ing.loteNumero || ''}
                             onChange={(_, newValue) => {
                               const newIng = [...pickingData.ingredientes];
@@ -1482,9 +1575,9 @@ export default function Produccion() {
                               />
                             )}
                           />
-                          {ing.lotesDisponibles && ing.lotesDisponibles.length > 0 && (
+                          {currentLotes && currentLotes.length > 0 && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem' }}>
-                              Sugeridos: {ing.lotesDisponibles.map((l: any) => `${l.numeroLote} (${l.cantidadActual} ${ing.unidadMedida})`).join(', ')}
+                              Sugeridos: {currentLotes.map((l: any) => `${l.numeroLote} (${l.cantidadActual} ${currentUnit})`).join(', ')}
                             </Typography>
                           )}
                         </TableCell>

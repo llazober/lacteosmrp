@@ -116,6 +116,7 @@ model Producto {
   facturasDetalle FacturaCompraDetalle[]
   recetasFinales  Receta[]
   recetaDetalles  RecetaDetalle[]
+  recetaDetalleSustitutos RecetaDetalleSustituto[]
   ordenProduccionDetalles OrdenProduccionDetalle[]
   mermas          Merma[]
   solicitudesReabastecimiento SolicitudReabastecimiento[]
@@ -544,6 +545,18 @@ model RecetaDetalle {
 
   receta          Receta   @relation(fields: [recetaId], references: [id], onDelete: Cascade)
   producto        Producto @relation(fields: [productoId], references: [id])
+  sustitutos      RecetaDetalleSustituto[]
+}
+
+model RecetaDetalleSustituto {
+  id              String        @id @default(uuid())
+  recetaDetalleId String
+  productoId      String        // El producto que sirve como sustituto
+
+  recetaDetalle   RecetaDetalle @relation(fields: [recetaDetalleId], references: [id], onDelete: Cascade)
+  producto        Producto      @relation(fields: [productoId], references: [id])
+
+  @@unique([recetaDetalleId, productoId])
 }
 
 model OrdenProduccion {
