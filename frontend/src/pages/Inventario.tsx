@@ -656,7 +656,7 @@ export default function Inventario() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-      `${data.codigoBarras}#${data.numeroLote}`
+      `${data.prodId}#${data.numeroLote}`
     )}&code=Code128`;
     
     printWindow.document.write(`
@@ -704,7 +704,7 @@ export default function Inventario() {
           <div class="title">${data.productoNombre}</div>
           <div class="subtitle">SKU: ${data.sku} | Lote: ${data.numeroLote}</div>
           <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
-          <div class="code-text">${data.codigoBarras}#${data.numeroLote}</div>
+          <div class="code-text">${data.prodId}#${data.numeroLote}</div>
           <script>
             window.onload = function() {
               setTimeout(function() {
@@ -1639,6 +1639,7 @@ export default function Inventario() {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell>Prod ID</TableCell>
                   <TableCell>SKU</TableCell>
                   <TableCell>Código de Barras</TableCell>
                   <TableCell>Descripción</TableCell>
@@ -1657,7 +1658,7 @@ export default function Inventario() {
               <TableBody>
                 {paginatedTodosProductos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} align="center">No hay productos en el catálogo.</TableCell>
+                    <TableCell colSpan={13} align="center">No hay productos en el catálogo.</TableCell>
                   </TableRow>
                 ) : (
                   paginatedTodosProductos.map((p) => {
@@ -1676,6 +1677,7 @@ export default function Inventario() {
                           transition: 'background-color 0.2s ease',
                         }}
                       >
+                        <TableCell sx={{ fontWeight: 700 }}>{p.prodId}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{p.sku}</TableCell>
                         <TableCell>{p.codigoBarras}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{p.descripcion}</TableCell>
@@ -1851,6 +1853,7 @@ export default function Inventario() {
                                   setBarcodeDialogData({
                                     sku: l.producto.sku,
                                     codigoBarras: l.producto.codigoBarras || l.producto.sku,
+                                    prodId: l.producto.prodId,
                                     numeroLote: l.numeroLote,
                                     productoNombre: l.producto.descripcion,
                                   });
@@ -3299,7 +3302,7 @@ export default function Inventario() {
               >
                 <img
                   src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-                    `${barcodeDialogData.codigoBarras}#${barcodeDialogData.numeroLote}`
+                    `${barcodeDialogData.prodId}#${barcodeDialogData.numeroLote}`
                   )}&code=Code128`}
                   alt="Código de Barras"
                   style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
@@ -3307,7 +3310,7 @@ export default function Inventario() {
               </Box>
 
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 1, color: 'text.secondary' }}>
-                {`${barcodeDialogData.codigoBarras}#${barcodeDialogData.numeroLote}`}
+                {`${barcodeDialogData.prodId}#${barcodeDialogData.numeroLote}`}
               </Typography>
 
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>

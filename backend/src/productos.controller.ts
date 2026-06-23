@@ -73,8 +73,15 @@ export class ProductosController {
       );
     }
 
+    const maxProd = await this.prisma.producto.findFirst({
+      orderBy: { prodId: 'desc' },
+      select: { prodId: true },
+    });
+    const nextProdId = maxProd && maxProd.prodId ? maxProd.prodId + 1 : 1;
+
     const producto = await this.prisma.producto.create({
       data: {
+        prodId: nextProdId,
         sku,
         codigoBarras,
         descripcion,
@@ -91,6 +98,7 @@ export class ProductosController {
         esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : true,
       },
     });
+
 
     // Auditoría
     await this.prisma.auditoria.create({

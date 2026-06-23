@@ -296,7 +296,7 @@ export default function RutaOperaciones() {
   const printBarcode = (orden: any, loteNum: string) => {
     if (!orden) return;
     const prod = orden.receta.productoFinal;
-    const barcodeData = `${prod.codigoBarras || ''}#${loteNum}`;
+    const barcodeData = `${prod.prodId || ''}#${loteNum}`;
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
       barcodeData
     )}&code=Code128`;

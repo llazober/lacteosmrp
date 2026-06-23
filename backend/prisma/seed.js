@@ -222,6 +222,7 @@ async function main() {
     // Materias primas
     const rawLeche = await prisma.producto.create({
         data: {
+            prodId: 1,
             sku: 'MP-LECHE-CRUDA',
             codigoBarras: '7801234000104',
             descripcion: 'Leche Cruda Entera (Silo)',
@@ -239,6 +240,7 @@ async function main() {
     });
     const insFrutilla = await prisma.producto.create({
         data: {
+            prodId: 2,
             sku: 'INS-PREP-FRUTILLA',
             codigoBarras: '7801234000111',
             descripcion: 'Preparado de Frutilla para Yogurt',
@@ -256,6 +258,7 @@ async function main() {
     });
     const insAzucar = await prisma.producto.create({
         data: {
+            prodId: 3,
             sku: 'INS-AZUCAR',
             codigoBarras: '7801234000128',
             descripcion: 'Azúcar Granulada Saco 25kg',
@@ -273,6 +276,7 @@ async function main() {
     });
     const insCultivos = await prisma.producto.create({
         data: {
+            prodId: 4,
             sku: 'INS-CULTIVOS',
             codigoBarras: '7801234000135',
             descripcion: 'Cultivo Láctico Termófilo',
@@ -290,6 +294,7 @@ async function main() {
     });
     const insCuajo = await prisma.producto.create({
         data: {
+            prodId: 5,
             sku: 'INS-CUAJO',
             codigoBarras: '7801234000142',
             descripcion: 'Cuajo Líquido Quimosina',
@@ -308,6 +313,7 @@ async function main() {
     // Productos Terminados
     const p1 = await prisma.producto.create({
         data: {
+            prodId: 6,
             sku: 'PROD-LECHE-ENT',
             codigoBarras: '7801234000012',
             descripcion: 'Leche Entera UHT 1L',
@@ -325,6 +331,7 @@ async function main() {
     });
     const p2 = await prisma.producto.create({
         data: {
+            prodId: 7,
             sku: 'PROD-YOG-FRESA-1L',
             codigoBarras: '7801234000029',
             descripcion: 'Yogurt Batido de Fresa 1L',
@@ -342,6 +349,7 @@ async function main() {
     });
     const p3 = await prisma.producto.create({
         data: {
+            prodId: 8,
             sku: 'PROD-QUE-FRESCO-500G',
             codigoBarras: '7801234000036',
             descripcion: 'Queso Fresco ERP 500g',
@@ -359,6 +367,7 @@ async function main() {
     });
     const p4 = await prisma.producto.create({
         data: {
+            prodId: 9,
             sku: 'PROD-MAN-SAL',
             codigoBarras: '7801234000043',
             descripcion: 'Mantequilla con Sal Artesanal 250g',

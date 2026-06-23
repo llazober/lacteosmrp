@@ -167,7 +167,8 @@ export default function POS() {
     const prod = productos.find(
       (p) =>
         p.codigoBarras === productQuery ||
-        p.sku.toLowerCase() === productQuery
+        p.sku.toLowerCase() === productQuery ||
+        String(p.prodId) === productQuery
     );
 
     if (prod) {
@@ -228,7 +229,8 @@ export default function POS() {
     const coincideBusqueda =
       p.descripcion.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q) ||
-      (p.codigoBarras && p.codigoBarras.includes(q));
+      (p.codigoBarras && p.codigoBarras.includes(q)) ||
+      (p.prodId && String(p.prodId) === q);
     return coincideCat && coincideBusqueda;
   });
 
