@@ -20,6 +20,13 @@ export class ProductosController {
   @Get('productos')
   async listarProductos() {
     return this.prisma.producto.findMany({
+      include: {
+        proveedoresAsociados: {
+          include: {
+            proveedor: true,
+          },
+        },
+      },
       orderBy: { descripcion: 'asc' },
     });
   }
@@ -169,6 +176,96 @@ export class ProductosController {
     });
 
     return producto;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Post('productos/:id/proveedores')
+  async asociarProveedor(
+    @Param('id') productoId: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    const { proveedorId, costoProveedor, codigoProveedor, esPredeterminado } = body;
+    if (!proveedorId) {
+      throw new BadRequestException('El proveedorId es obligatorio.');
+    }
+
+    // Si se marca como predeterminado, primero quitar el flag a otros proveedores de este producto
+    if (esPredeterminado) {
+      await this.prisma.productoProveedor.updateMany({
+        where: { productoId },
+        data: { esPredeterminado: false },
+      });
+    }
+
+    const costo = costoProveedor != null ? parseFloat(costoProveedor) : null;
+
+    const relacion = await this.prisma.productoProveedor.upsert({
+      where: {
+        productoId_proveedorId: {
+          productoId,
+          proveedorId,
+        },
+      },
+      update: {
+        costoProveedor: costo,
+        codigoProveedor: codigoProveedor || null,
+        esPredeterminado: Boolean(esPredeterminado),
+      },
+      create: {
+        productoId,
+        proveedorId,
+        costoProveedor: costo,
+        codigoProveedor: codigoProveedor || null,
+        esPredeterminado: Boolean(esPredeterminado),
+      },
+      include: {
+        proveedor: true,
+      },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user?.id || null,
+        usuarioNombre: req.user?.nombre || 'Sistema',
+        accion: 'ASOCIAR_PROVEEDOR_PRODUCTO',
+        modulo: 'PRODUCTOS',
+        detalles: JSON.stringify({ productoId, proveedorId, relacion }),
+      },
+    });
+
+    return relacion;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Delete('productos/:id/proveedores/:proveedorId')
+  async eliminarAsociacionProveedor(
+    @Param('id') productoId: string,
+    @Param('proveedorId') proveedorId: string,
+    @Request() req: any,
+  ) {
+    const relacion = await this.prisma.productoProveedor.delete({
+      where: {
+        productoId_proveedorId: {
+          productoId,
+          proveedorId,
+        },
+      },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user?.id || null,
+        usuarioNombre: req.user?.nombre || 'Sistema',
+        accion: 'ELIMINAR_ASOCIACION_PROVEEDOR_PRODUCTO',
+        modulo: 'PRODUCTOS',
+        detalles: JSON.stringify({ productoId, proveedorId, relacion }),
+      },
+    });
+
+    return { success: true, message: 'Asociación eliminada con éxito.' };
   }
 
   // --- PROVEEDORES ---

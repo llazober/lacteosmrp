@@ -968,6 +968,14 @@ export class LogisticaController implements OnModuleInit {
         // Generar Solicitud de Reabastecimiento de Compra
         const codigoReq = `REQ-${Date.now().toString().substring(7)}`;
 
+        // Buscar el proveedor predeterminado para el producto
+        const defaultSupplier = await this.prisma.productoProveedor.findFirst({
+          where: { productoId: prop.productoId, esPredeterminado: true },
+          include: { proveedor: true },
+        });
+        const origenSugeridoId = defaultSupplier?.proveedorId || null;
+        const proveedorNombre = defaultSupplier?.proveedor?.nombre || 'ninguno';
+
         const solicitud = await this.prisma.solicitudReabastecimiento.create({
           data: {
             codigo: codigoReq,
@@ -979,6 +987,7 @@ export class LogisticaController implements OnModuleInit {
             diasInventario: parseFloat(prop.diasInventario),
             estado: 'PENDIENTE',
             tipoOrigen: 'COMPRA',
+            origenSugeridoId,
           },
         });
 
@@ -986,7 +995,7 @@ export class LogisticaController implements OnModuleInit {
           sku: prop.productoSku,
           destino: prop.sucursalNombre,
           estado: 'OK',
-          mensaje: `Solicitud de Compra ${codigoReq} registrada en espera de aprobación.`,
+          mensaje: `Solicitud de Compra ${codigoReq} registrada (Proveedor Sugerido: ${proveedorNombre}).`,
         });
       }
     }

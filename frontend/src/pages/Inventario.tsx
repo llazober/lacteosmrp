@@ -44,6 +44,7 @@ import {
   Edit,
   Delete,
   QrCode,
+  Store,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 import { useSearchParams } from 'react-router-dom';
@@ -218,6 +219,16 @@ export default function Inventario() {
   // Dialogs de Producto
   const [openCrearProducto, setOpenCrearProducto] = useState(false);
 
+  // Dialogs de Proveedores Asociados
+  const [openAsociarProveedores, setOpenAsociarProveedores] = useState(false);
+  const [asociacionesProveedor, setAsociacionesProveedor] = useState<any[]>([]);
+  const [asociacionForm, setAsociacionForm] = useState({
+    proveedorId: '',
+    costoProveedor: '',
+    codigoProveedor: '',
+    esPredeterminado: false,
+  });
+
   // Dialog de Código de Barras Combinado (Producto + Lote)
   const [openBarcodeDialog, setOpenBarcodeDialog] = useState(false);
   const [barcodeDialogData, setBarcodeDialogData] = useState<any>(null);
@@ -325,6 +336,8 @@ export default function Inventario() {
         await cargarCategorias();
         await cargarUnidadesMedida();
         await cargarTiposProducto();
+        const provs = await apiFetch('/proveedores');
+        setTodosProveedores(provs.filter((p: any) => p.estado === 'ACTIVO'));
       } else if (activeTab === 4) {
         const lotesAll = await apiFetch('/lotes');
         setTodosLotes(lotesAll);
@@ -537,6 +550,82 @@ export default function Inventario() {
       setOpenEditarProducto(false);
       setSelectedProducto(null);
       cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  // --- ASOCIACIÓN DE PROVEEDORES ---
+  const handleOpenAsociarProveedores = (producto: any) => {
+    setSelectedProducto(producto);
+    setAsociacionesProveedor(producto.proveedoresAsociados || []);
+    setAsociacionForm({
+      proveedorId: '',
+      costoProveedor: '',
+      codigoProveedor: '',
+      esPredeterminado: false,
+    });
+    setOpenAsociarProveedores(true);
+  };
+
+  const handleAsociarProveedorSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      if (!asociacionForm.proveedorId) {
+        throw new Error('Debe seleccionar un proveedor.');
+      }
+      await apiFetch(`/productos/${selectedProducto.id}/proveedores`, {
+        method: 'POST',
+        body: JSON.stringify({
+          proveedorId: asociacionForm.proveedorId,
+          costoProveedor: asociacionForm.costoProveedor ? parseFloat(asociacionForm.costoProveedor) : null,
+          codigoProveedor: asociacionForm.codigoProveedor || null,
+          esPredeterminado: asociacionForm.esPredeterminado,
+        }),
+      });
+
+      // Recargar producto y sus asociaciones
+      const updatedProductos = await apiFetch('/productos');
+      setTodosProductos(updatedProductos);
+      
+      const updatedSelected = updatedProductos.find((p: any) => p.id === selectedProducto.id);
+      if (updatedSelected) {
+        setSelectedProducto(updatedSelected);
+        setAsociacionesProveedor(updatedSelected.proveedoresAsociados || []);
+      }
+
+      setAsociacionForm({
+        proveedorId: '',
+        costoProveedor: '',
+        codigoProveedor: '',
+        esPredeterminado: false,
+      });
+      setSuccessMsg('Proveedor asociado con éxito.');
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEliminarAsociacion = async (proveedorId: string) => {
+    try {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      await apiFetch(`/productos/${selectedProducto.id}/proveedores/${proveedorId}`, {
+        method: 'DELETE',
+      });
+
+      // Recargar producto y sus asociaciones
+      const updatedProductos = await apiFetch('/productos');
+      setTodosProductos(updatedProductos);
+
+      const updatedSelected = updatedProductos.find((p: any) => p.id === selectedProducto.id);
+      if (updatedSelected) {
+        setSelectedProducto(updatedSelected);
+        setAsociacionesProveedor(updatedSelected.proveedoresAsociados || []);
+      }
+
+      setSuccessMsg('Asociación eliminada con éxito.');
     } catch (e: any) {
       setErrorMsg(e.message);
     }
@@ -1719,34 +1808,49 @@ export default function Inventario() {
                         </TableCell>
                         <TableCell align="right">
                           {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                            <Tooltip title="Editar Producto">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedProducto(p);
-                                  setEditarProductoForm({
-                                    tipoProducto: p.tipoProducto || 'PRODUCTO_TERMINADO',
-                                    descripcion: p.descripcion,
-                                    categoria: p.categoria,
-                                    marca: p.marca,
-                                    unidadMedida: p.unidadMedida,
-                                    costo: String(p.costo),
-                                    precioVenta: String(p.precioVenta),
-                                    iva: String(p.iva),
-                                    temperaturaMin: String(p.temperaturaMin),
-                                    temperaturaMax: String(p.temperaturaMax),
-                                    vidaUtilDias: String(p.vidaUtilDias),
-                                    estado: p.estado,
-                                    esManufacturado: p.esManufacturado !== false,
-                                  });
-                                  setOpenEditarProducto(true);
-                                }}
-                              >
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <>
+                              <Tooltip title="Asociar Proveedores">
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenAsociarProveedores(p);
+                                  }}
+                                  sx={{ mr: 0.5 }}
+                                >
+                                  <Store fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Editar Producto">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedProducto(p);
+                                    setEditarProductoForm({
+                                      tipoProducto: p.tipoProducto || 'PRODUCTO_TERMINADO',
+                                      descripcion: p.descripcion,
+                                      categoria: p.categoria,
+                                      marca: p.marca,
+                                      unidadMedida: p.unidadMedida,
+                                      costo: String(p.costo),
+                                      precioVenta: String(p.precioVenta),
+                                      iva: String(p.iva),
+                                      temperaturaMin: String(p.temperaturaMin),
+                                      temperaturaMax: String(p.temperaturaMax),
+                                      vidaUtilDias: String(p.vidaUtilDias),
+                                      estado: p.estado,
+                                      esManufacturado: p.esManufacturado !== false,
+                                    });
+                                    setOpenEditarProducto(true);
+                                  }}
+                                >
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
                           )}
                         </TableCell>
                       </TableRow>
@@ -3018,6 +3122,167 @@ export default function Inventario() {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEditarProducto(false); setSelectedProducto(null); }}>Cancelar</Button>
           <Button variant="contained" color="primary" onClick={handleEditarProductoSubmit}>Actualizar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: ASOCIAR PROVEEDORES */}
+      <Dialog open={openAsociarProveedores} onClose={() => setOpenAsociarProveedores(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Proveedores Asociados - {selectedProducto?.descripcion}
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
+          {errorMsg && <Alert severity="error" onClose={() => setErrorMsg(null)}>{errorMsg}</Alert>}
+          {successMsg && <Alert severity="success" onClose={() => setSuccessMsg(null)}>{successMsg}</Alert>}
+
+          {/* Formulario de Nueva Asociación */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
+              Asociar Nuevo Proveedor
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Proveedor</InputLabel>
+                <Select
+                  value={asociacionForm.proveedorId}
+                  label="Proveedor"
+                  onChange={(e) => setAsociacionForm({ ...asociacionForm, proveedorId: e.target.value })}
+                >
+                  {todosProveedores.map((prov) => (
+                    <MenuItem key={prov.id} value={prov.id}>
+                      {prov.nombre} ({prov.codigo})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Costo Proveedor ($)"
+                  type="number"
+                  size="small"
+                  value={asociacionForm.costoProveedor}
+                  onChange={(e) => setAsociacionForm({ ...asociacionForm, costoProveedor: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Código/SKU Proveedor"
+                  placeholder="Ej: PROV-1234"
+                  size="small"
+                  value={asociacionForm.codigoProveedor}
+                  onChange={(e) => setAsociacionForm({ ...asociacionForm, codigoProveedor: e.target.value })}
+                />
+              </Box>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={asociacionForm.esPredeterminado}
+                    onChange={(e) => setAsociacionForm({ ...asociacionForm, esPredeterminado: e.target.checked })}
+                    color="primary"
+                  />
+                }
+                label="Definir como Proveedor Predeterminado (Default)"
+              />
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleAsociarProveedorSubmit}
+                disabled={!asociacionForm.proveedorId}
+                sx={{ alignSelf: 'flex-end', textTransform: 'none', fontWeight: 700 }}
+              >
+                Agregar Asociación
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* Lista de Proveedores Asociados */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Proveedores Vinculados ({asociacionesProveedor.length})
+            </Typography>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Costo</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>SKU Prov</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Default</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Acciones</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {asociacionesProveedor.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        No hay proveedores asociados a este producto todavía.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    asociacionesProveedor.map((ap) => (
+                      <TableRow key={ap.id}>
+                        <TableCell sx={{ fontWeight: 600 }}>{ap.proveedor?.nombre}</TableCell>
+                        <TableCell>{ap.costoProveedor ? formatCurrency(ap.costoProveedor) : 'No especificado'}</TableCell>
+                        <TableCell>{ap.codigoProveedor || '-'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={ap.esPredeterminado ? 'Principal' : 'Alternativo'}
+                            color={ap.esPredeterminado ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          {!ap.esPredeterminado && (
+                            <Button
+                              size="small"
+                              onClick={async () => {
+                                try {
+                                  setErrorMsg(null);
+                                  await apiFetch(`/productos/${selectedProducto.id}/proveedores`, {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                      proveedorId: ap.proveedorId,
+                                      costoProveedor: ap.costoProveedor,
+                                      codigoProveedor: ap.codigoProveedor,
+                                      esPredeterminado: true,
+                                    }),
+                                  });
+                                  const updatedProductos = await apiFetch('/productos');
+                                  setTodosProductos(updatedProductos);
+                                  const updatedSelected = updatedProductos.find((p: any) => p.id === selectedProducto.id);
+                                  if (updatedSelected) {
+                                    setSelectedProducto(updatedSelected);
+                                    setAsociacionesProveedor(updatedSelected.proveedoresAsociados || []);
+                                  }
+                                  setSuccessMsg('Proveedor predeterminado actualizado.');
+                                } catch (e: any) {
+                                  setErrorMsg(e.message);
+                                }
+                              }}
+                              sx={{ mr: 1, textTransform: 'none', fontSize: '0.75rem' }}
+                            >
+                              Hacer Principal
+                            </Button>
+                          )}
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleEliminarAsociacion(ap.proveedorId)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Paper>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenAsociarProveedores(false)} variant="contained">
+            Cerrar
+          </Button>
         </DialogActions>
       </Dialog>
 

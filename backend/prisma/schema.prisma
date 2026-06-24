@@ -121,6 +121,7 @@ model Producto {
   mermas          Merma[]
   solicitudesReabastecimiento SolicitudReabastecimiento[]
   billOfOperations BillOfOperations[]
+  proveedoresAsociados ProductoProveedor[]
 }
 
 model Proveedor {
@@ -147,6 +148,7 @@ model Proveedor {
   lotes        Lote[]
   ordenCompras OrdenCompra[]
   facturas     FacturaCompra[]
+  productosAsociados ProductoProveedor[]
 }
 
 model Lote {
@@ -796,4 +798,21 @@ model BillOfOperations {
   producto        Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
 
   @@unique([productoId, workCenter])
+}
+
+model ProductoProveedor {
+  id              String    @id @default(uuid())
+  productoId      String
+  proveedorId     String
+  esPredeterminado Boolean   @default(false)
+  costoProveedor  Float?
+  codigoProveedor String?
+
+  producto        Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  proveedor       Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([productoId, proveedorId])
 }

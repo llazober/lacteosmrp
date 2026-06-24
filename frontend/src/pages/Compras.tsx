@@ -591,7 +591,21 @@ export default function Compras() {
                 <Select
                   value={ocForm.proveedorId}
                   label="Proveedor"
-                  onChange={(e) => setOcForm({ ...ocForm, proveedorId: e.target.value })}
+                  onChange={(e) => {
+                    const newProvId = e.target.value;
+                    let updatedCosto = nuevoItem.costoUnitario;
+                    if (nuevoItem.productoId) {
+                      const prodSelected = productos.find((p) => p.id === nuevoItem.productoId);
+                      const relacionEspecifica = prodSelected?.proveedoresAsociados?.find(
+                        (pa: any) => pa.proveedorId === newProvId
+                      );
+                      updatedCosto = relacionEspecifica 
+                        ? String(relacionEspecifica.costoProveedor ?? prodSelected.costo) 
+                        : (prodSelected ? String(prodSelected.costo) : '');
+                    }
+                    setOcForm({ ...ocForm, proveedorId: newProvId });
+                    setNuevoItem({ ...nuevoItem, costoUnitario: updatedCosto });
+                  }}
                 >
                   {proveedores.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
@@ -633,11 +647,34 @@ export default function Compras() {
                   value={nuevoItem.productoId}
                   label="Producto"
                   onChange={(e) => {
-                    const prodSelected = productos.find((p) => p.id === e.target.value);
+                    const prodId = e.target.value;
+                    const prodSelected = productos.find((p) => p.id === prodId);
+                    
+                    // Buscar proveedor predeterminado
+                    const relacionDefault = prodSelected?.proveedoresAsociados?.find(
+                      (pa: any) => pa.esPredeterminado === true
+                    );
+
+                    // Si hay proveedor predeterminado y la OC no tiene proveedor, auto-seleccionarlo
+                    let actualProveedorId = ocForm.proveedorId;
+                    if (relacionDefault && !ocForm.proveedorId) {
+                      actualProveedorId = relacionDefault.proveedorId;
+                      setOcForm((prev: any) => ({
+                        ...prev,
+                        proveedorId: relacionDefault.proveedorId
+                      }));
+                    }
+
+                    // Calcular costo correspondiente
+                    const relacionEspecifica = prodSelected?.proveedoresAsociados?.find(
+                      (pa: any) => pa.proveedorId === actualProveedorId
+                    );
+                    const costoSugerido = relacionEspecifica?.costoProveedor ?? prodSelected?.costo ?? 0;
+
                     setNuevoItem({
                       ...nuevoItem,
-                      productoId: e.target.value,
-                      costoUnitario: prodSelected ? String(prodSelected.costo) : '',
+                      productoId: prodId,
+                      costoUnitario: String(costoSugerido),
                     });
                   }}
                 >
@@ -836,7 +873,21 @@ export default function Compras() {
                 <Select
                   value={editarOcForm.proveedorId}
                   label="Proveedor"
-                  onChange={(e) => setEditarOcForm({ ...editarOcForm, proveedorId: e.target.value })}
+                  onChange={(e) => {
+                    const newProvId = e.target.value;
+                    let updatedCosto = nuevoItemEdit.costoUnitario;
+                    if (nuevoItemEdit.productoId) {
+                      const prodSelected = productos.find((p) => p.id === nuevoItemEdit.productoId);
+                      const relacionEspecifica = prodSelected?.proveedoresAsociados?.find(
+                        (pa: any) => pa.proveedorId === newProvId
+                      );
+                      updatedCosto = relacionEspecifica 
+                        ? String(relacionEspecifica.costoProveedor ?? prodSelected.costo) 
+                        : (prodSelected ? String(prodSelected.costo) : '');
+                    }
+                    setEditarOcForm({ ...editarOcForm, proveedorId: newProvId });
+                    setNuevoItemEdit({ ...nuevoItemEdit, costoUnitario: updatedCosto });
+                  }}
                 >
                   {proveedores.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.nombre}</MenuItem>
@@ -878,11 +929,34 @@ export default function Compras() {
                   value={nuevoItemEdit.productoId}
                   label="Producto"
                   onChange={(e) => {
-                    const prodSelected = productos.find((p) => p.id === e.target.value);
+                    const prodId = e.target.value;
+                    const prodSelected = productos.find((p) => p.id === prodId);
+                    
+                    // Buscar proveedor predeterminado
+                    const relacionDefault = prodSelected?.proveedoresAsociados?.find(
+                      (pa: any) => pa.esPredeterminado === true
+                    );
+
+                    // Si hay proveedor predeterminado y la OC no tiene proveedor, auto-seleccionarlo
+                    let actualProveedorId = editarOcForm.proveedorId;
+                    if (relacionDefault && !editarOcForm.proveedorId) {
+                      actualProveedorId = relacionDefault.proveedorId;
+                      setEditarOcForm((prev: any) => ({
+                        ...prev,
+                        proveedorId: relacionDefault.proveedorId
+                      }));
+                    }
+
+                    // Calcular costo correspondiente
+                    const relacionEspecifica = prodSelected?.proveedoresAsociados?.find(
+                      (pa: any) => pa.proveedorId === actualProveedorId
+                    );
+                    const costoSugerido = relacionEspecifica?.costoProveedor ?? prodSelected?.costo ?? 0;
+
                     setNuevoItemEdit({
                       ...nuevoItemEdit,
-                      productoId: e.target.value,
-                      costoUnitario: prodSelected ? String(prodSelected.costo) : '',
+                      productoId: prodId,
+                      costoUnitario: String(costoSugerido),
                     });
                   }}
                 >

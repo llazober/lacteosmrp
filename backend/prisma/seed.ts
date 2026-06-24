@@ -8,6 +8,7 @@ async function main() {
 
   // Limpiar base de datos en orden inverso de dependencias
   await prisma.chatMensaje.deleteMany({});
+  await prisma.productoProveedor.deleteMany({});
   await prisma.ordenProduccionOperacion.deleteMany({});
   await prisma.billOfOperations.deleteMany({});
   await prisma.pagoCompra.deleteMany({});
@@ -543,6 +544,48 @@ async function main() {
   });
 
   console.log('Productos creados (Materias primas e Insumos incluidos).');
+
+  // Relacionar productos con proveedores
+  await prisma.productoProveedor.createMany({
+    data: [
+      {
+        productoId: rawLeche.id,
+        proveedorId: prov1.id,
+        esPredeterminado: true,
+        costoProveedor: 280.0,
+        codigoProveedor: 'LC-SANJOSE-RAW',
+      },
+      {
+        productoId: insFrutilla.id,
+        proveedorId: prov2.id,
+        esPredeterminado: true,
+        costoProveedor: 3200.0,
+        codigoProveedor: 'FRU-PREP-10KG',
+      },
+      {
+        productoId: insAzucar.id,
+        proveedorId: prov2.id,
+        esPredeterminado: true,
+        costoProveedor: 850.0,
+        codigoProveedor: 'AZU-SAC-25K',
+      },
+      {
+        productoId: insCultivos.id,
+        proveedorId: prov2.id,
+        esPredeterminado: true,
+        costoProveedor: 12000.0,
+        codigoProveedor: 'CUL-LACT-50U',
+      },
+      {
+        productoId: insCuajo.id,
+        proveedorId: prov2.id,
+        esPredeterminado: true,
+        costoProveedor: 8500.0,
+        codigoProveedor: 'CUAJ-LIQ-1L',
+      },
+    ],
+  });
+  console.log('Asociaciones de proveedores creadas.');
 
   // 5. Crear Lotes (Trazabilidad)
   const hoy = new Date();
