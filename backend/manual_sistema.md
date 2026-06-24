@@ -145,6 +145,9 @@ El módulo de **Producción Láctea** permite digitalizar el ciclo de manufactur
         *   **Número de Lote**: Un código identificador único para la trazabilidad.
         *   **Mermas Declaradas**: Desechos generados específicamente en el proceso (ej. evaporación de suero, pérdidas por derrame).
     4.  **Rendimiento (%)**: El sistema calcula y muestra un indicador de eficiencia porcentual de la orden comparando la producción planificada con la real.
+*   **Cálculo de Insumos y Materias Primas Requeridas**: Para una orden de producción por una cantidad planificada $Q$, los insumos requeridos se determinan usando la receta maestra:
+    $$\text{Cantidad Insumo Requerida} = \text{Cantidad Requerida por Unidad (en Receta)} \times Q$$
+    *Nota: El rendimiento esperado (Rendimiento Esperado o cantidadEsperada) de la receta define el tamaño estándar del lote/batch para el cual está formulada la receta (por ejemplo, lote estándar de 50 quesos o 100 yogures), y sirve de referencia operativa.*
 
 ### Pestaña 3: Control de Mermas (Desechos)
 *   **Propósito**: Registrar y auditar todas las pérdidas de stock de insumos o producto final que ocurran fuera de las ventas.
@@ -153,11 +156,25 @@ El módulo de **Producción Láctea** permite digitalizar el ciclo de manufactur
     *   **Registro Manual**: Permite declarar mermas puntuales seleccionando un producto, el motivo (ej. *EVAPORACION*, *DERRAME*, *MALA_CALIDAD*) y la cantidad a dar de baja directamente de una sucursal.
 
 ### Planificación de la Producción
-*   **Propósito**: Calcular científicamente las necesidades de producción consolidadas en base al stock actual, pronóstico de ventas y órdenes abiertas.
+*   **Propósito**: Calcular científicamente las necesidades de producción consolidadas en base al stock actual, pronóstico de ventas y órdenes abiertas en planta.
+*   **Lógica de Cálculo y Fórmulas**:
+    1.  **Stock Disponible**: Para cada sucursal y producto, se calcula consolidando existencias físicas, tránsitos y órdenes en curso:
+        $$\text{Stock Disponible} = \text{Stock Actual} + \text{Stock en Tránsito} + \text{Órdenes de Producción Locales Abiertas}$$
+    2.  **Venta Diaria Promedio (VDP)**: Proyección basada en el total vendido por la sucursal en los últimos 30 días dividido por 30 (si no hay historial, se asume un valor base de 2.0 unidades/día).
+    3.  **Stock Objetivo**: Días de cobertura objetivo según la categoría del producto:
+        *   *Yogurt*: 7 días ($\text{VDP} \times 7$)
+        *   *Quesos*: 10 días ($\text{VDP} \times 10$)
+        *   *Mantequilla*: 15 días ($\text{VDP} \times 15$)
+        *   *Otros*: 5 días ($\text{VDP} \times 5$)
+    4.  **Déficit y Deducción de Órdenes Abiertas**: Si el stock disponible es menor que el stock objetivo, se genera una necesidad de producción:
+        $$\text{Déficit} = \text{Stock Objetivo} - \text{Stock Disponible}$$
+        Para evitar duplicidad, este déficit se reduce con el pool de producción abierta/pendiente en la **Planta de Producción Principal (CD - SUC-001)**:
+        $$\text{Cantidad Sugerida} = \text{Déficit} - \text{Órdenes Abiertas en Planta Principal (redondeado hacia arriba)}$$
 *   **Modos de Cálculo**:
-    *   **Modo Estándar**: Compara el inventario actual (físico + en tránsito de traslados + OPs abiertas) de cada sucursal contra la proyección de ventas de los últimos 30 días multiplicada por la cobertura deseada.
-    *   **Forzar Mínimo de Seguridad**: Si se activa esta opción, el sistema garantiza que la meta de inventario sea al menos el stock mínimo de seguridad definido en la ficha del producto (útil para tiendas nuevas o productos de baja rotación).
-*   **Generación de Órdenes**: Al procesar la propuesta de planificación, se consolidan las cantidades y se generan automáticamente las Órdenes de Producción (OP) correspondientes en la Planta Principal en estado `PLANIFICADA`.
+    *   **Modo Estándar**: Utiliza la fórmula anterior basada en proyecciones y consumos.
+    *   **Forzar Mínimo de Seguridad (useSafetyStockMin)**: Si se activa esta opción, el Stock Objetivo se recalcula tomando el máximo entre la proyección de ventas y el stock mínimo de seguridad configurado en la sucursal (`existMin` o 5 por defecto):
+        $$\text{Stock Objetivo} = \max(\text{VDP} \times \text{Días Objetivo}, \, \text{Stock Mínimo de Seguridad})$$
+
 
 ### Ruta de Operaciones (Kanban de Seguimiento en Piso)
 *   **Propósito**: Monitorear y registrar el paso de una orden de producción a través de los diferentes Centros de Trabajo (Work Centers) de la planta (Pasteurización, Cuajado, Cocción, Empaque, etc.).

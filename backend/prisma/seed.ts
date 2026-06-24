@@ -378,10 +378,11 @@ async function main() {
       unidadMedida: 'LITRO',
       costo: 350.0,
       precioVenta: 0.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 2.0,
       temperaturaMax: 4.0,
       vidaUtilDias: 3,
+      leadTime: 1,
       esManufacturado: false,
     }
   });
@@ -398,10 +399,11 @@ async function main() {
       unidadMedida: 'KILO',
       costo: 1200.0,
       precioVenta: 0.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 4.0,
       temperaturaMax: 10.0,
       vidaUtilDias: 90,
+      leadTime: 4,
       esManufacturado: false,
     }
   });
@@ -418,10 +420,11 @@ async function main() {
       unidadMedida: 'KILO',
       costo: 900.0,
       precioVenta: 0.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 15.0,
       temperaturaMax: 25.0,
       vidaUtilDias: 365,
+      leadTime: 2,
       esManufacturado: false,
     }
   });
@@ -438,10 +441,11 @@ async function main() {
       unidadMedida: 'UNIDAD',
       costo: 4500.0,
       precioVenta: 0.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: -20.0,
       temperaturaMax: -10.0,
       vidaUtilDias: 180,
+      leadTime: 5,
       esManufacturado: false,
     }
   });
@@ -458,10 +462,11 @@ async function main() {
       unidadMedida: 'LITRO',
       costo: 8500.0,
       precioVenta: 0.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 2.0,
       temperaturaMax: 8.0,
       vidaUtilDias: 180,
+      leadTime: 3,
       esManufacturado: false,
     }
   });
@@ -479,10 +484,11 @@ async function main() {
       unidadMedida: 'LITRO',
       costo: 650.0,
       precioVenta: 990.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 2.0,
       temperaturaMax: 6.0,
       vidaUtilDias: 30,
+      leadTime: 0,
     },
   });
 
@@ -498,10 +504,11 @@ async function main() {
       unidadMedida: 'UNIDAD',
       costo: 1100.0,
       precioVenta: 1890.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 2.0,
       temperaturaMax: 5.0,
       vidaUtilDias: 21,
+      leadTime: 0,
     },
   });
 
@@ -517,10 +524,11 @@ async function main() {
       unidadMedida: 'UNIDAD',
       costo: 2100.0,
       precioVenta: 3490.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 2.0,
       temperaturaMax: 6.0,
       vidaUtilDias: 15,
+      leadTime: 0,
     },
   });
 
@@ -536,10 +544,11 @@ async function main() {
       unidadMedida: 'UNIDAD',
       costo: 1300.0,
       precioVenta: 2190.0,
-      iva: 0.19,
+      iva: 0.0,
       temperaturaMin: 1.0,
       temperaturaMax: 6.0,
       vidaUtilDias: 90,
+      leadTime: 0,
     },
   });
 

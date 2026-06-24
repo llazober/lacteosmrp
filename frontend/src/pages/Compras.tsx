@@ -107,6 +107,18 @@ export default function Compras() {
     }
   };
 
+  const calcularFechaEntregaSugerida = (items: any[]) => {
+    if (!items || items.length === 0) {
+      return '';
+    }
+    const maxLeadTime = items.reduce((max, item) => {
+      const prod = productos.find((p) => p.id === item.productoId);
+      const lead = prod?.leadTime || 0;
+      return lead > max ? lead : max;
+    }, 0);
+    return dayjs().add(maxLeadTime, 'day').format('YYYY-MM-DD');
+  };
+
   const handleAgregarItem = () => {
     if (!nuevoItem.productoId || !nuevoItem.cantidad || !nuevoItem.costoUnitario) {
       setErrorMsg('Seleccione un producto, cantidad y costo.');
@@ -125,18 +137,20 @@ export default function Compras() {
         return;
       }
     }
+    const updatedProductos = [
+      ...ocForm.productos,
+      {
+        productoId: nuevoItem.productoId,
+        productoNombre: prod ? prod.descripcion : '',
+        productoSku: prod ? prod.sku : '',
+        cantidad: parseFloat(nuevoItem.cantidad),
+        costoUnitario: parseFloat(nuevoItem.costoUnitario),
+      },
+    ];
     setOcForm({
       ...ocForm,
-      productos: [
-        ...ocForm.productos,
-        {
-          productoId: nuevoItem.productoId,
-          productoNombre: prod ? prod.descripcion : '',
-          productoSku: prod ? prod.sku : '',
-          cantidad: parseFloat(nuevoItem.cantidad),
-          costoUnitario: parseFloat(nuevoItem.costoUnitario),
-        },
-      ],
+      productos: updatedProductos,
+      fechaEntrega: calcularFechaEntregaSugerida(updatedProductos),
     });
     setNuevoItem({
       productoId: '',
@@ -148,7 +162,11 @@ export default function Compras() {
   const handleEliminarItem = (index: number) => {
     const updated = [...ocForm.productos];
     updated.splice(index, 1);
-    setOcForm({ ...ocForm, productos: updated });
+    setOcForm({
+      ...ocForm,
+      productos: updated,
+      fechaEntrega: calcularFechaEntregaSugerida(updated),
+    });
   };
 
   const handleAgregarItemEdit = () => {
@@ -168,18 +186,20 @@ export default function Compras() {
         return;
       }
     }
+    const updatedProductos = [
+      ...editarOcForm.productos,
+      {
+        productoId: nuevoItemEdit.productoId,
+        productoNombre: prod ? prod.descripcion : '',
+        productoSku: prod ? prod.sku : '',
+        cantidad: parseFloat(nuevoItemEdit.cantidad),
+        costoUnitario: parseFloat(nuevoItemEdit.costoUnitario),
+      },
+    ];
     setEditarOcForm({
       ...editarOcForm,
-      productos: [
-        ...editarOcForm.productos,
-        {
-          productoId: nuevoItemEdit.productoId,
-          productoNombre: prod ? prod.descripcion : '',
-          productoSku: prod ? prod.sku : '',
-          cantidad: parseFloat(nuevoItemEdit.cantidad),
-          costoUnitario: parseFloat(nuevoItemEdit.costoUnitario),
-        },
-      ],
+      productos: updatedProductos,
+      fechaEntrega: calcularFechaEntregaSugerida(updatedProductos),
     });
     setNuevoItemEdit({
       productoId: '',
@@ -191,7 +211,11 @@ export default function Compras() {
   const handleEliminarItemEdit = (index: number) => {
     const updated = [...editarOcForm.productos];
     updated.splice(index, 1);
-    setEditarOcForm({ ...editarOcForm, productos: updated });
+    setEditarOcForm({
+      ...editarOcForm,
+      productos: updated,
+      fechaEntrega: calcularFechaEntregaSugerida(updated),
+    });
   };
 
   const handleOCSubmit = async () => {

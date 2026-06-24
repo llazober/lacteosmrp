@@ -95,10 +95,11 @@ model Producto {
   unidadMedida   String   // LITRO, KILO, UNIDAD, GRAMOS
   costo          Float
   precioVenta    Float
-  iva            Float    @default(0.19) // 0%, 5%, 19% etc
+  iva            Float    @default(0.0) // 0%, 5%, 19% etc
   temperaturaMin Float
   temperaturaMax Float
   vidaUtilDias   Int
+  leadTime       Int      @default(0)
   estado         String   @default("ACTIVO") // ACTIVO, INACTIVO
   esManufacturado Boolean @default(true)
   createdAt      DateTime @default(now())

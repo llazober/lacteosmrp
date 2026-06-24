@@ -242,10 +242,11 @@ export default function Inventario() {
     unidadMedida: 'UNIDAD',
     costo: '0',
     precioVenta: '0',
-    iva: '0.19',
+    iva: '0.0',
     temperaturaMin: '2.0',
     temperaturaMax: '6.0',
     vidaUtilDias: '30',
+    leadTime: '0',
     esManufacturado: true,
   });
 
@@ -259,10 +260,11 @@ export default function Inventario() {
     unidadMedida: 'UNIDAD',
     costo: '0',
     precioVenta: '0',
-    iva: '0.19',
+    iva: '0.0',
     temperaturaMin: '2.0',
     temperaturaMax: '6.0',
     vidaUtilDias: '30',
+    leadTime: '0',
     estado: 'ACTIVO',
     esManufacturado: true,
   });
@@ -517,10 +519,11 @@ export default function Inventario() {
           ...productoForm,
           costo: parseFloat(productoForm.costo),
           precioVenta: parseFloat(productoForm.precioVenta),
-          iva: parseFloat(productoForm.iva),
+          iva: 0.0,
           temperaturaMin: parseFloat(productoForm.temperaturaMin),
           temperaturaMax: parseFloat(productoForm.temperaturaMax),
           vidaUtilDias: parseInt(productoForm.vidaUtilDias),
+          leadTime: parseInt(productoForm.leadTime || '0'),
         }),
       });
       setSuccessMsg('Producto creado exitosamente en el catálogo.');
@@ -540,10 +543,11 @@ export default function Inventario() {
           ...editarProductoForm,
           costo: parseFloat(editarProductoForm.costo),
           precioVenta: parseFloat(editarProductoForm.precioVenta),
-          iva: parseFloat(editarProductoForm.iva),
+          iva: 0.0,
           temperaturaMin: parseFloat(editarProductoForm.temperaturaMin),
           temperaturaMax: parseFloat(editarProductoForm.temperaturaMax),
           vidaUtilDias: parseInt(editarProductoForm.vidaUtilDias),
+          leadTime: parseInt(editarProductoForm.leadTime || '0'),
         }),
       });
       setSuccessMsg('Producto actualizado en el catálogo.');
@@ -1156,10 +1160,11 @@ export default function Inventario() {
                   unidadMedida: 'UNIDAD',
                   costo: '0',
                   precioVenta: '0',
-                  iva: '0.19',
+                  iva: '0.0',
                   temperaturaMin: '2.0',
                   temperaturaMax: '6.0',
                   vidaUtilDias: '30',
+                  leadTime: '0',
                   esManufacturado: true,
                 });
                 setOpenCrearProducto(true);
@@ -1740,6 +1745,7 @@ export default function Inventario() {
                   <TableCell>Precio Venta</TableCell>
                   <TableCell>T° Conservación</TableCell>
                   <TableCell>Vida Útil</TableCell>
+                  <TableCell>Lead Time</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
@@ -1747,7 +1753,7 @@ export default function Inventario() {
               <TableBody>
                 {paginatedTodosProductos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} align="center">No hay productos en el catálogo.</TableCell>
+                    <TableCell colSpan={14} align="center">No hay productos en el catálogo.</TableCell>
                   </TableRow>
                 ) : (
                   paginatedTodosProductos.map((p) => {
@@ -1799,6 +1805,7 @@ export default function Inventario() {
                         <TableCell>{formatCurrency(p.precioVenta)}</TableCell>
                         <TableCell>{p.temperaturaMin}°C a {p.temperaturaMax}°C</TableCell>
                         <TableCell>{p.vidaUtilDias} días</TableCell>
+                        <TableCell>{p.leadTime || 0} días</TableCell>
                         <TableCell>
                           <Chip
                             label={p.estado}
@@ -1841,6 +1848,7 @@ export default function Inventario() {
                                       temperaturaMin: String(p.temperaturaMin),
                                       temperaturaMax: String(p.temperaturaMax),
                                       vidaUtilDias: String(p.vidaUtilDias),
+                                      leadTime: String(p.leadTime || 0),
                                       estado: p.estado,
                                       esManufacturado: p.esManufacturado !== false,
                                     });
@@ -2891,11 +2899,22 @@ export default function Inventario() {
 
           <TextField
             fullWidth
-            label="IVA (Ej. 0.19)"
+            label="IVA"
             type="number"
             size="small"
-            value={productoForm.iva}
-            onChange={(e) => setProductoForm({ ...productoForm, iva: e.target.value })}
+            disabled
+            value="0"
+            helperText="El IVA está fijado en 0% por defecto"
+          />
+
+          <TextField
+            fullWidth
+            label="Lead Time / Tiempo de Entrega (Días)"
+            type="number"
+            size="small"
+            value={productoForm.leadTime}
+            onChange={(e) => setProductoForm({ ...productoForm, leadTime: e.target.value })}
+            helperText="Días estimados para recibir este producto del proveedor"
           />
 
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -3059,11 +3078,22 @@ export default function Inventario() {
 
           <TextField
             fullWidth
-            label="IVA (Ej. 0.19)"
+            label="IVA"
             type="number"
             size="small"
-            value={editarProductoForm.iva}
-            onChange={(e) => setEditarProductoForm({ ...editarProductoForm, iva: e.target.value })}
+            disabled
+            value="0"
+            helperText="El IVA está fijado en 0% por defecto"
+          />
+
+          <TextField
+            fullWidth
+            label="Lead Time / Tiempo de Entrega (Días)"
+            type="number"
+            size="small"
+            value={editarProductoForm.leadTime}
+            onChange={(e) => setEditarProductoForm({ ...editarProductoForm, leadTime: e.target.value })}
+            helperText="Días estimados para recibir este producto del proveedor"
           />
 
           <Box sx={{ display: 'flex', gap: 2 }}>

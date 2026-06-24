@@ -48,6 +48,7 @@ export class ProductosController {
       temperaturaMin,
       temperaturaMax,
       vidaUtilDias,
+      leadTime,
       esManufacturado,
     } = body;
 
@@ -98,10 +99,11 @@ export class ProductosController {
         unidadMedida: unidadMedida || 'UNIDAD',
         costo: parseFloat(costo),
         precioVenta: parseFloat(precioVenta),
-        iva: iva != null ? parseFloat(iva) : 0.19,
+        iva: 0.0, // Forced 0.0 as requested
         temperaturaMin: parseFloat(temperaturaMin || 2.0),
         temperaturaMax: parseFloat(temperaturaMax || 6.0),
         vidaUtilDias: parseInt(vidaUtilDias || 30),
+        leadTime: leadTime != null ? parseInt(leadTime) : 0,
         esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : true,
       },
     });
@@ -140,6 +142,7 @@ export class ProductosController {
       temperaturaMin,
       temperaturaMax,
       vidaUtilDias,
+      leadTime,
       estado,
       esManufacturado,
     } = body;
@@ -153,12 +156,13 @@ export class ProductosController {
         unidadMedida,
         costo: costo != null ? parseFloat(costo) : undefined,
         precioVenta: precioVenta != null ? parseFloat(precioVenta) : undefined,
-        iva: iva != null ? parseFloat(iva) : undefined,
+        iva: 0.0, // Forced 0.0 as requested
         temperaturaMin:
           temperaturaMin != null ? parseFloat(temperaturaMin) : undefined,
         temperaturaMax:
           temperaturaMax != null ? parseFloat(temperaturaMax) : undefined,
         vidaUtilDias: vidaUtilDias != null ? parseInt(vidaUtilDias) : undefined,
+        leadTime: leadTime != null ? parseInt(leadTime) : undefined,
         estado,
         esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : undefined,
       },
