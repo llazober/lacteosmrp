@@ -191,8 +191,8 @@ export default function RutaOperaciones() {
 
     setNotasTexto(operacion?.notas || '');
 
-    // Obtener campos requeridos dinámicos o por defecto
-    let fields = WORK_CENTER_FIELDS[wcId] || [];
+    // Obtener campos requeridos dinámicos desde la operación guardada en la orden
+    let fields: any[] = [];
     if (operacion && operacion.datosRequeridos) {
       try {
         fields = typeof operacion.datosRequeridos === 'string'
@@ -200,6 +200,15 @@ export default function RutaOperaciones() {
           : operacion.datosRequeridos;
       } catch (e) {
         console.error('Error parsing custom fields:', e);
+      }
+    }
+    // Fallback: buscar en centrosTrabajo si la operación no tiene campos propios
+    if (fields.length === 0) {
+      const ct = centrosTrabajo.find((c: any) => c.id === wcId);
+      if (ct && ct.datosRequeridos) {
+        try {
+          fields = typeof ct.datosRequeridos === 'string' ? JSON.parse(ct.datosRequeridos) : ct.datosRequeridos;
+        } catch {}
       }
     }
     setCurrentFields(fields);
@@ -542,7 +551,7 @@ export default function RutaOperaciones() {
                 let isOvertimeCard = false;
                 if (isStarted && operacion?.fechaInicio) {
                   const elapsedMinutes = (now.getTime() - new Date(operacion.fechaInicio).getTime()) / 60000;
-                  const expectedMin = operacion.duracionEstimada || EXPECTED_DURATIONS[targetWc] || 30;
+                  const expectedMin = operacion.duracionEstimada || 30;
                   isOvertimeCard = elapsedMinutes > expectedMin;
                 }
 
@@ -647,7 +656,7 @@ export default function RutaOperaciones() {
                             0,
                             (now.getTime() - new Date(operacion.fechaInicio).getTime()) / 60000
                           );
-                          const expectedMin = operacion.duracionEstimada || EXPECTED_DURATIONS[targetWc] || 30;
+                          const expectedMin = operacion.duracionEstimada || 30;
                           const progressPercent = Math.min(100, (elapsedMinutes / expectedMin) * 100);
                           const isOvertime = elapsedMinutes > expectedMin;
 
@@ -869,7 +878,7 @@ export default function RutaOperaciones() {
                 {selectedOrden.numeroOrden} — {selectedOrden.receta.nombre}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Centro de Trabajo: {WORK_CENTERS.find((w) => w.id === currentWcId)?.name} ({currentWcId})
+                Centro de Trabajo: {centrosTrabajo.find((w: any) => w.id === currentWcId)?.nombre} ({currentWcId})
               </Typography>
             </Box>
           )}
@@ -956,7 +965,7 @@ export default function RutaOperaciones() {
             const op = selectedOrden?.operaciones?.find((o: any) => o.workCenter === currentWcId);
             if (!op || !op.fechaInicio) return null;
             const elapsed = (new Date().getTime() - new Date(op.fechaInicio).getTime()) / 60000;
-            const expected = op.duracionEstimada || EXPECTED_DURATIONS[currentWcId] || 30;
+            const expected = op.duracionEstimada || 30;
             if (elapsed > expected) {
               return (
                 <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }} icon={<ReportProblem />}>
@@ -1031,8 +1040,12 @@ export default function RutaOperaciones() {
                     if (step.datosJson) {
                       try {
                         const parsed = JSON.parse(step.datosJson);
-                        const fields = WORK_CENTER_FIELDS[step.workCenter] || [];
-                        fields.forEach((f) => {
+                        const fields = step.datosRequeridos
+                          ? (() => { try { return typeof step.datosRequeridos === 'string' ? JSON.parse(step.datosRequeridos) : step.datosRequeridos; } catch { return []; } })()
+                          : (centrosTrabajo.find((c: any) => c.id === step.workCenter)?.datosRequeridos
+                              ? (() => { try { const ct = centrosTrabajo.find((c: any) => c.id === step.workCenter); return typeof ct.datosRequeridos === 'string' ? JSON.parse(ct.datosRequeridos) : ct.datosRequeridos; } catch { return []; } })()
+                              : []);
+                        fields.forEach((f: any) => {
                           if (parsed[f.name] !== undefined && parsed[f.name] !== '') {
                             detailsList.push({
                               label: f.label,
@@ -1043,7 +1056,7 @@ export default function RutaOperaciones() {
                       } catch {}
                     }
 
-                    const wcInfo = WORK_CENTERS.find((w) => w.id === step.workCenter);
+                    const wcInfo = centrosTrabajo.find((w: any) => w.id === step.workCenter);
 
                     return (
                       <Box
@@ -1057,7 +1070,7 @@ export default function RutaOperaciones() {
                       >
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.light' }}>
-                            ✓ {step.workCenter} — {wcInfo?.name || ''}
+                            ✓ {step.workCenter} — {wcInfo?.nombre || ''}
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                             {getFormatDuration(step.duracionSegundos || 0)}
@@ -1135,7 +1148,7 @@ export default function RutaOperaciones() {
                 {selectedOrden.numeroOrden} — {selectedOrden.receta.nombre}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Centro de Trabajo: {WORK_CENTERS.find((w) => w.id === notasWcId)?.name} ({notasWcId})
+                Centro de Trabajo: {centrosTrabajo.find((w: any) => w.id === notasWcId)?.nombre} ({notasWcId})
               </Typography>
             </Box>
           )}
@@ -1144,7 +1157,7 @@ export default function RutaOperaciones() {
             const op = selectedOrden?.operaciones?.find((o: any) => o.workCenter === notasWcId);
             if (!op || !op.fechaInicio) return null;
             const elapsed = (new Date().getTime() - new Date(op.fechaInicio).getTime()) / 60000;
-            const expected = op.duracionEstimada || EXPECTED_DURATIONS[notasWcId] || 30;
+            const expected = op.duracionEstimada || 30;
             if (elapsed > expected) {
               return (
                 <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2 }} icon={<ReportProblem />}>

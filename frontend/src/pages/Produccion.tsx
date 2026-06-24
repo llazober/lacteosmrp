@@ -2357,7 +2357,7 @@ export default function Produccion() {
                 value={centroTrabajoForm.id}
                 onChange={(e) => setCentroTrabajoForm({ ...centroTrabajoForm, id: e.target.value.toUpperCase().replace(/\s/g, '-') })}
                 helperText="Identificador único. No se puede cambiar después de crearlo."
-                inputProps={{ style: { fontFamily: 'monospace' } }}
+                sx={{ '& input': { fontFamily: 'monospace' } }}
               />
             )}
             {centroTrabajoForm.isEditing && (
