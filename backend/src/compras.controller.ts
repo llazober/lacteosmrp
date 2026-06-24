@@ -75,6 +75,16 @@ export class ComprasController {
       total += qtyNum * parseFloat(p.costoUnitario);
     }
 
+    let maxFechaEntrega: Date | null = null;
+    for (const p of productos) {
+      if (p.fechaEntrega) {
+        const d = new Date(p.fechaEntrega);
+        if (!maxFechaEntrega || d > maxFechaEntrega) {
+          maxFechaEntrega = d;
+        }
+      }
+    }
+
     const oc = await this.prisma.$transaction(async (tx) => {
       const cabecera = await tx.ordenCompra.create({
         data: {
@@ -84,7 +94,7 @@ export class ComprasController {
           estado: 'PENDIENTE',
           total,
           creadoPorId: req.user.id,
-          fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null,
+          fechaEntrega: maxFechaEntrega || (fechaEntrega ? new Date(fechaEntrega) : null),
         },
       });
 
@@ -95,6 +105,7 @@ export class ComprasController {
             productoId: p.productoId,
             cantidad: parseFloat(p.cantidad),
             costoUnitario: parseFloat(p.costoUnitario),
+            fechaEntrega: p.fechaEntrega ? new Date(p.fechaEntrega) : null,
           },
         });
       }
@@ -342,6 +353,18 @@ export class ComprasController {
       }
     }
 
+    let maxFechaEntrega: Date | null = null;
+    if (productos && productos.length > 0) {
+      for (const p of productos) {
+        if (p.fechaEntrega) {
+          const d = new Date(p.fechaEntrega);
+          if (!maxFechaEntrega || d > maxFechaEntrega) {
+            maxFechaEntrega = d;
+          }
+        }
+      }
+    }
+
     const updatedOc = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.ordenCompra.update({
         where: { id },
@@ -349,7 +372,9 @@ export class ComprasController {
           proveedorId: proveedorId !== undefined ? proveedorId : oc.proveedorId,
           sucursalId: sucursalId !== undefined ? sucursalId : oc.sucursalId,
           fechaEntrega:
-            fechaEntrega !== undefined
+            productos && productos.length > 0
+              ? maxFechaEntrega
+              : fechaEntrega !== undefined
               ? fechaEntrega
                 ? new Date(fechaEntrega)
                 : null
@@ -370,6 +395,7 @@ export class ComprasController {
               productoId: p.productoId,
               cantidad: parseFloat(p.cantidad),
               costoUnitario: parseFloat(p.costoUnitario),
+              fechaEntrega: p.fechaEntrega ? new Date(p.fechaEntrega) : null,
             },
           });
         }

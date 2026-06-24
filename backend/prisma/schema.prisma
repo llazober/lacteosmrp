@@ -275,6 +275,7 @@ model OrdenCompraDetalle {
   cantidad      Float
   cantidadRecibida Float @default(0)
   costoUnitario Float
+  fechaEntrega  DateTime?
 
   ordenCompra OrdenCompra @relation(fields: [ordenCompraId], references: [id])
   producto    Producto    @relation(fields: [productoId], references: [id])

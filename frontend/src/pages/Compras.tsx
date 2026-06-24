@@ -111,12 +111,13 @@ export default function Compras() {
     if (!items || items.length === 0) {
       return '';
     }
-    const maxLeadTime = items.reduce((max, item) => {
-      const prod = productos.find((p) => p.id === item.productoId);
-      const lead = prod?.leadTime || 0;
-      return lead > max ? lead : max;
-    }, 0);
-    return dayjs().add(maxLeadTime, 'day').format('YYYY-MM-DD');
+    let maxDate = items[0].fechaEntrega || '';
+    for (const item of items) {
+      if (item.fechaEntrega && (!maxDate || item.fechaEntrega > maxDate)) {
+        maxDate = item.fechaEntrega;
+      }
+    }
+    return maxDate;
   };
 
   const handleAgregarItem = () => {
@@ -145,6 +146,7 @@ export default function Compras() {
         productoSku: prod ? prod.sku : '',
         cantidad: parseFloat(nuevoItem.cantidad),
         costoUnitario: parseFloat(nuevoItem.costoUnitario),
+        fechaEntrega: dayjs().add(prod?.leadTime || 0, 'day').format('YYYY-MM-DD'),
       },
     ];
     setOcForm({
@@ -194,6 +196,7 @@ export default function Compras() {
         productoSku: prod ? prod.sku : '',
         cantidad: parseFloat(nuevoItemEdit.cantidad),
         costoUnitario: parseFloat(nuevoItemEdit.costoUnitario),
+        fechaEntrega: dayjs().add(prod?.leadTime || 0, 'day').format('YYYY-MM-DD'),
       },
     ];
     setEditarOcForm({
@@ -235,6 +238,7 @@ export default function Compras() {
           productoId: p.productoId,
           cantidad: p.cantidad,
           costoUnitario: p.costoUnitario,
+          fechaEntrega: p.fechaEntrega || null,
         })),
       };
 
@@ -258,6 +262,7 @@ export default function Compras() {
       productoSku: det.producto.sku,
       cantidad: det.cantidad,
       costoUnitario: det.costoUnitario,
+      fechaEntrega: det.fechaEntrega ? det.fechaEntrega.split('T')[0] : '',
     }));
     setEditarOcForm({
       proveedorId: oc.proveedorId,
@@ -292,6 +297,7 @@ export default function Compras() {
             productoId: p.productoId,
             cantidad: p.cantidad,
             costoUnitario: p.costoUnitario,
+            fechaEntrega: p.fechaEntrega || null,
           })),
         }),
       });
@@ -516,7 +522,12 @@ export default function Compras() {
                       <TableCell>
                         {oc.detalles.map((det: any) => (
                           <div key={det.id}>
-                            {det.producto.descripcion} (Recibido: {det.cantidadRecibida || 0} / {det.cantidad})
+                            <strong>{det.producto.descripcion}</strong> (Recibido: {det.cantidadRecibida || 0} / {det.cantidad})
+                            {det.fechaEntrega && (
+                              <span style={{ fontSize: '0.75rem', display: 'block', color: 'rgba(255,255,255,0.6)' }}>
+                                Entrega: {new Date(det.fechaEntrega).toLocaleDateString('es-CO')}
+                              </span>
+                            )}
                           </div>
                         ))}
                       </TableCell>
@@ -750,6 +761,7 @@ export default function Compras() {
                   <TableCell>SKU</TableCell>
                   <TableCell align="right">Cantidad</TableCell>
                   <TableCell align="right">Costo Unitario</TableCell>
+                  <TableCell align="center">Fecha de Entrega</TableCell>
                   <TableCell align="right">Subtotal</TableCell>
                   <TableCell align="center">Acciones</TableCell>
                 </TableRow>
@@ -757,7 +769,7 @@ export default function Compras() {
               <TableBody>
                 {ocForm.productos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                       No se han agregado productos a la orden. Use el formulario superior para añadir líneas.
                     </TableCell>
                   </TableRow>
@@ -768,6 +780,26 @@ export default function Compras() {
                       <TableCell>{item.productoSku}</TableCell>
                       <TableCell align="right">{item.cantidad}</TableCell>
                       <TableCell align="right">{formatCurrency(item.costoUnitario)}</TableCell>
+                      <TableCell align="center">
+                        <TextField
+                          type="date"
+                          size="small"
+                          value={item.fechaEntrega}
+                          onChange={(e) => {
+                            const updated = [...ocForm.productos];
+                            updated[idx].fechaEntrega = e.target.value;
+                            setOcForm({
+                              ...ocForm,
+                              productos: updated,
+                              fechaEntrega: calcularFechaEntregaSugerida(updated),
+                            });
+                          }}
+                          sx={{
+                            width: 145,
+                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>
                         {formatCurrency(item.cantidad * item.costoUnitario)}
                       </TableCell>
@@ -781,7 +813,7 @@ export default function Compras() {
                 )}
                 {ocForm.productos.length > 0 && (
                   <TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.01)' }}>
-                    <TableCell colSpan={4} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
+                    <TableCell colSpan={5} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.light', fontSize: '1rem' }}>
                       {formatCurrency(ocForm.productos.reduce((sum: number, p: any) => sum + (p.cantidad * p.costoUnitario), 0))}
                     </TableCell>
@@ -1032,6 +1064,7 @@ export default function Compras() {
                   <TableCell>SKU</TableCell>
                   <TableCell align="right">Cantidad</TableCell>
                   <TableCell align="right">Costo Unitario</TableCell>
+                  <TableCell align="center">Fecha de Entrega</TableCell>
                   <TableCell align="right">Subtotal</TableCell>
                   <TableCell align="center">Acciones</TableCell>
                 </TableRow>
@@ -1039,7 +1072,7 @@ export default function Compras() {
               <TableBody>
                 {editarOcForm.productos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                       No hay productos en esta orden de compra. Añada líneas usando el formulario.
                     </TableCell>
                   </TableRow>
@@ -1050,6 +1083,26 @@ export default function Compras() {
                       <TableCell>{item.productoSku}</TableCell>
                       <TableCell align="right">{item.cantidad}</TableCell>
                       <TableCell align="right">{formatCurrency(item.costoUnitario)}</TableCell>
+                      <TableCell align="center">
+                        <TextField
+                          type="date"
+                          size="small"
+                          value={item.fechaEntrega}
+                          onChange={(e) => {
+                            const updated = [...editarOcForm.productos];
+                            updated[idx].fechaEntrega = e.target.value;
+                            setEditarOcForm({
+                              ...editarOcForm,
+                              productos: updated,
+                              fechaEntrega: calcularFechaEntregaSugerida(updated),
+                            });
+                          }}
+                          sx={{
+                            width: 145,
+                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>
                         {formatCurrency(item.cantidad * item.costoUnitario)}
                       </TableCell>
@@ -1063,7 +1116,7 @@ export default function Compras() {
                 )}
                 {editarOcForm.productos.length > 0 && (
                   <TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.01)' }}>
-                    <TableCell colSpan={4} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
+                    <TableCell colSpan={5} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.light', fontSize: '1rem' }}>
                       {formatCurrency(editarOcForm.productos.reduce((sum: number, p: any) => sum + (p.cantidad * p.costoUnitario), 0))}
                     </TableCell>
