@@ -578,6 +578,7 @@ model OrdenProduccion {
   pickingCompletado  Boolean                 @default(false)
   fechaInicio        DateTime?
   fechaFin           DateTime?
+  fechaEntrega       DateTime?
   creadoPorId        String
   responsableId      String
   createdAt          DateTime                @default(now())

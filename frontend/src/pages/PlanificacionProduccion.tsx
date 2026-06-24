@@ -213,6 +213,7 @@ export default function PlanificacionProduccion() {
                   <TableCell>Producto</TableCell>
                   <TableCell align="right">Stock Disponible</TableCell>
                   <TableCell align="right">Venta Diaria Prom.</TableCell>
+                  <TableCell align="center">Lead Time (Días)</TableCell>
                   <TableCell align="right">Stock Objetivo</TableCell>
                   <TableCell align="right">Cant. Sugerida</TableCell>
                   <TableCell>Detalle / Razón</TableCell>
@@ -247,6 +248,9 @@ export default function PlanificacionProduccion() {
                         {prop.openBranchQty > 0 && ` (+${prop.openBranchQty} op)`}
                       </TableCell>
                       <TableCell align="right">{prop.promedioVentasDiarias}</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600, color: 'info.light' }}>
+                        {prop.leadTime} {prop.leadTime === 1 ? 'día' : 'días'}
+                      </TableCell>
                       <TableCell align="right">{prop.stockObjetivo}</TableCell>
                       <TableCell align="right" sx={{ color: '#10b981', fontWeight: 800 }}>
                         +{prop.cantidadSugerida}

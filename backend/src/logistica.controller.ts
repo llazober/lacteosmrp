@@ -933,6 +933,7 @@ export class LogisticaController implements OnModuleInit {
         // Buscar receta
         const receta = await this.prisma.receta.findFirst({
           where: { productoFinalId: prop.productoId },
+          include: { productoFinal: true },
         });
 
         if (!receta) {
@@ -946,6 +947,10 @@ export class LogisticaController implements OnModuleInit {
           continue;
         }
 
+        const leadTime = receta.productoFinal?.leadTime || 0;
+        const fechaEntrega = new Date();
+        fechaEntrega.setDate(fechaEntrega.getDate() + leadTime);
+
         const op = await this.prisma.ordenProduccion.create({
           data: {
             numeroOrden: codigoOP,
@@ -955,6 +960,7 @@ export class LogisticaController implements OnModuleInit {
             estado: 'PLANIFICADA',
             creadoPorId: req.user.id,
             responsableId: req.user.id, // Se asigna al mismo usuario creador temporalmente
+            fechaEntrega,
           },
         });
 

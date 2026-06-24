@@ -345,6 +345,10 @@ export class ProduccionController {
     const count = await this.prisma.ordenProduccion.count();
     const numeroOrden = `OP-${String(count + 1).padStart(6, '0')}`;
 
+    const leadTime = receta.productoFinal?.leadTime || 0;
+    const fechaEntrega = new Date();
+    fechaEntrega.setDate(fechaEntrega.getDate() + leadTime);
+
     const op = await this.prisma.ordenProduccion.create({
       data: {
         numeroOrden,
@@ -354,6 +358,7 @@ export class ProduccionController {
         creadoPorId: req.user.id,
         responsableId,
         estado: 'PLANIFICADA',
+        fechaEntrega,
       },
     });
 
@@ -1122,7 +1127,8 @@ export class ProduccionController {
               openBranchQty: parseFloat(openBranchQty.toFixed(2)),
               cantidadSugerida: cantidadSugeridaCeil,
               detalleRazon: `Déficit en sucursal ${suc.nombre} (${deficit.toFixed(1)} u).`,
-              alertaRiesgo: diasInventario <= 2 ? 'CRITICO' : 'STOCK_BAJO',
+              leadTime: prod.leadTime || 0,
+              alertaRiesgo: diasInventario <= (prod.leadTime || 2) ? 'CRITICO' : 'STOCK_BAJO',
             });
           }
         }
@@ -1203,6 +1209,10 @@ export class ProduccionController {
         const dd = d.getUTCDate().toString().padStart(2, '0');
         const loteNumero = `L${yy}${mm}${dd}${randomSuffix}`;
 
+        const leadTime = prod.leadTime || 0;
+        const fechaEntrega = new Date();
+        fechaEntrega.setDate(fechaEntrega.getDate() + leadTime);
+
         // Crear Orden de Producción
         const op = await tx.ordenProduccion.create({
           data: {
@@ -1213,6 +1223,7 @@ export class ProduccionController {
             estado: 'PLANIFICADA',
             creadoPorId: req.user.id,
             responsableId: req.user.id,
+            fechaEntrega,
           },
         });
 
