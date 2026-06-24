@@ -38,97 +38,12 @@ import {
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 import dayjs from 'dayjs';
 
-const WORK_CENTERS = [
-  { id: 'WC-PAST', name: 'Pasteurización', desc: 'Pasteurizar y enfriar la leche' },
-  { id: 'WC-CUAJ', name: 'Cuajado', desc: 'Agregar cultivo, cuajo y reposo' },
-  { id: 'WC-CORTE', name: 'Corte de Cuajada', desc: 'Corte y agitación de la cuajada' },
-  { id: 'WC-COCC', name: 'Cocción', desc: 'Cocción controlada de la mezcla' },
-  { id: 'WC-DESU', name: 'Desuerado', desc: 'Separación del suero de la leche' },
-  { id: 'WC-MOLD', name: 'Moldeado', desc: 'Llenado de moldes con cuajada' },
-  { id: 'WC-PREN', name: 'Prensado', desc: 'Aplicar presión para compactar' },
-  { id: 'WC-SALA', name: 'Salado', desc: 'Inmersión en tina de salmuera' },
-  { id: 'WC-MADU', name: 'Maduración', desc: 'Control de temperatura y humedad en cámara' },
-  { id: 'WC-EMPA', name: 'Empaque', desc: 'Empaque, etiquetado y pesaje de quesos' },
-  { id: 'WC-CFRI', name: 'Cámara Fría', desc: 'Almacenamiento y despacho del producto terminado' },
-];
-
-const WORK_CENTER_FIELDS: Record<
-  string,
-  { label: string; name: string; type: 'number' | 'text' | 'date'; required: boolean; suffix?: string }[]
-> = {
-  'WC-PAST': [
-    { label: 'Temperatura Pasteurización', name: 'temp_pasteurizacion', type: 'number', required: true, suffix: '°C' },
-    { label: 'pH Pasteurización', name: 'ph_pasteurizacion', type: 'number', required: true },
-    { label: 'Temperatura Enfriamiento', name: 'temp_enfriamiento', type: 'number', required: true, suffix: '°C' },
-  ],
-  'WC-CUAJ': [
-    { label: 'Lote de Cultivo', name: 'lote_cultivo', type: 'text', required: true },
-    { label: 'Dosis de Cultivo', name: 'dosis_cultivo', type: 'number', required: true, suffix: 'g/L' },
-    { label: 'Lote de Cuajo', name: 'lote_cuajo', type: 'text', required: true },
-    { label: 'Dosis de Cuajo', name: 'dosis_cuajo', type: 'number', required: true, suffix: 'mL/L' },
-    { label: 'Temperatura Cuajado', name: 'temp_cuajado', type: 'number', required: true, suffix: '°C' },
-    { label: 'Tiempo de Reposo', name: 'tiempo_reposo', type: 'number', required: true, suffix: 'min' },
-  ],
-  'WC-CORTE': [
-    { label: 'Tamaño de Grano', name: 'tamano_grano', type: 'text', required: true, suffix: 'mm' },
-    { label: 'Tiempo de Agitación', name: 'tiempo_agitacion', type: 'number', required: true, suffix: 'min' },
-    { label: 'Velocidad de Agitación', name: 'velocidad_agitacion', type: 'number', required: true, suffix: 'RPM' },
-  ],
-  'WC-COCC': [
-    { label: 'Temperatura Cocción', name: 'temp_coccion', type: 'number', required: true, suffix: '°C' },
-    { label: 'pH Final Cocción', name: 'ph_coccion', type: 'number', required: true },
-  ],
-  'WC-DESU': [
-    { label: 'Volumen Suero Obtenido', name: 'volumen_suero', type: 'number', required: true, suffix: 'L' },
-    { label: 'pH Suero', name: 'ph_suero', type: 'number', required: true },
-  ],
-  'WC-MOLD': [
-    { label: 'Cantidad de Moldes Llenados', name: 'cantidad_moldes', type: 'number', required: true, suffix: 'uds' },
-    { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
-  ],
-  'WC-PREN': [
-    { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
-    { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
-  ],
-  'WC-SALA': [
-    { label: 'Concentración Salmuera', name: 'concentracion_salmuera', type: 'number', required: true, suffix: '% o °Baumé' },
-    { label: 'Temperatura Salmuera', name: 'temp_salmuera', type: 'number', required: true, suffix: '°C' },
-    { label: 'pH Salmuera', name: 'ph_salmuera', type: 'number', required: true },
-  ],
-  'WC-MADU': [
-    { label: 'Temperatura Cámara', name: 'temp_camara', type: 'number', required: true, suffix: '°C' },
-    { label: 'Humedad Relativa', name: 'humedad_relativa', type: 'number', required: true, suffix: '%' },
-    { label: 'Tiempo Maduración Planificado', name: 'tiempo_maduracion_dias', type: 'number', required: true, suffix: 'días' },
-  ],
-  'WC-EMPA': [
-    { label: 'Unidades Empacadas', name: 'unidades_empacadas', type: 'number', required: true, suffix: 'uds' },
-    { label: 'Lote Bolsa/Empaque', name: 'lote_empaque', type: 'text', required: true },
-    { label: 'Peso Neto Total', name: 'peso_neto_total', type: 'number', required: true, suffix: 'kg' },
-  ],
-  'WC-CFRI': [
-    { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
-    { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
-    { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
-  ],
-};
-
-const EXPECTED_DURATIONS: Record<string, number> = {
-  'WC-PAST': 45,   // 45 min
-  'WC-CUAJ': 40,   // 40 min
-  'WC-CORTE': 15,  // 15 min
-  'WC-COCC': 30,   // 30 min
-  'WC-DESU': 20,   // 20 min
-  'WC-MOLD': 25,   // 25 min
-  'WC-PREN': 120,  // 2 horas (120 min)
-  'WC-SALA': 60,   // 1 hora (60 min)
-  'WC-MADU': 1440, // 24 horas (1440 min)
-  'WC-EMPA': 30,   // 30 min
-  'WC-CFRI': 60,   // 1 hora (60 min)
-};
+// Work centers are now loaded dynamically from the backend
 
 export default function RutaOperaciones() {
   const [activeTab, setActiveTab] = useState(0);
   const [ordenes, setOrdenes] = useState<any[]>([]);
+  const [centrosTrabajo, setCentrosTrabajo] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -144,7 +59,7 @@ export default function RutaOperaciones() {
   const [openHistorial, setOpenHistorial] = useState(false);
   const [historialOrden, setHistorialOrden] = useState<any>(null);
   
-  // Campos finales para el último paso (Cámara Fría)
+  // Campos finales para el último paso
   const [cantidadProducida, setCantidadProducida] = useState('');
   const [loteNumero, setLoteNumero] = useState('');
 
@@ -164,6 +79,7 @@ export default function RutaOperaciones() {
   const [listaUsuarios, setListaUsuarios] = useState<any[]>([]);
 
   useEffect(() => {
+    cargarCentrosTrabajo();
     cargarOrdenes();
     cargarUsuarios();
     const timer = setInterval(() => {
@@ -171,6 +87,15 @@ export default function RutaOperaciones() {
     }, 5000);
     return () => clearInterval(timer);
   }, []);
+
+  const cargarCentrosTrabajo = async () => {
+    try {
+      const wcs = await apiFetch('/produccion/centros-trabajo');
+      setCentrosTrabajo(wcs);
+    } catch (e) {
+      console.error('Error al cargar centros de trabajo', e);
+    }
+  };
 
   const cargarOrdenes = async () => {
     setLoading(true);
@@ -199,29 +124,25 @@ export default function RutaOperaciones() {
     let activeWc: string | null = null;
 
     if (!orden.operaciones || orden.operaciones.length === 0) {
-      if (orden.estado === 'PLANIFICADA') activeWc = 'WC-PAST';
+      // Sin operaciones: el primer Centro de Trabajo activo es el primero de la lista global
+      if (orden.estado === 'PLANIFICADA' && centrosTrabajo.length > 0) {
+        activeWc = centrosTrabajo[0].id;
+      }
     } else {
       const inProgress = orden.operaciones.find((op: any) => op.estado === 'EN_PROCESO');
       if (inProgress) {
         activeWc = inProgress.workCenter;
       } else {
-        // Ordenar las operaciones de la orden según la secuencia global en WORK_CENTERS
-        const orderOps = [...orden.operaciones].sort((a, b) => {
-          const indexA = WORK_CENTERS.findIndex(w => w.id === a.workCenter);
-          const indexB = WORK_CENTERS.findIndex(w => w.id === b.workCenter);
-          return indexA - indexB;
-        });
-
-        // El primer paso que sigue PENDIENTE es el activo
+        // Ordenar por campo `orden` guardado en la operación
+        const orderOps = [...orden.operaciones].sort((a, b) => a.orden - b.orden);
         const nextOp = orderOps.find((op: any) => op.estado === 'PENDIENTE');
-        if (nextOp) {
-          activeWc = nextOp.workCenter;
-        }
+        if (nextOp) activeWc = nextOp.workCenter;
       }
     }
 
-    // Si el work center activo es Pasteurización (WC-PAST) y el picking no está completado, ocultar de la ruta
-    if (activeWc === 'WC-PAST' && !orden.pickingCompletado) {
+    // Si el work center activo es el primero y el picking no está completado, ocultar
+    const firstWc = centrosTrabajo.length > 0 ? centrosTrabajo[0].id : null;
+    if (activeWc && activeWc === firstWc && !orden.pickingCompletado) {
       return null;
     }
 
@@ -447,18 +368,27 @@ export default function RutaOperaciones() {
         notas: notasTexto,
       };
 
-      if (currentWcId === 'WC-CFRI') {
-        if (!cantidadProducida || !loteNumero) {
-          throw new Error('La cantidad producida y el lote final son requeridos para completar el proceso.');
-        }
-        const prod = selectedOrden?.receta?.productoFinal;
-        if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
-          if (parseFloat(cantidadProducida) % 1 !== 0) {
-            throw new Error(`Para el producto "${prod.descripcion}" (Unidades), la cantidad producida debe ser un número entero.`);
+      if (currentWcId) {
+        // Detectar el último paso de la orden seleccionada dinámicamente
+        const opsSorted = selectedOrden?.operaciones
+          ? [...selectedOrden.operaciones].sort((a: any, b: any) => a.orden - b.orden)
+          : [];
+        const lastWcId = opsSorted.length > 0 ? opsSorted[opsSorted.length - 1].workCenter : null;
+        const isLastStep = lastWcId && currentWcId === lastWcId;
+
+        if (isLastStep) {
+          if (!cantidadProducida || !loteNumero) {
+            throw new Error('La cantidad producida y el lote final son requeridos para completar el proceso.');
           }
+          const prod = selectedOrden?.receta?.productoFinal;
+          if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+            if (parseFloat(cantidadProducida) % 1 !== 0) {
+              throw new Error(`Para el producto "${prod.descripcion}" (Unidades), la cantidad producida debe ser un número entero.`);
+            }
+          }
+          payload.cantidadProducida = parseFloat(cantidadProducida);
+          payload.loteNumero = loteNumero;
         }
-        payload.cantidadProducida = parseFloat(cantidadProducida);
-        payload.loteNumero = loteNumero;
       }
 
       await apiFetch(`/produccion/operaciones/${selectedOrden.id}/${currentWcId}/finalizar`, {
@@ -466,13 +396,21 @@ export default function RutaOperaciones() {
         body: JSON.stringify(payload),
       });
 
-      // Imprimir etiqueta de código de barras al finalizar y mover a bodega (WC-CFRI)
-      if (currentWcId === 'WC-CFRI') {
+      // Imprimir etiqueta de código de barras al finalizar el último paso
+      const opsSortedF = selectedOrden?.operaciones
+        ? [...selectedOrden.operaciones].sort((a: any, b: any) => a.orden - b.orden)
+        : [];
+      const lastWcIdF = opsSortedF.length > 0 ? opsSortedF[opsSortedF.length - 1].workCenter : null;
+      if (lastWcIdF && currentWcId === lastWcIdF) {
         printBarcode(selectedOrden, loteNumero);
       }
 
+      const opsSortedMsg = selectedOrden?.operaciones
+        ? [...selectedOrden.operaciones].sort((a: any, b: any) => a.orden - b.orden)
+        : [];
+      const lastWcIdMsg = opsSortedMsg.length > 0 ? opsSortedMsg[opsSortedMsg.length - 1].workCenter : null;
       setSuccessMsg(
-        currentWcId === 'WC-CFRI'
+        lastWcIdMsg && currentWcId === lastWcIdMsg
           ? `¡Lote de producción completado y registrado en el inventario con éxito!`
           : `Operación finalizada. La orden avanzó al siguiente paso.`
       );
@@ -485,8 +423,12 @@ export default function RutaOperaciones() {
     }
   };
 
-  // Filtrar órdenes para el Work Center activo
-  const targetWc = WORK_CENTERS[activeTab].id;
+  // Calcular las pestañas visibles: sólo los centros de trabajo que tienen órdenes activas
+  const activeWcIds = new Set(ordenes.map((o) => getActiveWorkCenter(o)).filter(Boolean));
+  const visibleCentros = centrosTrabajo.filter((wc) => activeWcIds.has(wc.id));
+  // Si no hay órdenes activas, mostrar todos los centros de trabajo
+  const displayCentros = visibleCentros.length > 0 ? visibleCentros : centrosTrabajo;
+  const targetWc = displayCentros[activeTab]?.id || '';
   const filteredOrdenes = ordenes.filter((o) => getActiveWorkCenter(o) === targetWc);
 
   const getFormatDuration = (seconds: number) => {
@@ -531,7 +473,7 @@ export default function RutaOperaciones() {
       {/* Pestañas de Navegación por Work Center */}
       <Paper sx={{ mb: 4, backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
         <Tabs
-          value={activeTab}
+          value={Math.min(activeTab, displayCentros.length - 1)}
           onChange={(_, val) => setActiveTab(val)}
           textColor="primary"
           indicatorColor="primary"
@@ -539,14 +481,14 @@ export default function RutaOperaciones() {
           scrollButtons="auto"
           sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}
         >
-          {WORK_CENTERS.map((wc) => {
+          {displayCentros.map((wc: any) => {
             const count = ordenes.filter((o) => getActiveWorkCenter(o) === wc.id).length;
             return (
               <Tab
                 key={wc.id}
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{wc.id}</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{wc.nombre || wc.id}</Typography>
                     {count > 0 && (
                       <Chip
                         label={count}
@@ -561,14 +503,16 @@ export default function RutaOperaciones() {
             );
           })}
         </Tabs>
-        <Box sx={{ p: 2, bgcolor: 'rgba(255, 255, 255, 0.01)' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-            {WORK_CENTERS[activeTab].name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {WORK_CENTERS[activeTab].desc}
-          </Typography>
-        </Box>
+        {displayCentros[activeTab] && (
+          <Box sx={{ p: 2, bgcolor: 'rgba(255, 255, 255, 0.01)' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+              {displayCentros[activeTab].nombre}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayCentros[activeTab].descripcion}
+            </Typography>
+          </Box>
+        )}
       </Paper>
 
       {/* Tablero Kanban */}

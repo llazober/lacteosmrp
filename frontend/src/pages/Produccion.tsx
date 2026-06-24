@@ -44,21 +44,10 @@ import {
   ArrowUpward,
   ArrowDownward,
   RestartAlt,
+  Settings,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
-const WORK_CENTERS_LIST = [
-  { id: 'WC-PAST', name: 'Pasteurización' },
-  { id: 'WC-CUAJ', name: 'Cuajado' },
-  { id: 'WC-CORTE', name: 'Corte de Cuajada' },
-  { id: 'WC-COCC', name: 'Cocción' },
-  { id: 'WC-DESU', name: 'Desuerado' },
-  { id: 'WC-MOLD', name: 'Moldeado' },
-  { id: 'WC-PREN', name: 'Prensado' },
-  { id: 'WC-SALA', name: 'Salado' },
-  { id: 'WC-MADU', name: 'Maduración' },
-  { id: 'WC-EMPA', name: 'Empaque' },
-  { id: 'WC-CFRI', name: 'Cámara Fría' },
-];
+// Work centers are now loaded dynamically from the backend
 
 export default function Produccion() {
   const usuario = useAuthStore((state) => state.usuario);
@@ -71,6 +60,7 @@ export default function Produccion() {
         ordenes: 1,
         picking: 2,
         mermas: 3,
+        centros: 4,
       };
       if (tabMap[tabParam] !== undefined) {
         return tabMap[tabParam];
@@ -89,6 +79,7 @@ export default function Produccion() {
         ordenes: 1,
         picking: 2,
         mermas: 3,
+        centros: 4,
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
@@ -100,7 +91,7 @@ export default function Produccion() {
   const handleTabChange = (val: number) => {
     setActiveTab(val);
     setSelectedRowId(null);
-    const tabNames = ['recetas', 'ordenes', 'picking', 'mermas'];
+    const tabNames = ['recetas', 'ordenes', 'picking', 'mermas', 'centros'];
     setSearchParams({ tab: tabNames[val] });
   };
 
@@ -178,10 +169,25 @@ export default function Produccion() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [booOperations, setBooOperations] = useState<any[]>([]);
 
+  // Centros de Trabajo states
+  const [centrosTrabajo, setCentrosTrabajo] = useState<any[]>([]);
+  const [openCentroTrabajo, setOpenCentroTrabajo] = useState(false);
+  const [centroTrabajoForm, setCentroTrabajoForm] = useState({
+    id: '',
+    nombre: '',
+    descripcion: '',
+    duracionEstimada: '30',
+    orden: '0',
+    datosRequeridos: [] as { label: string; name: string; type: string; required: boolean; suffix?: string }[],
+    isEditing: false,
+  });
+
   const handleConfigurarBoo = async (producto: any) => {
     try {
       setErrorMsg(null);
       setSelectedProduct(producto);
+      const wcs = await apiFetch('/produccion/centros-trabajo');
+      setCentrosTrabajo(wcs);
       const res = await apiFetch(`/produccion/bill-of-operations/${producto.id}`);
       const parsed = res.map((op: any) => ({
         ...op,
@@ -239,10 +245,11 @@ export default function Produccion() {
 
   const handleAddBooStep = () => {
     const nextOrder = booOperations.length + 1;
+    const defaultWc = centrosTrabajo.length > 0 ? centrosTrabajo[0].id : 'WC-PAST';
     setBooOperations([
       ...booOperations,
       {
-        workCenter: 'WC-PAST',
+        workCenter: defaultWc,
         orden: nextOrder,
         duracionEstimada: 30,
         datosRequeridos: [],
@@ -274,10 +281,22 @@ export default function Produccion() {
 
   const handleStepChange = (index: number, field: string, value: any) => {
     const updated = [...booOperations];
-    updated[index] = {
-      ...updated[index],
-      [field]: value,
-    };
+    if (field === 'workCenter') {
+      const selectedWc = centrosTrabajo.find((w) => w.id === value);
+      updated[index] = {
+        ...updated[index],
+        workCenter: value,
+        duracionEstimada: selectedWc ? selectedWc.duracionEstimada : 30,
+        datosRequeridos: selectedWc && selectedWc.datosRequeridos 
+          ? (typeof selectedWc.datosRequeridos === 'string' ? JSON.parse(selectedWc.datosRequeridos) : selectedWc.datosRequeridos)
+          : [],
+      };
+    } else {
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+    }
     setBooOperations(updated);
   };
 
@@ -321,6 +340,8 @@ export default function Produccion() {
         setRecetas(rec);
         const prod = await apiFetch('/productos');
         setProductos(prod);
+        const wcs = await apiFetch('/produccion/centros-trabajo');
+        setCentrosTrabajo(wcs);
       } else if (activeTab === 1 || activeTab === 2) {
         const ord = await apiFetch('/produccion/ordenes');
         setOrdenes(ord);
@@ -342,6 +363,9 @@ export default function Produccion() {
         setProductos(prod);
         const suc = await apiFetch('/sucursales');
         setSucursales(suc);
+      } else if (activeTab === 4) {
+        const wcs = await apiFetch('/produccion/centros-trabajo');
+        setCentrosTrabajo(wcs);
       }
     } catch (e: any) {
       console.error(e);
@@ -669,6 +693,48 @@ export default function Produccion() {
     }
   };
 
+  // --- HANDLERS CENTROS DE TRABAJO ---
+  const handleGuardarCentroTrabajo = async () => {
+    try {
+      setErrorMsg(null);
+      const { id, nombre, descripcion, duracionEstimada, orden, datosRequeridos, isEditing } = centroTrabajoForm;
+      if (!nombre) throw new Error('El Nombre es obligatorio.');
+      if (!isEditing && !id) throw new Error('El ID es obligatorio.');
+
+      if (isEditing) {
+        await apiFetch(`/produccion/centros-trabajo/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ nombre, descripcion, duracionEstimada: parseInt(duracionEstimada), orden: parseInt(orden), datosRequeridos }),
+        });
+        setSuccessMsg(`Centro de trabajo "${nombre}" actualizado.`);
+      } else {
+        await apiFetch('/produccion/centros-trabajo', {
+          method: 'POST',
+          body: JSON.stringify({ id, nombre, descripcion, duracionEstimada: parseInt(duracionEstimada), orden: parseInt(orden), datosRequeridos }),
+        });
+        setSuccessMsg(`Centro de trabajo "${nombre}" creado.`);
+      }
+      setOpenCentroTrabajo(false);
+      const wcs = await apiFetch('/produccion/centros-trabajo');
+      setCentrosTrabajo(wcs);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al guardar el centro de trabajo.');
+    }
+  };
+
+  const handleEliminarCentroTrabajo = async (id: string) => {
+    if (!window.confirm(`¿Está seguro de eliminar el centro de trabajo "${id}"? Se eliminarán también sus referencias en hojas de ruta de productos.`)) return;
+    try {
+      setErrorMsg(null);
+      await apiFetch(`/produccion/centros-trabajo/${id}`, { method: 'DELETE' });
+      setSuccessMsg(`Centro de trabajo eliminado.`);
+      const wcs = await apiFetch('/produccion/centros-trabajo');
+      setCentrosTrabajo(wcs);
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al eliminar el centro de trabajo.');
+    }
+  };
+
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
@@ -750,6 +816,28 @@ export default function Produccion() {
               Registrar Merma
             </Button>
           )}
+
+          {activeTab === 4 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+              onClick={() => {
+                setCentroTrabajoForm({
+                  id: '',
+                  nombre: '',
+                  descripcion: '',
+                  duracionEstimada: '30',
+                  orden: String(centrosTrabajo.length + 1),
+                  datosRequeridos: [],
+                  isEditing: false,
+                });
+                setOpenCentroTrabajo(true);
+              }}
+            >
+              Nuevo Centro de Trabajo
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -779,6 +867,9 @@ export default function Produccion() {
           <Tab label="Órdenes de Producción (OP)" />
           <Tab label="Listas de Selección (Pick Lists)" />
           <Tab label="Control de Mermas (Desechos)" />
+          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+            <Tab label="⚙ Centros de Trabajo" />
+          )}
         </Tabs>
       </Paper>
 
@@ -1170,6 +1261,96 @@ export default function Produccion() {
                     </TableRow>
                   );
                 })
+              )}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+
+      {/* --- TAB CENTROS DE TRABAJO --- */}
+      {activeTab === 4 && (
+        <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
+                <TableCell sx={{ fontWeight: 700 }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Nombre</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Duración Est. (min)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Orden</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Campos QA</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {centrosTrabajo.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No hay centros de trabajo configurados. El sistema creará los predeterminados al reiniciar.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                centrosTrabajo.map((ct) => (
+                  <TableRow key={ct.id} hover sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.02)' } }}>
+                    <TableCell>
+                      <Chip label={ct.id} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{ct.nombre}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>{ct.descripcion}</TableCell>
+                    <TableCell align="center">{ct.duracionEstimada} min</TableCell>
+                    <TableCell align="center">
+                      <Chip label={`#${ct.orden}`} size="small" color="primary" variant="outlined" />
+                    </TableCell>
+                    <TableCell align="center">
+                      {ct.datosRequeridos ? (
+                        <Chip
+                          label={`${JSON.parse(ct.datosRequeridos).length} campos`}
+                          size="small"
+                          color="info"
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Chip label="Sin campos" size="small" variant="outlined" />
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                        <Tooltip title="Editar">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => {
+                              const parsedFields = ct.datosRequeridos
+                                ? (typeof ct.datosRequeridos === 'string' ? JSON.parse(ct.datosRequeridos) : ct.datosRequeridos)
+                                : [];
+                              setCentroTrabajoForm({
+                                id: ct.id,
+                                nombre: ct.nombre,
+                                descripcion: ct.descripcion || '',
+                                duracionEstimada: String(ct.duracionEstimada),
+                                orden: String(ct.orden),
+                                datosRequeridos: parsedFields,
+                                isEditing: true,
+                              });
+                              setOpenCentroTrabajo(true);
+                            }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleEliminarCentroTrabajo(ct.id)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
@@ -1757,9 +1938,9 @@ export default function Produccion() {
                         label="Centro de Trabajo"
                         onChange={(e) => handleStepChange(idx, 'workCenter', e.target.value)}
                       >
-                        {WORK_CENTERS_LIST.map((wc) => (
+                        {centrosTrabajo.map((wc: any) => (
                           <MenuItem key={wc.id} value={wc.id}>
-                            {wc.name} ({wc.id})
+                            {wc.nombre} ({wc.id})
                           </MenuItem>
                         ))}
                       </Select>
@@ -2147,6 +2328,161 @@ export default function Produccion() {
         <DialogActions sx={{ p: 2.5 }}>
           <Button variant="contained" onClick={() => setOpenReadOnlyPicking(false)} sx={{ fontWeight: 700 }}>
             Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* --- DIALOG CREAR/EDITAR CENTRO DE TRABAJO --- */}
+      <Dialog
+        open={openCentroTrabajo}
+        onClose={() => setOpenCentroTrabajo(false)}
+        maxWidth="sm"
+        fullWidth
+        sx={{ '& .MuiDialog-paper': { bgcolor: '#111827', backgroundImage: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Settings sx={{ color: 'primary.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              {centroTrabajoForm.isEditing ? 'Editar Centro de Trabajo' : 'Nuevo Centro de Trabajo'}
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setOpenCentroTrabajo(false)} size="small"><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255,255,255,0.08)', p: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {!centroTrabajoForm.isEditing && (
+              <TextField
+                label="ID del Centro (ej: WC-TOSTADO)"
+                fullWidth
+                value={centroTrabajoForm.id}
+                onChange={(e) => setCentroTrabajoForm({ ...centroTrabajoForm, id: e.target.value.toUpperCase().replace(/\s/g, '-') })}
+                helperText="Identificador único. No se puede cambiar después de crearlo."
+                inputProps={{ style: { fontFamily: 'monospace' } }}
+              />
+            )}
+            {centroTrabajoForm.isEditing && (
+              <Box sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" color="text.secondary">ID:</Typography>
+                <Chip label={centroTrabajoForm.id} size="small" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+              </Box>
+            )}
+            <TextField
+              label="Nombre del Centro"
+              fullWidth
+              value={centroTrabajoForm.nombre}
+              onChange={(e) => setCentroTrabajoForm({ ...centroTrabajoForm, nombre: e.target.value })}
+              placeholder="Ej: Pasteurización, Empaque, etc."
+            />
+            <TextField
+              label="Descripción"
+              fullWidth
+              multiline
+              rows={2}
+              value={centroTrabajoForm.descripcion}
+              onChange={(e) => setCentroTrabajoForm({ ...centroTrabajoForm, descripcion: e.target.value })}
+              placeholder="Breve descripción de la operación"
+            />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <TextField
+                label="Duración Estimada (min)"
+                type="number"
+                fullWidth
+                value={centroTrabajoForm.duracionEstimada}
+                onChange={(e) => setCentroTrabajoForm({ ...centroTrabajoForm, duracionEstimada: e.target.value })}
+              />
+              <TextField
+                label="Número de Orden (secuencia)"
+                type="number"
+                fullWidth
+                value={centroTrabajoForm.orden}
+                onChange={(e) => setCentroTrabajoForm({ ...centroTrabajoForm, orden: e.target.value })}
+                helperText="Posición en la línea de producción"
+              />
+            </Box>
+
+            {/* Campos QA dinámicos */}
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                  Campos de Control de Calidad ({centroTrabajoForm.datosRequeridos.length})
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Add />}
+                  onClick={() => setCentroTrabajoForm({
+                    ...centroTrabajoForm,
+                    datosRequeridos: [...centroTrabajoForm.datosRequeridos, { label: '', name: '', type: 'number', required: true, suffix: '' }],
+                  })}
+                >
+                  Agregar Campo
+                </Button>
+              </Box>
+              {centroTrabajoForm.datosRequeridos.length === 0 ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 2, fontStyle: 'italic' }}>
+                  Sin campos de QA configurados. Al iniciar una operación no se pedirán datos adicionales.
+                </Typography>
+              ) : (
+                centroTrabajoForm.datosRequeridos.map((campo, idx) => (
+                  <Paper key={idx} sx={{ p: 1.5, mb: 1, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 1.5 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1, alignItems: 'center' }}>
+                      <TextField
+                        size="small"
+                        label="Etiqueta"
+                        value={campo.label}
+                        onChange={(e) => {
+                          const updated = [...centroTrabajoForm.datosRequeridos];
+                          updated[idx] = { ...updated[idx], label: e.target.value, name: e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') };
+                          setCentroTrabajoForm({ ...centroTrabajoForm, datosRequeridos: updated });
+                        }}
+                        placeholder="Ej: Temperatura"
+                      />
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>Tipo</InputLabel>
+                        <Select
+                          value={campo.type}
+                          label="Tipo"
+                          onChange={(e) => {
+                            const updated = [...centroTrabajoForm.datosRequeridos];
+                            updated[idx] = { ...updated[idx], type: e.target.value };
+                            setCentroTrabajoForm({ ...centroTrabajoForm, datosRequeridos: updated });
+                          }}
+                        >
+                          <MenuItem value="number">Número</MenuItem>
+                          <MenuItem value="text">Texto</MenuItem>
+                          <MenuItem value="date">Fecha</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <IconButton size="small" color="error" onClick={() => {
+                        const updated = [...centroTrabajoForm.datosRequeridos];
+                        updated.splice(idx, 1);
+                        setCentroTrabajoForm({ ...centroTrabajoForm, datosRequeridos: updated });
+                      }}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <TextField
+                      size="small"
+                      label="Sufijo / Unidad (opcional)"
+                      value={campo.suffix || ''}
+                      onChange={(e) => {
+                        const updated = [...centroTrabajoForm.datosRequeridos];
+                        updated[idx] = { ...updated[idx], suffix: e.target.value };
+                        setCentroTrabajoForm({ ...centroTrabajoForm, datosRequeridos: updated });
+                      }}
+                      placeholder="Ej: °C, kg, %"
+                      sx={{ mt: 1, width: '50%' }}
+                    />
+                  </Paper>
+                ))
+              )}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button variant="outlined" onClick={() => setOpenCentroTrabajo(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleGuardarCentroTrabajo} sx={{ fontWeight: 700 }}>
+            {centroTrabajoForm.isEditing ? 'Guardar Cambios' : 'Crear Centro'}
           </Button>
         </DialogActions>
       </Dialog>

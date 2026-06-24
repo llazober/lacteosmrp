@@ -9,13 +9,209 @@ import {
   Request,
   BadRequestException,
   Query,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
 
 @Controller('produccion')
-export class ProduccionController {
+export class ProduccionController implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    await this.seedWorkCenters();
+  }
+
+  private async seedWorkCenters() {
+    const count = await this.prisma.centroTrabajo.count();
+    if (count > 0) return;
+
+    const defaultWorkCenters = [
+      { id: 'WC-PAST', nombre: 'Pasteurización', descripcion: 'Pasteurizar y enfriar la leche', duracionEstimada: 30, orden: 1, datosRequeridos: JSON.stringify([
+        { label: 'Temperatura Pasteurización', name: 'temp_pasteurizacion', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Pasteurización', name: 'ph_pasteurizacion', type: 'number', required: true },
+        { label: 'Temperatura Enfriamiento', name: 'temp_enfriamiento', type: 'number', required: true, suffix: '°C' },
+      ])},
+      { id: 'WC-CUAJ', nombre: 'Cuajado', descripcion: 'Agregar cultivo, cuajo y reposo', duracionEstimada: 45, orden: 2, datosRequeridos: JSON.stringify([
+        { label: 'Lote de Cultivo', name: 'lote_cultivo', type: 'text', required: true },
+        { label: 'Dosis de Cultivo', name: 'dosis_cultivo', type: 'number', required: true, suffix: 'g/L' },
+        { label: 'Lote de Cuajo', name: 'lote_cuajo', type: 'text', required: true },
+        { label: 'Dosis de Cuajo', name: 'dosis_cuajo', type: 'number', required: true, suffix: 'mL/L' },
+        { label: 'Temperatura Cuajado', name: 'temp_cuajado', type: 'number', required: true, suffix: '°C' },
+        { label: 'Tiempo de Reposo', name: 'tiempo_reposo', type: 'number', required: true, suffix: 'min' },
+      ])},
+      { id: 'WC-CORTE', nombre: 'Corte de Cuajada', descripcion: 'Corte y agitación de la cuajada', duracionEstimada: 10, orden: 3, datosRequeridos: JSON.stringify([
+        { label: 'Tamaño de Grano', name: 'tamano_grano', type: 'text', required: true, suffix: 'mm' },
+        { label: 'Tiempo de Agitación', name: 'tiempo_agitacion', type: 'number', required: true, suffix: 'min' },
+        { label: 'Velocidad de Agitación', name: 'velocidad_agitacion', type: 'number', required: true, suffix: 'RPM' },
+      ])},
+      { id: 'WC-COCC', nombre: 'Cocción', descripcion: 'Cocción controlada de la mezcla', duracionEstimada: 20, orden: 4, datosRequeridos: JSON.stringify([
+        { label: 'Temperatura Cocción', name: 'temp_coccion', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Final Cocción', name: 'ph_coccion', type: 'number', required: true },
+      ])},
+      { id: 'WC-DESU', nombre: 'Desuerado', descripcion: 'Separación del suero de la leche', duracionEstimada: 15, orden: 5, datosRequeridos: JSON.stringify([
+        { label: 'Volumen Suero Obtenido', name: 'volumen_suero', type: 'number', required: true, suffix: 'L' },
+        { label: 'pH Suero', name: 'ph_suero', type: 'number', required: true },
+      ])},
+      { id: 'WC-MOLD', nombre: 'Moldeado', descripcion: 'Llenado de moldes con cuajada', duracionEstimada: 15, orden: 6, datosRequeridos: JSON.stringify([
+        { label: 'Cantidad de Moldes Llenados', name: 'cantidad_moldes', type: 'number', required: true, suffix: 'uds' },
+        { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
+      ])},
+      { id: 'WC-PREN', nombre: 'Prensado', descripcion: 'Aplicar presión para compactar', duracionEstimada: 120, orden: 7, datosRequeridos: JSON.stringify([
+        { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
+        { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
+      ])},
+      { id: 'WC-SALA', nombre: 'Salado', descripcion: 'Inmersión en tina de salmuera', duracionEstimada: 60, orden: 8, datosRequeridos: JSON.stringify([
+        { label: 'Concentración Salmuera', name: 'concentracion_salmuera', type: 'number', required: true, suffix: '% o °Baumé' },
+        { label: 'Temperatura Salmuera', name: 'temp_salmuera', type: 'number', required: true, suffix: '°C' },
+        { label: 'pH Salmuera', name: 'ph_salmuera', type: 'number', required: true },
+      ])},
+      { id: 'WC-MADU', nombre: 'Maduración', descripcion: 'Control de temperatura y humedad en cámara', duracionEstimada: 14400, orden: 9, datosRequeridos: JSON.stringify([
+        { label: 'Temperatura Cámara', name: 'temp_camara', type: 'number', required: true, suffix: '°C' },
+        { label: 'Humedad Relativa', name: 'humedad_relativa', type: 'number', required: true, suffix: '%' },
+        { label: 'Tiempo Maduración Planificado', name: 'tiempo_maduracion_dias', type: 'number', required: true, suffix: 'días' },
+      ])},
+      { id: 'WC-EMPA', nombre: 'Empaque', descripcion: 'Empaque, etiquetado y pesaje de quesos', duracionEstimada: 30, orden: 10, datosRequeridos: JSON.stringify([
+        { label: 'Unidades Empacadas', name: 'unidades_empacadas', type: 'number', required: true, suffix: 'uds' },
+        { label: 'Lote Bolsa/Empaque', name: 'lote_empaque', type: 'text', required: true },
+        { label: 'Peso Neto Total', name: 'peso_neto_total', type: 'number', required: true, suffix: 'kg' },
+      ])},
+      { id: 'WC-CFRI', nombre: 'Cámara Fría', descripcion: 'Almacenamiento y despacho del producto terminado', duracionEstimada: 60, orden: 11, datosRequeridos: JSON.stringify([
+        { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
+        { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
+        { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
+      ])},
+    ];
+
+    for (const wc of defaultWorkCenters) {
+      await this.prisma.centroTrabajo.create({ data: wc });
+    }
+  }
+
+  // --- CENTROS DE TRABAJO CRUD ---
+  @Get('centros-trabajo')
+  async listarCentrosTrabajo() {
+    return this.prisma.centroTrabajo.findMany({
+      orderBy: { orden: 'asc' },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Post('centros-trabajo')
+  async crearCentroTrabajo(@Request() req: any, @Body() body: any) {
+    const { id, nombre, descripcion, duracionEstimada, datosRequeridos, orden } = body;
+    if (!id || !nombre) {
+      throw new BadRequestException('El ID y el Nombre son obligatorios.');
+    }
+
+    const existe = await this.prisma.centroTrabajo.findUnique({
+      where: { id },
+    });
+    if (existe) {
+      throw new BadRequestException('Ya existe un centro de trabajo con ese ID.');
+    }
+
+    const nuevo = await this.prisma.centroTrabajo.create({
+      data: {
+        id,
+        nombre,
+        descripcion: descripcion || '',
+        duracionEstimada: parseInt(duracionEstimada) || 30,
+        datosRequeridos: datosRequeridos ? (typeof datosRequeridos === 'string' ? datosRequeridos : JSON.stringify(datosRequeridos)) : null,
+        orden: parseInt(orden) || 0,
+      },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: `CREAR_CENTRO_TRABAJO`,
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ id, nombre }),
+      },
+    });
+
+    return nuevo;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Put('centros-trabajo/:id')
+  async actualizarCentroTrabajo(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: any,
+  ) {
+    const { nombre, descripcion, duracionEstimada, datosRequeridos, orden } = body;
+    if (!nombre) {
+      throw new BadRequestException('El Nombre es obligatorio.');
+    }
+
+    const actualizado = await this.prisma.centroTrabajo.update({
+      where: { id },
+      data: {
+        nombre,
+        descripcion: descripcion || '',
+        duracionEstimada: parseInt(duracionEstimada) || 30,
+        datosRequeridos: datosRequeridos ? (typeof datosRequeridos === 'string' ? datosRequeridos : JSON.stringify(datosRequeridos)) : null,
+        orden: parseInt(orden) || 0,
+      },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: `ACTUALIZAR_CENTRO_TRABAJO`,
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ id, nombre }),
+      },
+    });
+
+    return actualizado;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Delete('centros-trabajo/:id')
+  async eliminarCentroTrabajo(@Param('id') id: string, @Request() req: any) {
+    // Verificar si hay órdenes activas usándolo
+    const opActivas = await this.prisma.ordenProduccionOperacion.count({
+      where: {
+        workCenter: id,
+        estado: { in: ['PENDIENTE', 'EN_PROCESO'] },
+      },
+    });
+
+    if (opActivas > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar el centro de trabajo porque hay órdenes de producción activas en curso que lo utilizan.',
+      );
+    }
+
+    // Eliminar referencias en BillOfOperations
+    await this.prisma.billOfOperations.deleteMany({
+      where: { workCenter: id },
+    });
+
+    const eliminado = await this.prisma.centroTrabajo.delete({
+      where: { id },
+    });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: `ELIMINAR_CENTRO_TRABAJO`,
+        modulo: 'PRODUCCION',
+        detalles: JSON.stringify({ id }),
+      },
+    });
+
+    return eliminado;
+  }
 
   // --- RECETAS ---
   @Get('recetas')
@@ -1956,19 +2152,27 @@ export class ProduccionController {
       throw new BadRequestException('La orden de producción no existe.');
     }
 
-    if (workCenter === 'WC-PAST' && !op.pickingCompletado) {
-      throw new BadRequestException(
-        'No se puede iniciar la pasteurización (WC-PAST) si el picking de materia prima no está completado.',
-      );
-    }
-
     // Inicializar operaciones si no existen
     if (op.operaciones.length === 0) {
       await this.inicializarOperaciones(opId, op.receta.productoFinalId);
+      const reloaded = await this.prisma.ordenProduccion.findUnique({
+        where: { id: opId },
+        include: { operaciones: true },
+      });
+      op.operaciones = reloaded ? reloaded.operaciones : [];
     }
 
-    // Si la orden está en PLANIFICADA y el workCenter es WC-PAST, iniciar la orden general
-    if (op.estado === 'PLANIFICADA' && workCenter === 'WC-PAST') {
+    const sortedOps = [...op.operaciones].sort((a, b) => a.orden - b.orden);
+    const firstOp = sortedOps[0];
+
+    if (firstOp && workCenter === firstOp.workCenter && !op.pickingCompletado) {
+      throw new BadRequestException(
+        `No se puede iniciar la primera operación (${firstOp.workCenter}) si el picking de materia prima no está completado.`,
+      );
+    }
+
+    // Si la orden está en PLANIFICADA y el workCenter es el primero, iniciar la orden general
+    if (firstOp && op.estado === 'PLANIFICADA' && workCenter === firstOp.workCenter) {
       await this.prisma.ordenProduccion.update({
         where: { id: opId },
         data: {
@@ -2071,8 +2275,11 @@ export class ProduccionController {
       },
     });
 
-    // Si es el último paso (Cámara Fría), completar toda la orden de producción
-    if (workCenter === 'WC-CFRI') {
+    const sortedOps = [...op.operaciones].sort((a, b) => a.orden - b.orden);
+    const lastOp = sortedOps[sortedOps.length - 1];
+
+    // Si es el último paso, completar toda la orden de producción
+    if (lastOp && workCenter === lastOp.workCenter) {
       if (cantidadProducida == null || !loteNumero) {
         throw new BadRequestException('Para finalizar el último paso, la cantidad real y el lote son obligatorios.');
       }
@@ -2399,70 +2606,17 @@ export class ProduccionController {
       return customBoo;
     }
 
-    // Si no tiene ruta configurada, retornamos los centros de trabajo por defecto
-    const defaultWorkCenters = [
-      { id: 'WC-PAST', name: 'Pasteurización', desc: 'Pasteurizar y enfriar la leche', duration: 45, fields: [
-        { label: 'Temperatura Pasteurización', name: 'temp_pasteurizacion', type: 'number', required: true, suffix: '°C' },
-        { label: 'pH Pasteurización', name: 'ph_pasteurizacion', type: 'number', required: true },
-        { label: 'Temperatura Enfriamiento', name: 'temp_enfriamiento', type: 'number', required: true, suffix: '°C' },
-      ]},
-      { id: 'WC-CUAJ', name: 'Cuajado', desc: 'Agregar cultivo, cuajo y reposo', duration: 40, fields: [
-        { label: 'Lote de Cultivo', name: 'lote_cultivo', type: 'text', required: true },
-        { label: 'Dosis de Cultivo', name: 'dosis_cultivo', type: 'number', required: true, suffix: 'g/L' },
-        { label: 'Lote de Cuajo', name: 'lote_cuajo', type: 'text', required: true },
-        { label: 'Dosis de Cuajo', name: 'dosis_cuajo', type: 'number', required: true, suffix: 'mL/L' },
-        { label: 'Temperatura Cuajado', name: 'temp_cuajado', type: 'number', required: true, suffix: '°C' },
-        { label: 'Tiempo de Reposo', name: 'tiempo_reposo', type: 'number', required: true, suffix: 'min' },
-      ]},
-      { id: 'WC-CORTE', name: 'Corte de Cuajada', desc: 'Corte y agitación de la cuajada', duration: 15, fields: [
-        { label: 'Tamaño de Grano', name: 'tamano_grano', type: 'text', required: true, suffix: 'mm' },
-        { label: 'Tiempo de Agitación', name: 'tiempo_agitacion', type: 'number', required: true, suffix: 'min' },
-        { label: 'Velocidad de Agitación', name: 'velocidad_agitacion', type: 'number', required: true, suffix: 'RPM' },
-      ]},
-      { id: 'WC-COCC', name: 'Cocción', desc: 'Cocción controlada de la mezcla', duration: 30, fields: [
-        { label: 'Temperatura Cocción', name: 'temp_coccion', type: 'number', required: true, suffix: '°C' },
-        { label: 'pH Final Cocción', name: 'ph_coccion', type: 'number', required: true },
-      ]},
-      { id: 'WC-DESU', name: 'Desuerado', desc: 'Separación del suero de la leche', duration: 20, fields: [
-        { label: 'Volumen Suero Obtenido', name: 'volumen_suero', type: 'number', required: true, suffix: 'L' },
-        { label: 'pH Suero', name: 'ph_suero', type: 'number', required: true },
-      ]},
-      { id: 'WC-MOLD', name: 'Moldeado', desc: 'Llenado de moldes con cuajada', duration: 25, fields: [
-        { label: 'Cantidad de Moldes Llenados', name: 'cantidad_moldes', type: 'number', required: true, suffix: 'uds' },
-        { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
-      ]},
-      { id: 'WC-PREN', name: 'Prensado', desc: 'Aplicar presión para compactar', duration: 120, fields: [
-        { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
-        { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
-      ]},
-      { id: 'WC-SALA', name: 'Salado', desc: 'Inmersión en tina de salmuera', duration: 60, fields: [
-        { label: 'Concentración Salmuera', name: 'concentracion_salmuera', type: 'number', required: true, suffix: '% o °Baumé' },
-        { label: 'Temperatura Salmuera', name: 'temp_salmuera', type: 'number', required: true, suffix: '°C' },
-        { label: 'pH Salmuera', name: 'ph_salmuera', type: 'number', required: true },
-      ]},
-      { id: 'WC-MADU', name: 'Maduración', desc: 'Control de temperatura y humedad en cámara', duration: 1440, fields: [
-        { label: 'Temperatura Cámara', name: 'temp_camara', type: 'number', required: true, suffix: '°C' },
-        { label: 'Humedad Relativa', name: 'humedad_relativa', type: 'number', required: true, suffix: '%' },
-        { label: 'Tiempo Maduración Planificado', name: 'tiempo_maduracion_dias', type: 'number', required: true, suffix: 'días' },
-      ]},
-      { id: 'WC-EMPA', name: 'Empaque', desc: 'Empaque, etiquetado y pesaje de quesos', duration: 30, fields: [
-        { label: 'Unidades Empacadas', name: 'unidades_empacadas', type: 'number', required: true, suffix: 'uds' },
-        { label: 'Lote Bolsa/Empaque', name: 'lote_empaque', type: 'text', required: true },
-        { label: 'Peso Neto Total', name: 'peso_neto_total', type: 'number', required: true, suffix: 'kg' },
-      ]},
-      { id: 'WC-CFRI', name: 'Cámara Fría', desc: 'Almacenamiento y despacho del producto terminado', duration: 60, fields: [
-        { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
-        { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
-        { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
-      ]},
-    ];
+    // Si no tiene ruta configurada, retornamos los centros de trabajo por defecto desde la base de datos
+    const wcs = await this.prisma.centroTrabajo.findMany({
+      orderBy: { orden: 'asc' },
+    });
 
-    return defaultWorkCenters.map((wc, idx) => ({
+    return wcs.map((wc, idx) => ({
       productoId,
       workCenter: wc.id,
       orden: idx + 1,
-      duracionEstimada: wc.duration,
-      datosRequeridos: JSON.stringify(wc.fields),
+      duracionEstimada: wc.duracionEstimada,
+      datosRequeridos: wc.datosRequeridos,
     }));
   }
 
@@ -2539,77 +2693,6 @@ export class ProduccionController {
       orderBy: { orden: 'asc' },
     });
 
-    const defaultWorkCenters = [
-      { id: 'WC-PAST', fields: [
-        { label: 'Temperatura Pasteurización', name: 'temp_pasteurizacion', type: 'number', required: true, suffix: '°C' },
-        { label: 'pH Pasteurización', name: 'ph_pasteurizacion', type: 'number', required: true },
-        { label: 'Temperatura Enfriamiento', name: 'temp_enfriamiento', type: 'number', required: true, suffix: '°C' },
-      ]},
-      { id: 'WC-CUAJ', fields: [
-        { label: 'Lote de Cultivo', name: 'lote_cultivo', type: 'text', required: true },
-        { label: 'Dosis de Cultivo', name: 'dosis_cultivo', type: 'number', required: true, suffix: 'g/L' },
-        { label: 'Lote de Cuajo', name: 'lote_cuajo', type: 'text', required: true },
-        { label: 'Dosis de Cuajo', name: 'dosis_cuajo', type: 'number', required: true, suffix: 'mL/L' },
-        { label: 'Temperatura Cuajado', name: 'temp_cuajado', type: 'number', required: true, suffix: '°C' },
-        { label: 'Tiempo de Reposo', name: 'tiempo_reposo', type: 'number', required: true, suffix: 'min' },
-      ]},
-      { id: 'WC-CORTE', fields: [
-        { label: 'Tamaño de Grano', name: 'tamano_grano', type: 'text', required: true, suffix: 'mm' },
-        { label: 'Tiempo de Agitación', name: 'tiempo_agitacion', type: 'number', required: true, suffix: 'min' },
-        { label: 'Velocidad de Agitación', name: 'velocidad_agitacion', type: 'number', required: true, suffix: 'RPM' },
-      ]},
-      { id: 'WC-COCC', fields: [
-        { label: 'Temperatura Cocción', name: 'temp_coccion', type: 'number', required: true, suffix: '°C' },
-        { label: 'pH Final Cocción', name: 'ph_coccion', type: 'number', required: true },
-      ]},
-      { id: 'WC-DESU', fields: [
-        { label: 'Volumen Suero Obtenido', name: 'volumen_suero', type: 'number', required: true, suffix: 'L' },
-        { label: 'pH Suero', name: 'ph_suero', type: 'number', required: true },
-      ]},
-      { id: 'WC-MOLD', fields: [
-        { label: 'Cantidad de Moldes Llenados', name: 'cantidad_moldes', type: 'number', required: true, suffix: 'uds' },
-        { label: 'Tipo de Molde', name: 'tipo_molde', type: 'text', required: true },
-      ]},
-      { id: 'WC-PREN', fields: [
-        { label: 'Presión Aplicada', name: 'presion_applied', type: 'number', required: true, suffix: 'PSI' },
-        { label: 'Tiempo de Prensa', name: 'tiempo_prensa', type: 'number', required: true, suffix: 'horas' },
-      ]},
-      { id: 'WC-SALA', fields: [
-        { label: 'Concentración Salmuera', name: 'concentracion_salmuera', type: 'number', required: true, suffix: '% o °Baumé' },
-        { label: 'Temperatura Salmuera', name: 'temp_salmuera', type: 'number', required: true, suffix: '°C' },
-        { label: 'pH Salmuera', name: 'ph_salmuera', type: 'number', required: true },
-      ]},
-      { id: 'WC-MADU', fields: [
-        { label: 'Temperatura Cámara', name: 'temp_camara', type: 'number', required: true, suffix: '°C' },
-        { label: 'Humedad Relativa', name: 'humedad_relativa', type: 'number', required: true, suffix: '%' },
-        { label: 'Tiempo Maduración Planificado', name: 'tiempo_maduracion_dias', type: 'number', required: true, suffix: 'días' },
-      ]},
-      { id: 'WC-EMPA', fields: [
-        { label: 'Unidades Empacadas', name: 'unidades_empacadas', type: 'number', required: true, suffix: 'uds' },
-        { label: 'Lote Bolsa/Empaque', name: 'lote_empaque', type: 'text', required: true },
-        { label: 'Peso Neto Total', name: 'peso_neto_total', type: 'number', required: true, suffix: 'kg' },
-      ]},
-      { id: 'WC-CFRI', fields: [
-        { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
-        { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
-        { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
-      ]},
-    ];
-
-    const defaultDurations: Record<string, number> = {
-      'WC-PAST': 30,
-      'WC-CUAJ': 45,
-      'WC-CORTE': 10,
-      'WC-COCC': 20,
-      'WC-DESU': 15,
-      'WC-MOLD': 15,
-      'WC-PREN': 120,
-      'WC-SALA': 60,
-      'WC-MADU': 14400,
-      'WC-EMPA': 30,
-      'WC-CFRI': 60,
-    };
-
     if (customBoo.length > 0) {
       for (const step of customBoo) {
         await this.prisma.ordenProduccionOperacion.upsert({
@@ -2623,6 +2706,7 @@ export class ProduccionController {
             ordenProduccionId: ordenId,
             workCenter: step.workCenter,
             estado: 'PENDIENTE',
+            orden: step.orden,
             duracionEstimada: step.duracionEstimada,
             datosRequeridos: step.datosRequeridos,
           },
@@ -2630,7 +2714,11 @@ export class ProduccionController {
         });
       }
     } else {
-      for (const wc of defaultWorkCenters) {
+      const wcs = await this.prisma.centroTrabajo.findMany({
+        orderBy: { orden: 'asc' },
+      });
+      for (let i = 0; i < wcs.length; i++) {
+        const wc = wcs[i];
         await this.prisma.ordenProduccionOperacion.upsert({
           where: {
             ordenProduccionId_workCenter: {
@@ -2642,8 +2730,9 @@ export class ProduccionController {
             ordenProduccionId: ordenId,
             workCenter: wc.id,
             estado: 'PENDIENTE',
-            duracionEstimada: defaultDurations[wc.id] || 30,
-            datosRequeridos: JSON.stringify(wc.fields),
+            orden: i + 1,
+            duracionEstimada: wc.duracionEstimada,
+            datosRequeridos: wc.datosRequeridos,
           },
           update: {},
         });
