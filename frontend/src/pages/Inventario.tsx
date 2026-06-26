@@ -3072,11 +3072,31 @@ export default function Inventario() {
 
           <TextField
             fullWidth
-            label="SKU"
+            label="SKU (Auto-generado)"
             size="small"
             value={editarProductoForm.sku}
             onChange={(e) => setEditarProductoForm({ ...editarProductoForm, sku: e.target.value.toUpperCase() })}
-            helperText="Identificador único del producto. Se guardará en mayúsculas."
+            helperText="Identificador único del producto. Puedes editarlo o regenerarlo automáticamente."
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title="Regenerar SKU desde Tipo, Categoría y Nombre">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          const sku = generarSKU(editarProductoForm.tipoProducto, editarProductoForm.categoria, editarProductoForm.descripcion);
+                          if (sku) setEditarProductoForm({ ...editarProductoForm, sku });
+                        }}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Regenerar
+                      </Button>
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
 
           <TextField
