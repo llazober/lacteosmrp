@@ -251,6 +251,7 @@ export default function Inventario() {
   });
 
   const [openEditarProducto, setOpenEditarProducto] = useState(false);
+  const [openEliminarProducto, setOpenEliminarProducto] = useState(false);
   const [selectedProducto, setSelectedProducto] = useState<any>(null);
   const [editarProductoForm, setEditarProductoForm] = useState({
     descripcion: '',
@@ -556,6 +557,23 @@ export default function Inventario() {
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message);
+    }
+  };
+
+  const handleEliminarProductoSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      await apiFetch(`/productos/${selectedProducto.id}`, {
+        method: 'DELETE',
+      });
+      setSuccessMsg('Producto eliminado del catálogo con éxito.');
+      setOpenEliminarProducto(false);
+      setSelectedProducto(null);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+      setOpenEliminarProducto(false);
+      setSelectedProducto(null);
     }
   };
 
@@ -1858,6 +1876,22 @@ export default function Inventario() {
                                   <Edit fontSize="small" />
                                 </IconButton>
                               </Tooltip>
+                              {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+                                <Tooltip title="Eliminar Producto del Catálogo">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedProducto(p);
+                                      setOpenEliminarProducto(true);
+                                    }}
+                                    sx={{ ml: 0.5 }}
+                                  >
+                                    <Delete fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </>
                           )}
                         </TableCell>
@@ -3152,6 +3186,24 @@ export default function Inventario() {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEditarProducto(false); setSelectedProducto(null); }}>Cancelar</Button>
           <Button variant="contained" color="primary" onClick={handleEditarProductoSubmit}>Actualizar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: CONFIRMAR ELIMINACIÓN DE PRODUCTO */}
+      <Dialog open={openEliminarProducto} onClose={() => { setOpenEliminarProducto(false); setSelectedProducto(null); }} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>¿Eliminar Producto del Catálogo?</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {selectedProducto && (
+            <Typography variant="body1">
+              ¿Está seguro que desea eliminar el producto <strong>{selectedProducto.descripcion}</strong> (SKU: <strong>{selectedProducto.sku}</strong>) del catálogo?
+              <br /><br />
+              Esta acción no se puede deshacer y fallará si el producto tiene lotes, movimientos, compras, recetas o ventas asociadas.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => { setOpenEliminarProducto(false); setSelectedProducto(null); }}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={handleEliminarProductoSubmit}>Eliminar</Button>
         </DialogActions>
       </Dialog>
 

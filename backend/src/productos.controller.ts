@@ -182,6 +182,70 @@ export class ProductosController {
     return producto;
   }
 
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Delete('productos/:id')
+  async eliminarProducto(@Param('id') id: string, @Request() req: any) {
+    const producto = await this.prisma.producto.findUnique({
+      where: { id },
+    });
+    if (!producto) {
+      throw new BadRequestException('El producto no existe.');
+    }
+
+    // Check for related records to avoid breaking integrity
+    const lotesCount = await this.prisma.lote.count({ where: { productoId: id } });
+    const ventaDetallesCount = await this.prisma.ventaDetalle.count({ where: { productoId: id } });
+    const ordenCompraDetallesCount = await this.prisma.ordenCompraDetalle.count({ where: { productoId: id } });
+    const movimientosCount = await this.prisma.movimientoInventario.count({ where: { productoId: id } });
+    const recetaCount = await this.prisma.receta.count({ where: { productoFinalId: id } });
+    const recetaDetallesCount = await this.prisma.recetaDetalle.count({ where: { productoId: id } });
+    const ordenProduccionDetallesCount = await this.prisma.ordenProduccionDetalle.count({ where: { productoId: id } });
+    const mermasCount = await this.prisma.merma.count({ where: { productoId: id } });
+    const inventariosCount = await this.prisma.inventario.count({
+      where: {
+        productoId: id,
+        OR: [
+          { existencia: { gt: 0 } },
+          { comprometido: { gt: 0 } },
+        ],
+      },
+    });
+
+    if (
+      lotesCount > 0 ||
+      ventaDetallesCount > 0 ||
+      ordenCompraDetallesCount > 0 ||
+      movimientosCount > 0 ||
+      recetaCount > 0 ||
+      recetaDetallesCount > 0 ||
+      ordenProduccionDetallesCount > 0 ||
+      mermasCount > 0 ||
+      inventariosCount > 0
+    ) {
+      throw new BadRequestException(
+        'No se puede eliminar el producto porque posee registros asociados (lotes, movimientos de stock, ventas, compras, recetas o stock activo) en el sistema. Considere cambiar su estado a INACTIVO.',
+      );
+    }
+
+    // Safely delete empty Inventario (since they don't have cascade delete)
+    await this.prisma.inventario.deleteMany({ where: { productoId: id } });
+    await this.prisma.producto.delete({ where: { id } });
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'ELIMINAR_PRODUCTO',
+        modulo: 'PRODUCTOS',
+        detalles: JSON.stringify(producto),
+      },
+    });
+
+    return { success: true, message: 'Producto eliminado del catálogo con éxito.' };
+  }
+
+
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post('productos/:id/proveedores')
   async asociarProveedor(
