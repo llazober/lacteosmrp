@@ -22,6 +22,7 @@ import {
   Alert,
   IconButton,
   Tooltip,
+  Switch,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -141,6 +142,7 @@ export default function Compras() {
     const updatedProductos = [
       ...ocForm.productos,
       {
+        lineaNum: ocForm.productos.length + 1,
         productoId: nuevoItem.productoId,
         productoNombre: prod ? prod.descripcion : '',
         productoSku: prod ? prod.sku : '',
@@ -191,6 +193,7 @@ export default function Compras() {
     const updatedProductos = [
       ...editarOcForm.productos,
       {
+        lineaNum: editarOcForm.productos.length + 1,
         productoId: nuevoItemEdit.productoId,
         productoNombre: prod ? prod.descripcion : '',
         productoSku: prod ? prod.sku : '',
@@ -346,13 +349,16 @@ export default function Compras() {
   const handleAbrirRecepcion = (oc: any) => {
     setSelectedOC(oc);
     // Inicializar inputs de lote para cada detalle
-    const lotesInit = oc.detalles.map((det: any) => {
+    const lotesInit = oc.detalles.map((det: any, idx: number) => {
       const cantRecibidaPrevia = det.cantidadRecibida || 0;
       const restante = Math.max(0, det.cantidad - cantRecibidaPrevia);
       return {
         productoId: det.productoId,
         productoNombre: det.producto.descripcion,
-        numeroLote: `LOT-${oc.numeroOrden.replace('OC-', '')}-${det.producto.sku.substring(0,3).toUpperCase()}`,
+        productoSku: det.producto.sku,
+        lineaNum: idx + 1,
+        habilitado: restante > 0, // solo habilitar líneas con cantidad pendiente
+        numeroLote: `LOT-${oc.numeroOrden.replace('OC-', '')}-${det.producto.sku.replace(/-/g, '').toUpperCase()}-L${idx + 1}`,
         fechaProduccion: new Date().toISOString().substring(0, 10),
         fechaVencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
         tempMin: det.producto.temperaturaMin,
@@ -386,7 +392,7 @@ export default function Compras() {
       }
       await apiFetch(`/compras/${selectedOC.id}/recepcion`, {
         method: 'PUT',
-        body: JSON.stringify({ lotes: recepcionLotes }),
+        body: JSON.stringify({ lotes: recepcionLotes.filter((l) => l.habilitado) }),
       });
       setSuccessMsg('Recepcion de mercadería registrada. Los lotes ya están en stock.');
       setOpenRecepcion(false);
@@ -757,6 +763,7 @@ export default function Compras() {
             <Table size="small">
               <TableHead sx={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: 60 }}>Línea</TableCell>
                   <TableCell>Producto</TableCell>
                   <TableCell>SKU</TableCell>
                   <TableCell align="right">Cantidad</TableCell>
@@ -776,6 +783,7 @@ export default function Compras() {
                 ) : (
                   ocForm.productos.map((item: any, idx: number) => (
                     <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
                       <TableCell>{item.productoSku}</TableCell>
                       <TableCell align="right">{item.cantidad}</TableCell>
@@ -800,7 +808,7 @@ export default function Compras() {
                           }}
                         />
                       </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>
                         {formatCurrency(item.cantidad * item.costoUnitario)}
                       </TableCell>
                       <TableCell align="center">
@@ -841,71 +849,95 @@ export default function Compras() {
           </Typography>
 
           {recepcionLotes.map((lote, index) => (
-            <Box key={index} sx={{ mb: 4, p: 2, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5, color: 'primary.light' }}>
-                Producto: {lote.productoNombre}
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-                Cantidad Ordenada: <strong>{lote.cantidadOrdenada}</strong> | Recibida anteriormente: <strong>{lote.cantidadRecibidaPrevia}</strong> | Restante: <strong>{lote.cantidadOrdenada - lote.cantidadRecibidaPrevia}</strong>
-              </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
-                <Box>
-                  <TextField
-                    fullWidth
-                    label="Código de Lote"
+            <Box
+              key={index}
+              sx={{
+                mb: 4, p: 2, borderRadius: 2,
+                backgroundColor: lote.habilitado ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.005)',
+                border: lote.habilitado ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(255,255,255,0.05)',
+                opacity: lote.habilitado ? 1 : 0.5,
+                transition: 'all 0.2s',
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: lote.habilitado ? 'primary.light' : 'text.disabled' }}>
+                  Línea {lote.lineaNum}: {lote.productoNombre}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color={lote.habilitado ? 'text.secondary' : 'text.disabled'}>
+                    {lote.habilitado ? 'Recibir esta línea' : 'No recibir'}
+                  </Typography>
+                  <Switch
+                    checked={lote.habilitado}
+                    onChange={(e) => handleUpdateLoteInfo(index, 'habilitado', e.target.checked)}
+                    color="primary"
                     size="small"
-                    value={lote.numeroLote}
-                    onChange={(e) => handleUpdateLoteInfo(index, 'numeroLote', e.target.value)}
-                  />
-                </Box>
-                <Box sx={{ mt: 1 }}>
-                  <DatePicker
-                    label="Fecha Producción"
-                    value={lote.fechaProduccion ? dayjs(lote.fechaProduccion) : null}
-                    onChange={(newValue) => handleUpdateLoteInfo(index, 'fechaProduccion', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                  />
-                </Box>
-                <Box sx={{ mt: 1 }}>
-                  <DatePicker
-                    label="Fecha Vencimiento"
-                    value={lote.fechaVencimiento ? dayjs(lote.fechaVencimiento) : null}
-                    onChange={(newValue) => handleUpdateLoteInfo(index, 'fechaVencimiento', newValue ? newValue.format('YYYY-MM-DD') : '')}
-                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                  />
-                </Box>
-
-                <Box>
-                  <TextField
-                    fullWidth
-                    label="Temperatura Mín (°C)"
-                    type="number"
-                    size="small"
-                    value={lote.tempMin}
-                    onChange={(e) => handleUpdateLoteInfo(index, 'tempMin', e.target.value)}
-                  />
-                </Box>
-                <Box>
-                  <TextField
-                    fullWidth
-                    label="Temperatura Máx (°C)"
-                    type="number"
-                    size="small"
-                    value={lote.tempMax}
-                    onChange={(e) => handleUpdateLoteInfo(index, 'tempMax', e.target.value)}
-                  />
-                </Box>
-                <Box>
-                  <TextField
-                    fullWidth
-                    label="Cantidad Recibida"
-                    type="number"
-                    size="small"
-                    value={lote.cantidadRecibida}
-                    onChange={(e) => handleUpdateLoteInfo(index, 'cantidadRecibida', e.target.value)}
+                    disabled={lote.cantidadRecibidaPrevia >= lote.cantidadOrdenada}
                   />
                 </Box>
               </Box>
+              <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                Cantidad Ordenada: <strong>{lote.cantidadOrdenada}</strong> | Recibida anteriormente: <strong>{lote.cantidadRecibidaPrevia}</strong> | Restante: <strong>{lote.cantidadOrdenada - lote.cantidadRecibidaPrevia}</strong>
+              </Typography>
+              {lote.habilitado && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
+                  <Box>
+                    <TextField
+                      fullWidth
+                      label="Código de Lote"
+                      size="small"
+                      value={lote.numeroLote}
+                      onChange={(e) => handleUpdateLoteInfo(index, 'numeroLote', e.target.value)}
+                    />
+                  </Box>
+                  <Box sx={{ mt: 1 }}>
+                    <DatePicker
+                      label="Fecha Producción"
+                      value={lote.fechaProduccion ? dayjs(lote.fechaProduccion) : null}
+                      onChange={(newValue) => handleUpdateLoteInfo(index, 'fechaProduccion', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                  </Box>
+                  <Box sx={{ mt: 1 }}>
+                    <DatePicker
+                      label="Fecha Vencimiento"
+                      value={lote.fechaVencimiento ? dayjs(lote.fechaVencimiento) : null}
+                      onChange={(newValue) => handleUpdateLoteInfo(index, 'fechaVencimiento', newValue ? newValue.format('YYYY-MM-DD') : '')}
+                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    />
+                  </Box>
+                  <Box>
+                    <TextField
+                      fullWidth
+                      label="Temperatura Mín (°C)"
+                      type="number"
+                      size="small"
+                      value={lote.tempMin}
+                      onChange={(e) => handleUpdateLoteInfo(index, 'tempMin', e.target.value)}
+                    />
+                  </Box>
+                  <Box>
+                    <TextField
+                      fullWidth
+                      label="Temperatura Máx (°C)"
+                      type="number"
+                      size="small"
+                      value={lote.tempMax}
+                      onChange={(e) => handleUpdateLoteInfo(index, 'tempMax', e.target.value)}
+                    />
+                  </Box>
+                  <Box>
+                    <TextField
+                      fullWidth
+                      label="Cantidad Recibida"
+                      type="number"
+                      size="small"
+                      value={lote.cantidadRecibida}
+                      onChange={(e) => handleUpdateLoteInfo(index, 'cantidadRecibida', e.target.value)}
+                    />
+                  </Box>
+                </Box>
+              )}
             </Box>
           ))}
         </DialogContent>
@@ -1060,6 +1092,7 @@ export default function Compras() {
             <Table size="small">
               <TableHead sx={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 700, width: 60 }}>Línea</TableCell>
                   <TableCell>Producto</TableCell>
                   <TableCell>SKU</TableCell>
                   <TableCell align="right">Cantidad</TableCell>
@@ -1079,6 +1112,7 @@ export default function Compras() {
                 ) : (
                   editarOcForm.productos.map((item: any, idx: number) => (
                     <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
                       <TableCell>{item.productoSku}</TableCell>
                       <TableCell align="right">{item.cantidad}</TableCell>

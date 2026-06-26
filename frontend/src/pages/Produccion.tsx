@@ -1482,6 +1482,17 @@ export default function Produccion() {
                           list[index] = { ...list[index], sustitutoIds: val };
                           setRecetaForm({ ...recetaForm, detalles: list });
                         }}
+                        MenuProps={{
+                          PaperProps: {
+                            onClick: (e: React.MouseEvent) => {
+                              // Cerrar menú al hacer click en cualquier item
+                              const target = e.target as HTMLElement;
+                              if (target.closest('li')) {
+                                (e.currentTarget.closest('[role="presentation"]') as HTMLElement)?.click?.();
+                              }
+                            },
+                          },
+                        }}
                         renderValue={(selected) => (
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                             {(selected as string[]).map((value) => {
