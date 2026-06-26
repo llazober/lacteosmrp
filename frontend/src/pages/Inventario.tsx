@@ -858,13 +858,11 @@ export default function Inventario() {
 
   // Genera SKU automático: AbrevTipo-3LetrasCat-InicialesNombre
   const generarSKU = (tipoProducto: string, categoria: string, descripcion: string): string => {
-    // Parte 1: Abreviación del Tipo de Producto (iniciales de cada palabra separada por _ o espacio)
-    const tipoAbrev = tipoProducto
-      .split(/[_\s]+/)
-      .filter(Boolean)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase();
+    // Parte 1: Usar el código del Tipo de Producto directamente (MP, PT, MNA, etc.)
+    // Si es un nombre largo legacy como "PRODUCTO_TERMINADO", derivar iniciales como fallback
+    const tipoAbrev = tipoProducto.includes('_') && tipoProducto.length > 5
+      ? tipoProducto.split(/[_\s]+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase()
+      : tipoProducto.trim().toUpperCase();
 
     // Parte 2: Primeras 3 letras de la Categoría
     const catAbrev = categoria
