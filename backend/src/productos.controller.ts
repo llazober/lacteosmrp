@@ -131,6 +131,7 @@ export class ProductosController {
     @Body() body: any,
   ) {
     const {
+      sku,
       descripcion,
       categoria,
       tipoProducto,
@@ -147,9 +148,21 @@ export class ProductosController {
       esManufacturado,
     } = body;
 
+    // Validar unicidad del SKU si se está actualizando
+    if (sku) {
+      const normSku = sku.trim().toUpperCase();
+      const existSku = await this.prisma.producto.findFirst({
+        where: { sku: normSku, id: { not: id } },
+      });
+      if (existSku) {
+        throw new BadRequestException('Ya existe otro producto con el SKU ingresado.');
+      }
+    }
+
     const producto = await this.prisma.producto.update({
       where: { id },
       data: {
+        sku: sku ? sku.trim().toUpperCase() : undefined,
         descripcion,
         categoria,
         marca,

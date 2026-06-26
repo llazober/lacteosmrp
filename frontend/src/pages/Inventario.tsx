@@ -254,6 +254,7 @@ export default function Inventario() {
   const [openEliminarProducto, setOpenEliminarProducto] = useState(false);
   const [selectedProducto, setSelectedProducto] = useState<any>(null);
   const [editarProductoForm, setEditarProductoForm] = useState({
+    sku: '',
     descripcion: '',
     categoria: 'LECHE',
     tipoProducto: 'PRODUCTO_TERMINADO',
@@ -1894,6 +1895,7 @@ export default function Inventario() {
                                     e.stopPropagation();
                                     setSelectedProducto(p);
                                     setEditarProductoForm({
+                                      sku: p.sku,
                                       tipoProducto: p.tipoProducto || 'PRODUCTO_TERMINADO',
                                       descripcion: p.descripcion,
                                       categoria: p.categoria,
@@ -3064,9 +3066,18 @@ export default function Inventario() {
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {selectedProducto && (
             <Typography variant="body2" color="text.secondary">
-              SKU: <strong>{selectedProducto.sku}</strong> | Código de Barras: <strong>{selectedProducto.codigoBarras}</strong>
+              Código de Barras: <strong>{selectedProducto.codigoBarras}</strong>
             </Typography>
           )}
+
+          <TextField
+            fullWidth
+            label="SKU"
+            size="small"
+            value={editarProductoForm.sku}
+            onChange={(e) => setEditarProductoForm({ ...editarProductoForm, sku: e.target.value.toUpperCase() })}
+            helperText="Identificador único del producto. Se guardará en mayúsculas."
+          />
 
           <TextField
             fullWidth
