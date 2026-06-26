@@ -1174,14 +1174,11 @@ export class ProduccionController implements OnModuleInit {
   async calcularPlanificacion(@Query('useSafetyStockMin') useSafetyStockMin?: string) {
     const useSafety = useSafetyStockMin === 'true';
 
-    // 1. Obtener todas las sucursales (excluyendo Planta de Producción Principal)
+    // 1. Obtener todas las sucursales activas
     const sucursales = await this.prisma.sucursal.findMany({
       where: { estado: 'ACTIVO' },
     });
     const plantaPrincipal = sucursales.find((s) => s.codigo === 'SUC-001');
-    if (!plantaPrincipal) {
-      throw new BadRequestException('No se encontró la Planta de Producción/Centro de Distribución (SUC-001).');
-    }
 
     // 2. Obtener recetas y mapear los productos finales que tienen receta configurada
     const recetas = await this.prisma.receta.findMany({
@@ -1191,26 +1188,26 @@ export class ProduccionController implements OnModuleInit {
     });
     const productoIdsConReceta = recetas.map((r) => r.productoFinalId);
 
-    // 3. Obtener productos de marca "Lácteos ERP" y tipo "PRODUCTO_TERMINADO" o "PT" que tengan receta
+    // 3. Obtener productos ACTIVO de tipo PRODUCTO_TERMINADO/PT que tengan receta
+    //    (sin filtrar por marca para ser compatible con cualquier configuración)
     const productos = await this.prisma.producto.findMany({
       where: {
         id: { in: productoIdsConReceta },
         estado: 'ACTIVO',
         tipoProducto: { in: ['PRODUCTO_TERMINADO', 'PT'] },
-        marca: 'Lácteos ERP',
       },
     });
 
-    // 3.5. Obtener total de órdenes de producción abiertas en el CD (PLANIFICADA, EN_PROCESO o FALTANTES) para descontar de las sugerencias
-    const openCDOrders = await this.prisma.ordenProduccion.findMany({
-      where: {
-        sucursalId: plantaPrincipal.id,
-        estado: { in: ['PLANIFICADA', 'EN_PROCESO', 'FALTANTES'] },
-      },
-      include: {
-        receta: true,
-      },
-    });
+    // 3.5. Descontar órdenes abiertas en la Planta Principal (PLANIFICADA / EN_PROCESO)
+    const openCDOrders = plantaPrincipal
+      ? await this.prisma.ordenProduccion.findMany({
+          where: {
+            sucursalId: plantaPrincipal.id,
+            estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
+          },
+          include: { receta: true },
+        })
+      : [];
 
     const remainingOpenCDQtyMap: Record<string, number> = {};
     for (const prod of productos) {
@@ -1222,8 +1219,12 @@ export class ProduccionController implements OnModuleInit {
     const hoy = new Date();
     const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // 4. Calcular para cada sucursal y cada producto de forma directa
-    for (const suc of sucursales) {
+    // 4. Calcular para cada sucursal (excepto la planta principal) y cada producto
+    const sucursalesDestino = plantaPrincipal
+      ? sucursales.filter((s) => s.id !== plantaPrincipal.id)
+      : sucursales;
+
+    for (const suc of sucursalesDestino) {
       for (const prod of productos) {
         // A. Inventario en sucursal
         const inv = await this.prisma.inventario.findUnique({
@@ -1251,7 +1252,7 @@ export class ProduccionController implements OnModuleInit {
           where: {
             sucursalId: suc.id,
             receta: { productoFinalId: prod.id },
-            estado: { in: ['PLANIFICADA', 'EN_PROCESO', 'FALTANTES'] },
+            estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
           },
           select: { cantidadPlanificada: true },
         });
@@ -1342,15 +1343,20 @@ export class ProduccionController implements OnModuleInit {
       throw new BadRequestException('Propuestas debe ser una lista válida.');
     }
 
-    // 1. Obtener Planta Principal SUC-001
-    const cd = await this.prisma.sucursal.findFirst({
-      where: { codigo: 'SUC-001' },
+    // 1. Obtener Planta Principal SUC-001 (fallback a primera sucursal activa si no existe)
+    let cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001', estado: 'ACTIVO' },
     });
     if (!cd) {
-      throw new BadRequestException('No se encontró la Planta de Producción Principal (SUC-001).');
+      cd = await this.prisma.sucursal.findFirst({ where: { estado: 'ACTIVO' } });
+    }
+    if (!cd) {
+      throw new BadRequestException(
+        'No hay ninguna sucursal activa en el sistema. Configure al menos una sucursal.',
+      );
     }
 
-    // 2. Buscar proveedor interno
+    // 2. Buscar proveedor interno (fallback al primer proveedor disponible)
     let proveedor = await this.prisma.proveedor.findFirst({
       where: { codigo: 'INTERNO' },
     });
@@ -1363,7 +1369,7 @@ export class ProduccionController implements OnModuleInit {
       }
     }
 
-    // 3. Agrupar propuestas por productoId
+    // 3. Agrupar propuestas por productoId (consolidar todas las sucursales)
     const agrupado: Record<string, number> = {};
     for (const prop of propuestas) {
       const pId = prop.productoId;
@@ -1375,103 +1381,112 @@ export class ProduccionController implements OnModuleInit {
 
     const resultados: any[] = [];
 
-    // 4. Ejecutar transacciones por cada grupo
-    await this.prisma.$transaction(async (tx) => {
-      for (const [productoId, totalAProducir] of Object.entries(agrupado)) {
-        // Buscar receta
-        const receta = await tx.receta.findFirst({
-          where: { productoFinalId: productoId },
-          include: { productoFinal: true },
-        });
-
-        if (!receta) {
-          resultados.push({
-            productoId,
-            estado: 'ERROR',
-            mensaje: `No existe receta configurada para este producto.`,
+    // 4. Procesar cada producto de forma independiente (un fallo no cancela los demás)
+    for (const [productoId, totalAProducir] of Object.entries(agrupado)) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          // Buscar receta
+          const receta = await tx.receta.findFirst({
+            where: { productoFinalId: productoId },
+            include: { productoFinal: true },
           });
-          continue;
-        }
 
-        const prod = receta.productoFinal;
+          if (!receta) {
+            resultados.push({
+              productoId,
+              estado: 'ERROR',
+              mensaje: 'No existe receta configurada para este producto.',
+            });
+            return;
+          }
 
-        // Generar código OP y lote
-        const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        const timestamp = Date.now().toString().substring(8);
-        const numeroOrden = `OP-PLAN-${timestamp}-${randomSuffix}`;
-        const d = new Date();
-        const yy = d.getUTCFullYear().toString().substring(2);
-        const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-        const dd = d.getUTCDate().toString().padStart(2, '0');
-        const loteNumero = `L${yy}${mm}${dd}${randomSuffix}`;
+          const prod = receta.productoFinal;
 
-        const leadTime = prod.leadTime || 0;
-        const fechaEntrega = new Date();
-        fechaEntrega.setDate(fechaEntrega.getDate() + leadTime);
+          // Generar código único de OP y lote
+          const randomSuffix = Math.floor(Math.random() * 9000 + 1000).toString();
+          const timestamp = Date.now().toString().substring(7);
+          const numeroOrden = `OP-PLAN-${timestamp}-${randomSuffix}`;
+          const d = new Date();
+          const yy = d.getUTCFullYear().toString().substring(2);
+          const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+          const ddStr = d.getUTCDate().toString().padStart(2, '0');
+          const loteNumero = `L${yy}${mm}${ddStr}-${randomSuffix}`;
 
-        // Crear Orden de Producción
-        const op = await tx.ordenProduccion.create({
-          data: {
-            numeroOrden,
-            recetaId: receta.id,
-            sucursalId: cd.id, // Se planifica en la planta principal
-            cantidadPlanificada: totalAProducir,
-            estado: 'PLANIFICADA',
-            creadoPorId: req.user.id,
-            responsableId: req.user.id,
-            fechaEntrega,
-          },
-        });
+          const leadTime = prod.leadTime || 0;
+          const fechaEntrega = new Date();
+          fechaEntrega.setDate(fechaEntrega.getDate() + leadTime);
 
-        // Crear Lote con cantidadActual: 0
-        const vidaUtil = prod.vidaUtilDias || 30;
-        const fechaVen = new Date();
-        fechaVen.setDate(fechaVen.getDate() + vidaUtil);
-
-        const nuevoLote = await tx.lote.create({
-          data: {
-            numeroLote: loteNumero,
-            productoId: productoId,
-            fechaProduccion: new Date(),
-            fechaVencimiento: fechaVen,
-            proveedorId: proveedor.id,
-            temperaturaRequeridaMin: prod.temperaturaMin || 2.0,
-            temperaturaRequeridaMax: prod.temperaturaMax || 6.0,
-            cantidadInicial: totalAProducir,
-            cantidadActual: 0,
-            estado: 'APROBADO',
-            ordenProduccionId: op.id,
-          },
-        });
-
-        resultados.push({
-          sku: prod.sku,
-          nombre: prod.descripcion,
-          totalAProducir,
-          numeroOrden,
-          loteNumero,
-          estado: 'OK',
-          mensaje: `Planificado: OP ${numeroOrden} y Lote ${loteNumero} creados con éxito.`,
-        });
-
-        // Auditoría por transacción
-        await tx.auditoria.create({
-          data: {
-            usuarioId: req.user.id,
-            usuarioNombre: req.user.nombre,
-            accion: 'PLANIFICAR_PRODUCCION_AUTO',
-            modulo: 'PRODUCCION',
-            detalles: JSON.stringify({
-              ordenId: op.id,
+          // Crear Orden de Producción en la planta principal
+          const op = await tx.ordenProduccion.create({
+            data: {
               numeroOrden,
-              loteId: nuevoLote.id,
-              loteNumero,
+              recetaId: receta.id,
+              sucursalId: cd.id,
               cantidadPlanificada: totalAProducir,
-            }),
-          },
+              estado: 'PLANIFICADA',
+              creadoPorId: req.user.id,
+              responsableId: req.user.id,
+              fechaEntrega,
+            },
+          });
+
+          // Crear Lote reservado (cantidadActual = 0, se llena al completar la OP)
+          const vidaUtil = prod.vidaUtilDias || 30;
+          const fechaVen = new Date();
+          fechaVen.setDate(fechaVen.getDate() + vidaUtil);
+
+          const nuevoLote = await tx.lote.create({
+            data: {
+              numeroLote: loteNumero,
+              productoId: productoId,
+              fechaProduccion: new Date(),
+              fechaVencimiento: fechaVen,
+              proveedorId: proveedor.id,
+              temperaturaRequeridaMin: prod.temperaturaMin || 2.0,
+              temperaturaRequeridaMax: prod.temperaturaMax || 6.0,
+              cantidadInicial: totalAProducir,
+              cantidadActual: 0,
+              estado: 'APROBADO',
+              ordenProduccionId: op.id,
+            },
+          });
+
+          resultados.push({
+            sku: prod.sku,
+            nombre: prod.descripcion,
+            totalAProducir,
+            numeroOrden,
+            loteNumero,
+            estado: 'OK',
+            mensaje: `Planificado: OP ${numeroOrden} y Lote ${loteNumero} creados con éxito.`,
+          });
+
+          // Auditoría
+          await tx.auditoria.create({
+            data: {
+              usuarioId: req.user.id,
+              usuarioNombre: req.user.nombre,
+              accion: 'PLANIFICAR_PRODUCCION_AUTO',
+              modulo: 'PRODUCCION',
+              detalles: JSON.stringify({
+                ordenId: op.id,
+                numeroOrden,
+                loteId: nuevoLote.id,
+                loteNumero,
+                cantidadPlanificada: totalAProducir,
+                sucursalId: cd.id,
+              }),
+            },
+          });
+        });
+      } catch (err: any) {
+        resultados.push({
+          productoId,
+          estado: 'ERROR',
+          mensaje: err?.message || 'Error inesperado al crear la orden de producción.',
         });
       }
-    });
+    }
 
     return resultados;
   }
