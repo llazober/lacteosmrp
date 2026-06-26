@@ -855,6 +855,45 @@ export default function Inventario() {
     return full12 + checkDigit;
   };
 
+  // Genera SKU automático: AbrevTipo-3LetrasCat-InicialesNombre
+  const generarSKU = (tipoProducto: string, categoria: string, descripcion: string): string => {
+    // Parte 1: Abreviación del Tipo de Producto (iniciales de cada palabra separada por _ o espacio)
+    const tipoAbrev = tipoProducto
+      .split(/[_\s]+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase();
+
+    // Parte 2: Primeras 3 letras de la Categoría
+    const catAbrev = categoria
+      .replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]/g, '')
+      .substring(0, 3)
+      .toUpperCase();
+
+    // Parte 3: Iniciales de cada palabra de la Descripción
+    const descAbrev = descripcion
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ0-9]/g, '')[0] || '')
+      .join('')
+      .toUpperCase();
+
+    const parts = [tipoAbrev, catAbrev, descAbrev].filter(Boolean);
+    return parts.join('-');
+  };
+
+  // Auto-actualizar SKU cuando cambian tipo, categoría o descripción
+  useEffect(() => {
+    if (openCrearProducto) {
+      const sku = generarSKU(productoForm.tipoProducto, productoForm.categoria, productoForm.descripcion);
+      if (sku) {
+        setProductoForm((prev) => ({ ...prev, sku }));
+      }
+    }
+  }, [productoForm.tipoProducto, productoForm.categoria, productoForm.descripcion, openCrearProducto]);
+
   const handleAjusteSubmit = async () => {
     try {
       setErrorMsg(null);
@@ -2792,11 +2831,32 @@ export default function Inventario() {
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           <TextField
             fullWidth
-            label="SKU"
-            placeholder="PROD-Q-LAMINADO"
+            label="SKU (Auto-generado)"
+            placeholder="PT-QUE-QML"
             size="small"
             value={productoForm.sku}
             onChange={(e) => setProductoForm({ ...productoForm, sku: e.target.value })}
+            helperText="Se genera automáticamente al completar Tipo, Categoría y Nombre. Puedes editarlo manualmente."
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title="Regenerar SKU">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          const sku = generarSKU(productoForm.tipoProducto, productoForm.categoria, productoForm.descripcion);
+                          if (sku) setProductoForm({ ...productoForm, sku });
+                        }}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Regenerar
+                      </Button>
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
 
           <TextField
