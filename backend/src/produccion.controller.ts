@@ -1219,12 +1219,8 @@ export class ProduccionController implements OnModuleInit {
     const hoy = new Date();
     const hace30Dias = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // 4. Calcular para cada sucursal (excepto la planta principal) y cada producto
-    const sucursalesDestino = plantaPrincipal
-      ? sucursales.filter((s) => s.id !== plantaPrincipal.id)
-      : sucursales;
-
-    for (const suc of sucursalesDestino) {
+    // 4. Calcular para todas las sucursales activas (incluida la planta, que también es PdV)
+    for (const suc of sucursales) {
       for (const prod of productos) {
         // A. Inventario en sucursal
         const inv = await this.prisma.inventario.findUnique({
