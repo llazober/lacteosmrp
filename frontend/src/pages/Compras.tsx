@@ -357,7 +357,7 @@ export default function Compras() {
         productoNombre: det.producto.descripcion,
         productoSku: det.producto.sku,
         lineaNum: idx + 1,
-        habilitado: restante > 0, // solo habilitar líneas con cantidad pendiente
+        habilitado: false, // el operador activa manualmente las líneas a recibir
         numeroLote: `LOT-${oc.numeroOrden.replace('OC-', '')}-${det.producto.sku.replace(/-/g, '').toUpperCase()}-L${idx + 1}`,
         fechaProduccion: new Date().toISOString().substring(0, 10),
         fechaVencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
