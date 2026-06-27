@@ -201,7 +201,7 @@ model Inventario {
   id           String   @id @default(uuid())
   productoId   String
   sucursalId   String
-  bodegaId     String
+  bodegaId     String?
   existencia   Float    @default(0)
   existMin     Float    @default(0)
   existMax     Float    @default(0)
@@ -211,7 +211,7 @@ model Inventario {
 
   producto Producto @relation(fields: [productoId], references: [id])
   sucursal Sucursal @relation(fields: [sucursalId], references: [id])
-  bodega   Bodega   @relation(fields: [bodegaId], references: [id])
+  bodega   Bodega?  @relation(fields: [bodegaId], references: [id])
 
   @@unique([productoId, bodegaId])
 }
