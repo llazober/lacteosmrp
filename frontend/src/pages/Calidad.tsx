@@ -161,7 +161,12 @@ export default function Calidad() {
         const leche = await apiFetch('/calidad/recepcion-leche');
         setControlesLeche(leche);
         const lot = await apiFetch('/lotes');
-        setLotes(lot.filter((l: any) => l.producto.sku.includes('LECHE') || l.producto.sku.includes('MP-') || l.producto.sku.includes('INS-')));
+        setLotes(lot.filter((l: any) => {
+          const sku = (l.producto.sku || '').toLowerCase();
+          const desc = (l.producto.descripcion || '').toLowerCase();
+          const cat = (l.producto.categoria || '').toLowerCase();
+          return sku.includes('leche') || sku.includes('mp-') || sku.includes('ins-') || desc.includes('leche') || cat.includes('leche');
+        }));
       } else if (activeTab === 1) {
         const insp = await apiFetch('/calidad/inspecciones');
         setInspecciones(insp);
@@ -594,7 +599,10 @@ export default function Calidad() {
                           size="small"
                           sx={{ fontSize: '0.75rem', py: 0.5 }}
                           onClick={() => {
-                            const esLeche = lote.producto.sku.includes('LECHE');
+                            const sku = (lote.producto.sku || '').toLowerCase();
+                            const desc = (lote.producto.descripcion || '').toLowerCase();
+                            const cat = (lote.producto.categoria || '').toLowerCase();
+                            const esLeche = sku.includes('leche') || desc.includes('leche') || cat.includes('leche');
                             if (esLeche) {
                               setLecheForm({
                                 loteId: lote.id,
@@ -883,9 +891,14 @@ export default function Calidad() {
                     label="Lote de Leche Cruda"
                     onChange={(e) => setLecheForm({ ...lecheForm, loteId: e.target.value })}
                   >
-                    {lotes.filter((l: any) => l.producto.sku.includes('LECHE')).map((l) => (
+                    {lotes.filter((l: any) => {
+                      const sku = (l.producto.sku || '').toLowerCase();
+                      const desc = (l.producto.descripcion || '').toLowerCase();
+                      const cat = (l.producto.categoria || '').toLowerCase();
+                      return sku.includes('leche') || desc.includes('leche') || cat.includes('leche');
+                    }).map((l) => (
                       <MenuItem key={l.id} value={l.id}>
-                        {l.numeroLote} ({l.cantidadActual} {l.producto.unidadMedida}){l.estado === 'PENDIENTE' ? ' - [PENDIENTE]' : ''}
+                        {l.numeroLote} - {l.producto.descripcion} ({l.cantidadActual} {l.producto.unidadMedida}){l.estado === 'PENDIENTE' ? ' - [PENDIENTE]' : ''}
                       </MenuItem>
                     ))}
                   </Select>
@@ -1017,7 +1030,12 @@ export default function Calidad() {
                     label="Lote de Insumo / Materia Prima"
                     onChange={(e) => setInsumoForm({ ...insumoForm, loteId: e.target.value })}
                   >
-                    {lotes.filter((l: any) => !l.producto.sku.includes('LECHE')).map((l) => (
+                    {lotes.filter((l: any) => {
+                      const sku = (l.producto.sku || '').toLowerCase();
+                      const desc = (l.producto.descripcion || '').toLowerCase();
+                      const cat = (l.producto.categoria || '').toLowerCase();
+                      return !(sku.includes('leche') || desc.includes('leche') || cat.includes('leche'));
+                    }).map((l) => (
                       <MenuItem key={l.id} value={l.id}>
                         {l.numeroLote} - {l.producto.descripcion} ({l.cantidadActual} {l.producto.unidadMedida}){l.estado === 'PENDIENTE' ? ' - [PENDIENTE]' : ''}
                       </MenuItem>
