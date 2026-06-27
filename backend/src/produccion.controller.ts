@@ -761,6 +761,9 @@ export class ProduccionController implements OnModuleInit {
               },
             });
 
+            const bodOrigen = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
+            if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
+
             // Registrar Movimiento de inventario
             await tx.movimientoInventario.create({
               data: {
@@ -768,6 +771,7 @@ export class ProduccionController implements OnModuleInit {
                 productoId: reqDetalle.productoId,
                 loteId: lote.id,
                 sucursalOrigenId: cdId,
+                bodegaOrigenId: bodOrigen.id,
                 cantidad: aDescontar,
                 motivo: `Consumo materia prima en Orden de Producción ${op.numeroOrden}`,
                 usuarioId: req.user.id,
@@ -777,9 +781,9 @@ export class ProduccionController implements OnModuleInit {
             // Decrementar del inventario general
             const inv = await tx.inventario.findUnique({
               where: {
-                productoId_sucursalId: {
+                productoId_bodegaId: {
                   productoId: reqDetalle.productoId,
-                  sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                 },
               },
             });
@@ -793,6 +797,7 @@ export class ProduccionController implements OnModuleInit {
                 data: {
                   productoId: reqDetalle.productoId,
                   sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                   existencia: -aDescontar,
                 },
               });
@@ -803,11 +808,14 @@ export class ProduccionController implements OnModuleInit {
 
           // Si aún falta stock (shortage), descontar la diferencia restante de inventario general
           if (pendientePorDescontar > 0) {
+            const bodOrigen = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
+            if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
+
             const inv = await tx.inventario.findUnique({
               where: {
-                productoId_sucursalId: {
+                productoId_bodegaId: {
                   productoId: reqDetalle.productoId,
-                  sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                 },
               },
             });
@@ -822,6 +830,7 @@ export class ProduccionController implements OnModuleInit {
                 data: {
                   productoId: reqDetalle.productoId,
                   sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                   existencia: -pendientePorDescontar,
                 },
               });
@@ -842,6 +851,7 @@ export class ProduccionController implements OnModuleInit {
                 tipo: 'SALIDA',
                 productoId: reqDetalle.productoId,
                 sucursalOrigenId: cdId,
+                bodegaOrigenId: bodOrigen.id,
                 cantidad: pendientePorDescontar,
                 motivo: `Consumo materia prima (Déficit) en Orden de Producción ${op.numeroOrden}`,
                 usuarioId: req.user.id,
@@ -864,12 +874,15 @@ export class ProduccionController implements OnModuleInit {
             },
           });
 
+          const bodM = await this.obtenerBodegaParaProducto(cdId, m.productoId, tx);
+          if (!bodM) throw new BadRequestException('No se encontró bodega para la merma.');
+
           // Descontar inventario de la merma de materia prima si no se descontó en FEFO
           const invM = await tx.inventario.findUnique({
             where: {
-              productoId_sucursalId: {
+              productoId_bodegaId: {
                 productoId: m.productoId,
-                sucursalId: cdId,
+                bodegaId: bodM.id,
               },
             },
           });
@@ -928,12 +941,15 @@ export class ProduccionController implements OnModuleInit {
         });
       }
 
+      const bodDestino = await this.obtenerBodegaParaProducto(cdId, op.receta.productoFinalId, tx);
+      if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
+
       // 4. Incrementar inventario del producto terminado
       const invFinal = await tx.inventario.findUnique({
         where: {
-          productoId_sucursalId: {
+          productoId_bodegaId: {
             productoId: op.receta.productoFinalId,
-            sucursalId: cdId,
+            bodegaId: bodDestino.id,
           },
         },
       });
@@ -948,6 +964,7 @@ export class ProduccionController implements OnModuleInit {
           data: {
             productoId: op.receta.productoFinalId,
             sucursalId: cdId,
+            bodegaId: bodDestino.id,
             existencia: cantProd,
           },
         });
@@ -960,6 +977,7 @@ export class ProduccionController implements OnModuleInit {
           productoId: op.receta.productoFinalId,
           loteId: nuevoLote.id,
           sucursalDestinoId: cdId,
+          bodegaDestinoId: bodDestino.id,
           cantidad: cantProd,
           motivo: `Ingreso por Producción finalizada Orden ${op.numeroOrden}`,
           usuarioId: req.user.id,
@@ -1029,8 +1047,11 @@ export class ProduccionController implements OnModuleInit {
           });
         }
 
+        const bodDestino = await this.obtenerBodegaParaProducto(cdId, det.productoId, tx);
+        if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
+
         const invGen = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: cdId } },
+          where: { productoId_bodegaId: { productoId: det.productoId, bodegaId: bodDestino.id } },
         });
         if (invGen) {
           await tx.inventario.update({
@@ -1045,6 +1066,7 @@ export class ProduccionController implements OnModuleInit {
             productoId: det.productoId,
             loteId: det.loteId,
             sucursalDestinoId: cdId,
+            bodegaDestinoId: bodDestino.id,
             cantidad: det.cantidadConsumida,
             motivo: `Retorno de materia prima por cancelación de Orden ${op.numeroOrden}`,
             usuarioId: req.user.id,
@@ -1119,9 +1141,12 @@ export class ProduccionController implements OnModuleInit {
         },
       });
 
+      const targetBodega = await this.obtenerBodegaParaProducto(sucursalId, productoId, tx);
+      if (!targetBodega) throw new BadRequestException('No se encontró bodega para el producto.');
+
       // Descontar inventario general de la sucursal
       const inv = await tx.inventario.findUnique({
-        where: { productoId_sucursalId: { productoId, sucursalId } },
+        where: { productoId_bodegaId: { productoId, bodegaId: targetBodega.id } },
       });
 
       if (inv) {
@@ -1134,6 +1159,7 @@ export class ProduccionController implements OnModuleInit {
           data: {
             productoId,
             sucursalId,
+            bodegaId: targetBodega.id,
             existencia: -parseFloat(cantidad),
           },
         });
@@ -1145,6 +1171,7 @@ export class ProduccionController implements OnModuleInit {
           tipo: 'SALIDA',
           productoId,
           sucursalOrigenId: sucursalId,
+          bodegaOrigenId: targetBodega.id,
           cantidad: parseFloat(cantidad),
           motivo: `Registro de Merma: ${motivo}`,
           usuarioId: req.user.id,
@@ -1223,12 +1250,10 @@ export class ProduccionController implements OnModuleInit {
     for (const suc of sucursales) {
       for (const prod of productos) {
         // A. Inventario en sucursal
-        const inv = await this.prisma.inventario.findUnique({
-          where: {
-            productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id },
-          },
+        const invs = await this.prisma.inventario.findMany({
+          where: { productoId: prod.id, sucursalId: suc.id },
         });
-        const stockActual = inv ? inv.existencia : 0;
+        const stockActual = invs.reduce((sum, i) => sum + i.existencia, 0);
 
         // B. Transferencias en tránsito
         const transferenciasPendientes = await this.prisma.transferenciaDetalle.findMany({
@@ -1281,7 +1306,7 @@ export class ProduccionController implements OnModuleInit {
 
         let stockObjetivo = promedioVentasDiarias * diasObjetivo;
         if (useSafety) {
-          const stockMinimoSeguridad = inv ? inv.existMin : 5;
+          const stockMinimoSeguridad = invs.length > 0 ? invs.reduce((sum, i) => sum + i.existMin, 0) : 5;
           stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
         }
 
@@ -1525,27 +1550,29 @@ export class ProduccionController implements OnModuleInit {
     for (const reqDetalle of op.receta.detalles) {
       const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
 
-      const inv = await this.prisma.inventario.findUnique({
+      const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId);
+      const inv = targetBodega ? await this.prisma.inventario.findUnique({
         where: {
-          productoId_sucursalId: {
+          productoId_bodegaId: {
             productoId: reqDetalle.productoId,
-            sucursalId: cdId,
+            bodegaId: targetBodega.id,
           },
         },
-      });
+      }) : null;
       const stockDisponible = inv ? inv.existencia : 0;
 
       // Obtener stock y lotes para cada sustituto
       const sustitutosInfo: any[] = [];
       for (const sust of reqDetalle.sustitutos) {
-        const invSust = await this.prisma.inventario.findUnique({
+        const sustBodega = await this.obtenerBodegaParaProducto(cdId, sust.productoId);
+        const invSust = sustBodega ? await this.prisma.inventario.findUnique({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: sust.productoId,
-              sucursalId: cdId,
+              bodegaId: sustBodega.id,
             },
           },
-        });
+        }) : null;
         const stockSust = invSust ? invSust.existencia : 0;
 
         const lotesSust = await this.prisma.lote.findMany({
@@ -1568,6 +1595,11 @@ export class ProduccionController implements OnModuleInit {
             numeroLote: l.numeroLote,
             cantidadActual: l.cantidadActual,
           })),
+          bodega: sustBodega ? {
+            id: sustBodega.id,
+            codigo: sustBodega.codigo,
+            nombre: sustBodega.nombre,
+          } : null,
         });
       }
 
@@ -1611,6 +1643,11 @@ export class ProduccionController implements OnModuleInit {
           cantidadActual: l.cantidadActual,
         })),
         sustitutos: sustitutosInfo,
+        bodega: targetBodega ? {
+          id: targetBodega.id,
+          codigo: targetBodega.codigo,
+          nombre: targetBodega.nombre,
+        } : null,
       });
     }
 
@@ -1691,6 +1728,8 @@ export class ProduccionController implements OnModuleInit {
         }
 
         const actualProductoId = itemPicking.productoId || reqDetalle.productoId;
+        const bodOrigen = await this.obtenerBodegaParaProducto(cdId, actualProductoId, tx);
+        if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
 
         // Validar que el producto sea el original o un sustituto aprobado
         const substituteIds = reqDetalle.sustitutos.map((s) => s.productoId);
@@ -1731,7 +1770,7 @@ export class ProduccionController implements OnModuleInit {
 
           if (!lote) {
             throw new BadRequestException(
-              `El lote escaneado "${itemPicking.loteNumero}" no existe o no corresponde al ingrediente "${actualProducto.descripcion}".`,
+              `El lote "${itemPicking.loteNumero}" no existe para el producto seleccionado.`,
             );
           }
 
@@ -1751,9 +1790,9 @@ export class ProduccionController implements OnModuleInit {
             // Decrementar del inventario general
             const inv = await tx.inventario.findUnique({
               where: {
-                productoId_sucursalId: {
+                productoId_bodegaId: {
                   productoId: actualProductoId,
-                  sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                 },
               },
             });
@@ -1767,6 +1806,7 @@ export class ProduccionController implements OnModuleInit {
                 data: {
                   productoId: actualProductoId,
                   sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                   existencia: -aDescontar,
                 },
               });
@@ -1787,6 +1827,7 @@ export class ProduccionController implements OnModuleInit {
                 productoId: actualProductoId,
                 loteId: lote.id,
                 sucursalOrigenId: cdId,
+                bodegaOrigenId: bodOrigen.id,
                 cantidad: aDescontar,
                 motivo: `Picking de lote escaneado ${lote.numeroLote} en Orden de Producción ${op.numeroOrden}`,
                 usuarioId: req.user.id,
@@ -1821,9 +1862,9 @@ export class ProduccionController implements OnModuleInit {
 
             const inv = await tx.inventario.findUnique({
               where: {
-                productoId_sucursalId: {
+                productoId_bodegaId: {
                   productoId: actualProductoId,
-                  sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                 },
               },
             });
@@ -1837,6 +1878,7 @@ export class ProduccionController implements OnModuleInit {
                 data: {
                   productoId: actualProductoId,
                   sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
                   existencia: -aDescontar,
                 },
               });
@@ -1857,6 +1899,7 @@ export class ProduccionController implements OnModuleInit {
                 productoId: actualProductoId,
                 loteId: lote.id,
                 sucursalOrigenId: cdId,
+                bodegaOrigenId: bodOrigen.id,
                 cantidad: aDescontar,
                 motivo: `Picking de materia prima en Orden de Producción ${op.numeroOrden}`,
                 usuarioId: req.user.id,
@@ -1984,8 +2027,11 @@ export class ProduccionController implements OnModuleInit {
             });
           }
 
+          const bodDestino = await this.obtenerBodegaParaProducto(cdId, det.productoId, tx);
+          if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
+
           const invGen = await tx.inventario.findUnique({
-            where: { productoId_sucursalId: { productoId: det.productoId, sucursalId: cdId } },
+            where: { productoId_bodegaId: { productoId: det.productoId, bodegaId: bodDestino.id } },
           });
           if (invGen) {
             await tx.inventario.update({
@@ -2000,6 +2046,7 @@ export class ProduccionController implements OnModuleInit {
               productoId: det.productoId,
               loteId: det.loteId,
               sucursalDestinoId: cdId,
+              bodegaDestinoId: bodDestino.id,
               cantidad: det.cantidadConsumida,
               motivo: `Reversión de picking por cambio de cantidad requerida en Orden ${op.numeroOrden}`,
               usuarioId: req.user.id,
@@ -2017,14 +2064,15 @@ export class ProduccionController implements OnModuleInit {
       for (const reqDetalle of op.receta.detalles) {
         const totalRequerido = reqDetalle.cantidadRequerida * nuevaCantidad;
 
-        const inv = await tx.inventario.findUnique({
+        const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
+        const inv = targetBodega ? await tx.inventario.findUnique({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: reqDetalle.productoId,
-              sucursalId: cdId,
+              bodegaId: targetBodega.id,
             },
           },
-        });
+        }) : null;
         const stockDisponible = inv ? inv.existencia : 0;
         if (stockDisponible < totalRequerido) {
           tieneShortage = true;
@@ -2364,6 +2412,9 @@ export class ProduccionController implements OnModuleInit {
             let pendientePorDescontar = Math.max(0, totalRequerido - yaConsumido);
             if (pendientePorDescontar <= 0) continue;
 
+            const bodOrigen = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
+            if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
+
             const lotesDisponibles = await tx.lote.findMany({
               where: {
                 productoId: reqDetalle.productoId,
@@ -2398,6 +2449,7 @@ export class ProduccionController implements OnModuleInit {
                   productoId: reqDetalle.productoId,
                   loteId: lote.id,
                   sucursalOrigenId: cdId,
+                  bodegaOrigenId: bodOrigen.id,
                   cantidad: aDescontar,
                   motivo: `Consumo materia prima en OP ${op.numeroOrden} desde Ruta Operaciones`,
                   usuarioId: req.user.id,
@@ -2405,7 +2457,7 @@ export class ProduccionController implements OnModuleInit {
               });
 
               const inv = await tx.inventario.findUnique({
-                where: { productoId_sucursalId: { productoId: reqDetalle.productoId, sucursalId: cdId } },
+                where: { productoId_bodegaId: { productoId: reqDetalle.productoId, bodegaId: bodOrigen.id } },
               });
               if (inv) {
                 await tx.inventario.update({
@@ -2414,7 +2466,7 @@ export class ProduccionController implements OnModuleInit {
                 });
               } else {
                 await tx.inventario.create({
-                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, existencia: -aDescontar },
+                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, bodegaId: bodOrigen.id, existencia: -aDescontar },
                 });
               }
 
@@ -2423,7 +2475,7 @@ export class ProduccionController implements OnModuleInit {
 
             if (pendientePorDescontar > 0) {
               const inv = await tx.inventario.findUnique({
-                where: { productoId_sucursalId: { productoId: reqDetalle.productoId, sucursalId: cdId } },
+                where: { productoId_bodegaId: { productoId: reqDetalle.productoId, bodegaId: bodOrigen.id } },
               });
               if (inv) {
                 await tx.inventario.update({
@@ -2432,7 +2484,7 @@ export class ProduccionController implements OnModuleInit {
                 });
               } else {
                 await tx.inventario.create({
-                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, existencia: -pendientePorDescontar },
+                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, bodegaId: bodOrigen.id, existencia: -pendientePorDescontar },
                 });
               }
 
@@ -2449,6 +2501,7 @@ export class ProduccionController implements OnModuleInit {
                   tipo: 'SALIDA',
                   productoId: reqDetalle.productoId,
                   sucursalOrigenId: cdId,
+                  bodegaOrigenId: bodOrigen.id,
                   cantidad: pendientePorDescontar,
                   motivo: `Consumo materia prima (Déficit) en OP ${op.numeroOrden} desde Ruta Operaciones`,
                   usuarioId: req.user.id,
@@ -2471,9 +2524,10 @@ export class ProduccionController implements OnModuleInit {
               },
             });
 
-            const invM = await tx.inventario.findUnique({
-              where: { productoId_sucursalId: { productoId: m.productoId, sucursalId: cdId } },
-            });
+            const bodMerma = await this.obtenerBodegaParaProducto(cdId, m.productoId, tx);
+            const invM = bodMerma ? await tx.inventario.findUnique({
+              where: { productoId_bodegaId: { productoId: m.productoId, bodegaId: bodMerma.id } },
+            }) : null;
             if (invM) {
               await tx.inventario.update({
                 where: { id: invM.id },
@@ -2529,9 +2583,12 @@ export class ProduccionController implements OnModuleInit {
           });
         }
 
+        const bodDestino = await this.obtenerBodegaParaProducto(cdId, op.receta.productoFinalId, tx);
+        if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
+
         // Incrementar inventario del producto terminado
         const invFinal = await tx.inventario.findUnique({
-          where: { productoId_sucursalId: { productoId: op.receta.productoFinalId, sucursalId: cdId } },
+          where: { productoId_bodegaId: { productoId: op.receta.productoFinalId, bodegaId: bodDestino.id } },
         });
 
         if (invFinal) {
@@ -2541,7 +2598,7 @@ export class ProduccionController implements OnModuleInit {
           });
         } else {
           await tx.inventario.create({
-            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, existencia: cantProd },
+            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, bodegaId: bodDestino.id, existencia: cantProd },
           });
         }
 
@@ -2551,6 +2608,7 @@ export class ProduccionController implements OnModuleInit {
             productoId: op.receta.productoFinalId,
             loteId: nuevoLote.id,
             sucursalDestinoId: cdId,
+            bodegaDestinoId: bodDestino.id,
             cantidad: cantProd,
             motivo: `Ingreso por Producción finalizada Orden ${op.numeroOrden} desde Ruta Operaciones`,
             usuarioId: req.user.id,
@@ -2749,5 +2807,39 @@ export class ProduccionController implements OnModuleInit {
         });
       }
     }
+  }
+  private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {
+    const client = tx || this.prisma;
+    const sucursal = await client.sucursal.findUnique({ where: { id: sucursalId } });
+    if (sucursal && sucursal.codigo === 'SUC-001') {
+      const prod = await client.producto.findUnique({ where: { id: productoId } });
+      if (prod) {
+        let tipoBodega = 'PRODUCTO_TERMINADO';
+        if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
+          tipoBodega = 'INSUMOS';
+        } else if (prod.categoria === 'QUIMICOS') {
+          tipoBodega = 'QUIMICOS';
+        } else if (prod.categoria === 'LABORATORIO') {
+          tipoBodega = 'LABORATORIO';
+        } else if (prod.sku === 'MP-LECHE-CRUDA') {
+          tipoBodega = 'LECHE_ENTERA';
+        } else if (prod.unidadMedida === 'UNIDAD' && (prod.sku.includes('ENV') || prod.descripcion.toLowerCase().includes('envase') || prod.descripcion.toLowerCase().includes('empaque'))) {
+          tipoBodega = 'EMPAQUE';
+        }
+        const targetBodega = await client.bodega.findFirst({
+          where: { sucursalId, tipoBodega },
+        });
+        if (targetBodega) return targetBodega;
+      }
+    }
+    
+    const generalBodega = await client.bodega.findFirst({
+      where: { sucursalId, tipoBodega: 'GENERAL' },
+    });
+    if (generalBodega) return generalBodega;
+    
+    return client.bodega.findFirst({
+      where: { sucursalId },
+    });
   }
 }

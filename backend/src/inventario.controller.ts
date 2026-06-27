@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Request,
+  Query,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
@@ -34,6 +35,7 @@ export class InventarioController {
       include: {
         producto: true,
         sucursal: true,
+        bodega: true,
       },
       orderBy: [
         { sucursal: { nombre: 'asc' } },
@@ -45,9 +47,18 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post()
   async crearInventario(@Request() req: any, @Body() body: any) {
-    const { productoId, sucursalId, existencia, existMin, existMax } = body;
+    const { productoId, sucursalId, bodegaId, existencia, existMin, existMax } = body;
     if (!productoId || !sucursalId) {
       throw new BadRequestException('Producto y Sucursal son obligatorios.');
+    }
+
+    let targetBodegaId = bodegaId;
+    if (!targetBodegaId) {
+      const defaultBodega = await this.obtenerBodegaParaProducto(sucursalId, productoId);
+      if (!defaultBodega) {
+        throw new BadRequestException('No se encontró ninguna bodega para la sucursal.');
+      }
+      targetBodegaId = defaultBodega.id;
     }
 
     const producto = await this.prisma.producto.findUnique({
@@ -66,11 +77,11 @@ export class InventarioController {
     }
 
     const exist = await this.prisma.inventario.findUnique({
-      where: { productoId_sucursalId: { productoId, sucursalId } },
+      where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
     });
     if (exist) {
       throw new BadRequestException(
-        'Este producto ya está registrado en la sucursal seleccionada.',
+        'Este producto ya está registrado en la bodega seleccionada.',
       );
     }
 
@@ -78,11 +89,12 @@ export class InventarioController {
       data: {
         productoId,
         sucursalId,
+        bodegaId: targetBodegaId,
         existencia: existencia != null ? parseFloat(existencia) : 0,
         existMin: existMin != null ? parseFloat(existMin) : 10,
         existMax: existMax != null ? parseFloat(existMax) : 100,
       },
-      include: { producto: true, sucursal: true },
+      include: { producto: true, sucursal: true, bodega: true },
     });
 
     await this.prisma.auditoria.create({
@@ -222,6 +234,8 @@ export class InventarioController {
         lote: true,
         sucursalOrigen: true,
         sucursalDestino: true,
+        bodegaOrigen: true,
+        bodegaDestino: true,
         usuario: { select: { nombre: true, rol: true } },
       },
       orderBy: { fecha: 'desc' },
@@ -231,7 +245,7 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post('ajuste')
   async realizarAjuste(@Request() req: any, @Body() body: any) {
-    const { productoId, sucursalId, loteId, cantidad, tipo, motivo } = body;
+    const { productoId, sucursalId, bodegaId, loteId, cantidad, tipo, motivo } = body;
 
     if (!productoId || !sucursalId || cantidad == null || !tipo || !motivo) {
       throw new BadRequestException(
@@ -253,9 +267,18 @@ export class InventarioController {
       );
     }
 
+    let targetBodegaId = bodegaId;
+    if (!targetBodegaId) {
+      const defaultBodega = await this.obtenerBodegaParaProducto(sucursalId, productoId);
+      if (!defaultBodega) {
+        throw new BadRequestException('No se encontró ninguna bodega para la sucursal.');
+      }
+      targetBodegaId = defaultBodega.id;
+    }
+
     // Verificar / Crear registro de inventario
     const inv = await this.prisma.inventario.findUnique({
-      where: { productoId_sucursalId: { productoId, sucursalId } },
+      where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
     });
 
     const stockActual = inv ? inv.existencia : 0;
@@ -285,6 +308,8 @@ export class InventarioController {
           loteId: loteId || null,
           sucursalOrigenId: tipo === 'SALIDA' ? sucursalId : null,
           sucursalDestinoId: tipo === 'ENTRADA' ? sucursalId : null,
+          bodegaOrigenId: tipo === 'SALIDA' ? targetBodegaId : null,
+          bodegaDestinoId: tipo === 'ENTRADA' ? targetBodegaId : null,
           cantidad: cantNum,
           motivo,
           usuarioId: req.user.id,
@@ -292,11 +317,12 @@ export class InventarioController {
         include: { producto: true },
       }),
       this.prisma.inventario.upsert({
-        where: { productoId_sucursalId: { productoId, sucursalId } },
+        where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
         update: { existencia: nuevoStock },
         create: {
           productoId,
           sucursalId,
+          bodegaId: targetBodegaId,
           existencia: nuevoStock,
           existMin: 10,
           existMax: 100,
@@ -329,6 +355,7 @@ export class InventarioController {
           sku: movimiento.producto.sku,
           cantidad: cantNum,
           sucursalId,
+          bodegaId: targetBodegaId,
           nuevoStock,
         }),
       },
@@ -340,7 +367,7 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
   @Post('merma')
   async registrarMerma(@Request() req: any, @Body() body: any) {
-    const { sucursalId, productoId, loteId, cantidad, tipoMerma, motivo } =
+    const { sucursalId, bodegaId, productoId, loteId, cantidad, tipoMerma, motivo } =
       body;
 
     if (
@@ -371,21 +398,30 @@ export class InventarioController {
       );
     }
 
+    let targetBodegaId = bodegaId;
+    if (!targetBodegaId) {
+      const defaultBodega = await this.obtenerBodegaParaProducto(sucursalId, productoId);
+      if (!defaultBodega) {
+        throw new BadRequestException('No se encontró ninguna bodega para la sucursal.');
+      }
+      targetBodegaId = defaultBodega.id;
+    }
+
     // Verificar existencias generales
     const inv = await this.prisma.inventario.findUnique({
-      where: { productoId_sucursalId: { productoId, sucursalId } },
+      where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
       include: { producto: true },
     });
 
     if (!inv) {
       throw new BadRequestException(
-        'No se encontraron registros de inventario para este producto en la sucursal seleccionada.',
+        'No se encontraron registros de inventario para este producto en la bodega seleccionada.',
       );
     }
 
     if (inv.existencia < cantNum) {
       throw new BadRequestException(
-        `Existencias insuficientes en inventario general. Stock actual: ${inv.existencia}`,
+        `Existencias insuficientes en inventario. Stock actual: ${inv.existencia}`,
       );
     }
 
@@ -415,6 +451,8 @@ export class InventarioController {
           loteId: loteId || null,
           sucursalOrigenId: sucursalId,
           sucursalDestinoId: null,
+          bodegaOrigenId: targetBodegaId,
+          bodegaDestinoId: null,
           cantidad: cantNum,
           motivo: `[${tipoMerma}] ${motivo}`,
           usuarioId: req.user.id,
@@ -447,6 +485,7 @@ export class InventarioController {
           sku: inv.producto.sku,
           cantidad: cantNum,
           sucursalId,
+          bodegaId: targetBodegaId,
           nuevoStock,
           motivo,
         }),
@@ -538,12 +577,17 @@ export class InventarioController {
           );
         }
 
+        const defaultBodegaOrigen = await this.obtenerBodegaParaProducto(origenId, prod.productoId, tx);
+        if (!defaultBodegaOrigen) {
+          throw new BadRequestException('No se encontró ninguna bodega para la sucursal de origen.');
+        }
+
         // Verificar existencia en origen
         const invOrigen = await tx.inventario.findUnique({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: prod.productoId,
-              sucursalId: origenId,
+              bodegaId: defaultBodegaOrigen.id,
             },
           },
         });
@@ -615,11 +659,16 @@ export class InventarioController {
       // Si pasa a EN_TRANSITO: descontar stock de origen
       if (estado === 'EN_TRANSITO' && tr.estado === 'PENDIENTE') {
         for (const det of tr.detalles) {
+          const bodOrigen = await this.obtenerBodegaParaProducto(tr.origenId, det.productoId, tx);
+          if (!bodOrigen) {
+            throw new BadRequestException('No se encontró bodega de origen.');
+          }
+
           await tx.inventario.update({
             where: {
-              productoId_sucursalId: {
+              productoId_bodegaId: {
                 productoId: det.productoId,
-                sucursalId: tr.origenId,
+                bodegaId: bodOrigen.id,
               },
             },
             data: { existencia: { decrement: det.cantidad } },
@@ -632,6 +681,7 @@ export class InventarioController {
               productoId: det.productoId,
               loteId: det.loteId,
               sucursalOrigenId: tr.origenId,
+              bodegaOrigenId: bodOrigen.id,
               cantidad: det.cantidad,
               motivo: `Despacho transferencia ${tr.codigo}`,
               usuarioId: req.user.id,
@@ -645,11 +695,16 @@ export class InventarioController {
         // Si no se pasó por EN_TRANSITO previamente (ej. recepción directa), descontar origen primero
         if (tr.estado === 'PENDIENTE') {
           for (const det of tr.detalles) {
+            const bodOrigen = await this.obtenerBodegaParaProducto(tr.origenId, det.productoId, tx);
+            if (!bodOrigen) {
+              throw new BadRequestException('No se encontró bodega de origen.');
+            }
+
             await tx.inventario.update({
               where: {
-                productoId_sucursalId: {
+                productoId_bodegaId: {
                   productoId: det.productoId,
-                  sucursalId: tr.origenId,
+                  bodegaId: bodOrigen.id,
                 },
               },
               data: { existencia: { decrement: det.cantidad } },
@@ -660,6 +715,7 @@ export class InventarioController {
                 productoId: det.productoId,
                 loteId: det.loteId,
                 sucursalOrigenId: tr.origenId,
+                bodegaOrigenId: bodOrigen.id,
                 cantidad: det.cantidad,
                 motivo: `Despacho transferencia directa ${tr.codigo}`,
                 usuarioId: req.user.id,
@@ -669,18 +725,24 @@ export class InventarioController {
         }
 
         for (const det of tr.detalles) {
+          const bodDestino = await this.obtenerBodegaParaProducto(tr.destinoId, det.productoId, tx);
+          if (!bodDestino) {
+            throw new BadRequestException('No se encontró bodega de destino.');
+          }
+
           // Aumentar existencia en destino
           await tx.inventario.upsert({
             where: {
-              productoId_sucursalId: {
+              productoId_bodegaId: {
                 productoId: det.productoId,
-                sucursalId: tr.destinoId,
+                bodegaId: bodDestino.id,
               },
             },
             update: { existencia: { increment: det.cantidad } },
             create: {
               productoId: det.productoId,
               sucursalId: tr.destinoId,
+              bodegaId: bodDestino.id,
               existencia: det.cantidad,
               existMin: 5,
               existMax: 100,
@@ -694,6 +756,7 @@ export class InventarioController {
               productoId: det.productoId,
               loteId: det.loteId,
               sucursalDestinoId: tr.destinoId,
+              bodegaDestinoId: bodDestino.id,
               cantidad: det.cantidad,
               motivo: `Recepción transferencia ${tr.codigo}`,
               usuarioId: req.user.id,
@@ -789,11 +852,14 @@ export class InventarioController {
         // Si estaba en PENDIENTE, hay que descontar del origen primero
         if (tr.estado === 'PENDIENTE') {
           for (const det of tr.detalles) {
+            const bodOrigen = await this.obtenerBodegaParaProducto(tr.origenId, det.productoId, tx);
+            if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
+
             await tx.inventario.update({
               where: {
-                productoId_sucursalId: {
+                productoId_bodegaId: {
                   productoId: det.productoId,
-                  sucursalId: tr.origenId,
+                  bodegaId: bodOrigen.id,
                 },
               },
               data: { existencia: { decrement: det.cantidad } },
@@ -805,6 +871,7 @@ export class InventarioController {
                 productoId: det.productoId,
                 loteId: det.loteId,
                 sucursalOrigenId: tr.origenId,
+                bodegaOrigenId: bodOrigen.id,
                 cantidad: det.cantidad,
                 motivo: `Despacho transferencia directa (Recepción Grupal) ${tr.codigo}`,
                 usuarioId: req.user.id,
@@ -815,17 +882,23 @@ export class InventarioController {
 
         // Sumar al destino
         for (const det of tr.detalles) {
+          const bodDestino = await this.obtenerBodegaParaProducto(tr.destinoId, det.productoId, tx);
+          if (!bodDestino) {
+            throw new BadRequestException('No se encontró bodega de destino.');
+          }
+
           await tx.inventario.upsert({
             where: {
-              productoId_sucursalId: {
+              productoId_bodegaId: {
                 productoId: det.productoId,
-                sucursalId: tr.destinoId,
+                bodegaId: bodDestino.id,
               },
             },
             update: { existencia: { increment: det.cantidad } },
             create: {
               productoId: det.productoId,
               sucursalId: tr.destinoId,
+              bodegaId: bodDestino.id,
               existencia: det.cantidad,
               existMin: 5,
               existMax: 100,
@@ -838,6 +911,7 @@ export class InventarioController {
               productoId: det.productoId,
               loteId: det.loteId,
               sucursalDestinoId: tr.destinoId,
+              bodegaDestinoId: bodDestino.id,
               cantidad: det.cantidad,
               motivo: `Recepción transferencia (Recepción Grupal) ${tr.codigo}`,
               usuarioId: req.user.id,
@@ -879,5 +953,122 @@ export class InventarioController {
       mensaje: 'Recepción grupal procesada con éxito.',
       cantidadProcesada: validTrans.length,
     };
+  }
+
+  // --- BODEGAS CRUD & METODOS AUXILIARES ---
+  @Get('bodegas')
+  async listarBodegas(@Query('sucursalId') sucursalId?: string) {
+    const filter: any = {};
+    if (sucursalId) {
+      filter.sucursalId = sucursalId;
+    }
+    return this.prisma.bodega.findMany({
+      where: filter,
+      include: { sucursal: true },
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Post('bodegas')
+  async crearBodega(@Body() body: any) {
+    const { codigo, nombre, descripcion, tipoBodega, sucursalId } = body;
+    if (!codigo || !nombre || !sucursalId) {
+      throw new BadRequestException('Código, Nombre y Sucursal son obligatorios.');
+    }
+
+    const exist = await this.prisma.bodega.findUnique({
+      where: { codigo },
+    });
+    if (exist) {
+      throw new BadRequestException('Ya existe una bodega con este código.');
+    }
+
+    return this.prisma.bodega.create({
+      data: {
+        codigo,
+        nombre,
+        descripcion,
+        tipoBodega: tipoBodega || 'GENERAL',
+        sucursalId,
+      },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Put('bodegas/:id')
+  async actualizarBodega(@Param('id') id: string, @Body() body: any) {
+    const { nombre, descripcion, tipoBodega, estado } = body;
+
+    return this.prisma.bodega.update({
+      where: { id },
+      data: {
+        nombre,
+        descripcion,
+        tipoBodega,
+        estado,
+      },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Delete('bodegas/:id')
+  async eliminarBodega(@Param('id') id: string) {
+    const invCount = await this.prisma.inventario.count({
+      where: {
+        bodegaId: id,
+        existencia: { gt: 0 },
+      },
+    });
+    if (invCount > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar la bodega porque tiene productos con stock disponible.',
+      );
+    }
+
+    await this.prisma.inventario.deleteMany({
+      where: { bodegaId: id },
+    });
+
+    await this.prisma.bodega.delete({
+      where: { id },
+    });
+
+    return { message: 'Bodega eliminada correctamente.' };
+  }
+
+  private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {
+    const client = tx || this.prisma;
+    const sucursal = await client.sucursal.findUnique({ where: { id: sucursalId } });
+    if (sucursal && sucursal.codigo === 'SUC-001') {
+      const prod = await client.producto.findUnique({ where: { id: productoId } });
+      if (prod) {
+        let tipoBodega = 'PRODUCTO_TERMINADO';
+        if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
+          tipoBodega = 'INSUMOS';
+        } else if (prod.categoria === 'QUIMICOS') {
+          tipoBodega = 'QUIMICOS';
+        } else if (prod.categoria === 'LABORATORIO') {
+          tipoBodega = 'LABORATORIO';
+        } else if (prod.sku === 'MP-LECHE-CRUDA') {
+          tipoBodega = 'LECHE_ENTERA';
+        } else if (prod.unidadMedida === 'UNIDAD' && (prod.sku.includes('ENV') || prod.descripcion.toLowerCase().includes('envase') || prod.descripcion.toLowerCase().includes('empaque'))) {
+          tipoBodega = 'EMPAQUE';
+        }
+        const targetBodega = await client.bodega.findFirst({
+          where: { sucursalId, tipoBodega },
+        });
+        if (targetBodega) return targetBodega;
+      }
+    }
+    
+    const generalBodega = await client.bodega.findFirst({
+      where: { sucursalId, tipoBodega: 'GENERAL' },
+    });
+    if (generalBodega) return generalBodega;
+    
+    return client.bodega.findFirst({
+      where: { sucursalId },
+    });
   }
 }

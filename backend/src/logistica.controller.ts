@@ -637,12 +637,10 @@ export class LogisticaController implements OnModuleInit {
 
       for (const prod of productos) {
         // 1. Obtener Inventario Actual y en Tránsito
-        const inv = await this.prisma.inventario.findUnique({
-          where: {
-            productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id },
-          },
+        const invs = await this.prisma.inventario.findMany({
+          where: { productoId: prod.id, sucursalId: suc.id },
         });
-        const stockActual = inv ? inv.existencia : 0;
+        const stockActual = invs.reduce((sum, i) => sum + i.existencia, 0);
 
         const transferenciasPendientes =
           await this.prisma.transferenciaDetalle.findMany({
@@ -695,7 +693,7 @@ export class LogisticaController implements OnModuleInit {
         let stockObjetivo = promedioVentasDiarias * diasObjetivo;
 
         if (useSafety) {
-          const stockMinimoSeguridad = inv ? inv.existMin : 5;
+          const stockMinimoSeguridad = invs.length > 0 ? invs.reduce((sum, i) => sum + i.existMin, 0) : 5;
           stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
         }
 
@@ -759,15 +757,13 @@ export class LogisticaController implements OnModuleInit {
 
           // Si sigue siendo CD, verificar si el CD tiene existencias
           if (tipoOrigen === 'CD' && plantaPrincipal) {
-            const CDInv = await this.prisma.inventario.findUnique({
+            const CDInvs = await this.prisma.inventario.findMany({
               where: {
-                productoId_sucursalId: {
-                  productoId: prod.id,
-                  sucursalId: plantaPrincipal.id,
-                },
+                productoId: prod.id,
+                sucursalId: plantaPrincipal.id,
               },
             });
-            const CDStock = CDInv ? CDInv.existencia : 0;
+            const CDStock = CDInvs.reduce((sum, i) => sum + i.existencia, 0);
             if (CDStock < cantidadSugerida) {
               // Solo sugerimos PRODUCCION si la sucursal que calcula es el propio CD (SUC-001)
               if (suc.codigo === 'SUC-001' && prod.marca === 'Lácteos ERP') {
@@ -883,12 +879,15 @@ export class LogisticaController implements OnModuleInit {
             },
           });
 
+          const bodOrigen = await this.obtenerBodegaParaProducto(origenId, productoId, tx);
+          if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
+
           // Disminuir stock en inventario de origen y sumarlo a "comprometido"
           // O simplemente deducir y realizar el movimiento
           // Para mantener el estándar del ERP, actualizamos Inventario
           const invOrigen = await tx.inventario.findUnique({
             where: {
-              productoId_sucursalId: { productoId, sucursalId: origenId },
+              productoId_bodegaId: { productoId, bodegaId: bodOrigen.id },
             },
           });
 
@@ -912,6 +911,7 @@ export class LogisticaController implements OnModuleInit {
               productoId,
               loteId: loteSeleccionado.id,
               sucursalOrigenId: origenId,
+              bodegaOrigenId: bodOrigen.id,
               sucursalDestinoId: destinoId,
               cantidad: aTransferir,
               motivo: `Transferencia Automática de Reabastecimiento: Código ${codigoTrans}`,
@@ -1583,5 +1583,40 @@ export class LogisticaController implements OnModuleInit {
     }
 
     return lectura;
+  }
+
+  private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {
+    const client = tx || this.prisma;
+    const sucursal = await client.sucursal.findUnique({ where: { id: sucursalId } });
+    if (sucursal && sucursal.codigo === 'SUC-001') {
+      const prod = await client.producto.findUnique({ where: { id: productoId } });
+      if (prod) {
+        let tipoBodega = 'PRODUCTO_TERMINADO';
+        if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
+          tipoBodega = 'INSUMOS';
+        } else if (prod.categoria === 'QUIMICOS') {
+          tipoBodega = 'QUIMICOS';
+        } else if (prod.categoria === 'LABORATORIO') {
+          tipoBodega = 'LABORATORIO';
+        } else if (prod.sku === 'MP-LECHE-CRUDA') {
+          tipoBodega = 'LECHE_ENTERA';
+        } else if (prod.unidadMedida === 'UNIDAD' && (prod.sku.includes('ENV') || prod.descripcion.toLowerCase().includes('envase') || prod.descripcion.toLowerCase().includes('empaque'))) {
+          tipoBodega = 'EMPAQUE';
+        }
+        const targetBodega = await client.bodega.findFirst({
+          where: { sucursalId, tipoBodega },
+        });
+        if (targetBodega) return targetBodega;
+      }
+    }
+    
+    const generalBodega = await client.bodega.findFirst({
+      where: { sucursalId, tipoBodega: 'GENERAL' },
+    });
+    if (generalBodega) return generalBodega;
+    
+    return client.bodega.findFirst({
+      where: { sucursalId },
+    });
   }
 }

@@ -1690,6 +1690,7 @@ export default function Produccion() {
                     let currentStock = ing.stockDisponible;
                     let currentLotes = ing.lotesDisponibles || [];
                     let currentUnit = ing.unidadMedida;
+                    let currentBodega = ing.bodega;
 
                     if (isSubstitute) {
                       const sust = ing.sustitutos?.find((s: any) => s.productoId === selectedId);
@@ -1697,6 +1698,7 @@ export default function Produccion() {
                         currentStock = sust.stockDisponible;
                         currentLotes = sust.lotesDisponibles || [];
                         currentUnit = sust.unidadMedida;
+                        currentBodega = sust.bodega;
                       }
                     }
 
@@ -1710,7 +1712,22 @@ export default function Produccion() {
                       <TableRow key={ing.productoId} hover>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
-                          <Typography variant="caption" color="text.secondary">{ing.sku}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{ing.sku}</Typography>
+                          {currentBodega && (
+                            <Chip
+                              label={`Ubicación: ${currentBodega.nombre}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                mt: 0.5,
+                                fontSize: '0.68rem',
+                                color: 'primary.light',
+                                borderColor: 'rgba(144, 202, 249, 0.3)',
+                                backgroundColor: 'rgba(144, 202, 249, 0.05)',
+                                height: 20
+                              }}
+                            />
+                          )}
                           {ing.sustitutos && ing.sustitutos.length > 0 && (
                             <Box sx={{ mt: 1, maxWidth: 220 }}>
                               <FormControl size="small" fullWidth>
@@ -2297,7 +2314,22 @@ export default function Produccion() {
                       <TableRow key={ing.productoId} hover sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.01)' } }}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
-                          <Typography variant="caption" color="text.secondary">{ing.sku}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{ing.sku}</Typography>
+                          {ing.bodega && (
+                            <Chip
+                              label={`Ubicación: ${ing.bodega.nombre}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                mt: 0.5,
+                                fontSize: '0.68rem',
+                                color: 'primary.light',
+                                borderColor: 'rgba(144, 202, 249, 0.3)',
+                                backgroundColor: 'rgba(144, 202, 249, 0.05)',
+                                height: 20
+                              }}
+                            />
+                          )}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>
                           {ing.cantidadRequerida} {ing.unidadMedida}

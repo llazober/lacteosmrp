@@ -72,6 +72,7 @@ export default function Inventario() {
         productos: 3,
         lotes: 4,
         mermas: 5,
+        bodegas: 6,
       };
       if (tabMap[tabParam] !== undefined) {
         return tabMap[tabParam];
@@ -96,6 +97,7 @@ export default function Inventario() {
         productos: 3,
         lotes: 4,
         mermas: 5,
+        bodegas: 6,
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
@@ -107,7 +109,7 @@ export default function Inventario() {
   const handleTabChange = (val: number) => {
     setActiveTab(val);
     setSelectedRowId(null);
-    const tabNames = ['stock', 'movimientos', 'traslados', 'productos', 'lotes', 'mermas'];
+    const tabNames = ['stock', 'movimientos', 'traslados', 'productos', 'lotes', 'mermas', 'bodegas'];
     setSearchParams({ tab: tabNames[val] });
   };
 
@@ -141,12 +143,14 @@ export default function Inventario() {
   const [sucursales, setSucursales] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [lotes, setLotes] = useState<any[]>([]);
+  const [bodegas, setBodegas] = useState<any[]>([]);
 
   // Modales
   const [openAjuste, setOpenAjuste] = useState(false);
   const [ajusteForm, setAjusteForm] = useState({
     productoId: '',
     sucursalId: '',
+    bodegaId: '',
     loteId: '',
     cantidad: '',
     tipo: 'ENTRADA',
@@ -176,6 +180,7 @@ export default function Inventario() {
   const [asociarForm, setAsociarForm] = useState({
     productoId: '',
     sucursalId: '',
+    bodegaId: '',
     existencia: '0',
     existMin: '10',
     existMax: '100',
@@ -209,12 +214,31 @@ export default function Inventario() {
   const [openMerma, setOpenMerma] = useState(false);
   const [mermaForm, setMermaForm] = useState({
     sucursalId: '',
+    bodegaId: '',
     productoId: '',
     loteId: '',
     cantidad: '',
     tipoMerma: 'VENCIMIENTO',
     motivo: '',
   });
+
+  // CRUD Bodega Modales y Formulario
+  const [openBodegaModal, setOpenBodegaModal] = useState(false);
+  const [bodegaForm, setBodegaForm] = useState({
+    id: '',
+    codigo: '',
+    nombre: '',
+    descripcion: '',
+    tipoBodega: 'GENERAL',
+    sucursalId: '',
+    estado: 'ACTIVO',
+  });
+  const [searchBodega, setSearchBodega] = useState('');
+  const [filterBodegaSucursalId, setFilterBodegaSucursalId] = useState('');
+  const [pageBodega, setPageBodega] = useState(0);
+  const [rowsPerPageBodega, setRowsPerPageBodega] = useState(25);
+  const [openDeleteBodega, setOpenDeleteBodega] = useState(false);
+  const [selectedBodegaId, setSelectedBodegaId] = useState<string | null>(null);
 
   // Dialogs de Producto
   const [openCrearProducto, setOpenCrearProducto] = useState(false);
@@ -320,6 +344,8 @@ export default function Inventario() {
         setSucursales(suc);
         const prod = await apiFetch('/productos');
         setProductos(prod.filter((p: any) => p.estado === 'ACTIVO'));
+        const bods = await apiFetch('/inventario/bodegas');
+        setBodegas(bods);
       } else if (activeTab === 1) {
         const mov = await apiFetch('/inventario/movimientos');
         setMovimientos(mov);
@@ -358,6 +384,13 @@ export default function Inventario() {
         setProductos(prod.filter((p: any) => p.estado === 'ACTIVO'));
         const lot = await apiFetch('/lotes');
         setLotes(lot.filter((l: any) => l.estado === 'APROBADO' && l.cantidadActual > 0));
+        const bods = await apiFetch('/inventario/bodegas');
+        setBodegas(bods);
+      } else if (activeTab === 6) {
+        const bods = await apiFetch('/inventario/bodegas');
+        setBodegas(bods);
+        const suc = await apiFetch('/sucursales');
+        setSucursales(suc);
       }
     } catch (e) {
       console.error(e);
@@ -398,7 +431,7 @@ export default function Inventario() {
   const handleRegistrarMerma = async () => {
     try {
       setErrorMsg(null);
-      const { sucursalId, productoId, loteId, cantidad, tipoMerma, motivo } = mermaForm;
+      const { sucursalId, bodegaId, productoId, loteId, cantidad, tipoMerma, motivo } = mermaForm;
 
       const finalSucursalId = (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') 
         ? sucursalId 
@@ -419,6 +452,7 @@ export default function Inventario() {
         method: 'POST',
         body: JSON.stringify({
           sucursalId: finalSucursalId,
+          bodegaId: bodegaId || undefined,
           productoId,
           loteId: loteId || null,
           cantidad: parseFloat(cantidad),
@@ -431,6 +465,7 @@ export default function Inventario() {
       setOpenMerma(false);
       setMermaForm({
         sucursalId: '',
+        bodegaId: '',
         productoId: '',
         loteId: '',
         cantidad: '',
@@ -459,6 +494,7 @@ export default function Inventario() {
         body: JSON.stringify({
           productoId: asociarForm.productoId,
           sucursalId: asociarForm.sucursalId,
+          bodegaId: asociarForm.bodegaId || undefined,
           existencia: parseFloat(asociarForm.existencia),
           existMin: parseFloat(asociarForm.existMin),
           existMax: parseFloat(asociarForm.existMax),
@@ -1022,6 +1058,41 @@ export default function Inventario() {
     }
   };
 
+  const handleBodegaSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      const { id, codigo, nombre, descripcion, tipoBodega, sucursalId, estado } = bodegaForm;
+      if (!codigo.trim() || !nombre.trim() || !sucursalId) {
+        throw new Error('Código, Nombre y Sucursal son obligatorios.');
+      }
+
+      if (id) {
+        // Modificar
+        await apiFetch(`/inventario/bodegas/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ nombre, descripcion, tipoBodega, estado }),
+        });
+        setSuccessMsg('Bodega actualizada con éxito.');
+      } else {
+        // Crear
+        await apiFetch('/inventario/bodegas', {
+          method: 'POST',
+          body: JSON.stringify({ codigo, nombre, descripcion, tipoBodega, sucursalId }),
+        });
+        setSuccessMsg('Bodega creada con éxito.');
+      }
+      setOpenBodegaModal(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error al procesar la bodega.');
+    }
+  };
+
+  const handleDeleteBodega = (id: string) => {
+    setSelectedBodegaId(id);
+    setOpenDeleteBodega(true);
+  };
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1189,6 +1260,7 @@ export default function Inventario() {
                 setAsociarForm({
                   productoId: '',
                   sucursalId: usuario?.sucursalId || '',
+                  bodegaId: '',
                   existencia: '0',
                   existMin: '10',
                   existMax: '100',
@@ -1262,6 +1334,7 @@ export default function Inventario() {
                 setAjusteForm({
                   productoId: '',
                   sucursalId: usuario?.sucursalId || '',
+                  bodegaId: '',
                   loteId: '',
                   cantidad: '',
                   tipo: 'ENTRADA',
@@ -1327,6 +1400,7 @@ export default function Inventario() {
         {tienePermisoInventario && <Tab label="Catálogo de Productos" value={3} />}
         {tienePermisoInventario && <Tab label="Gestión de Lotes" value={4} />}
         {tienePermisoInventario && <Tab label="Mermas y Pérdidas" value={5} />}
+        {tienePermisoInventario && <Tab label="Gestión de Bodegas" value={6} />}
       </Tabs>
 
       {/* TAB 0: EXISTENCIAS */}
@@ -1412,6 +1486,7 @@ export default function Inventario() {
               <TableHead>
                 <TableRow>
                   <TableCell>Sucursal</TableCell>
+                  <TableCell>Bodega</TableCell>
                   <TableCell>SKU</TableCell>
                   <TableCell>Producto</TableCell>
                   <TableCell>Categoría</TableCell>
@@ -1425,7 +1500,7 @@ export default function Inventario() {
               <TableBody>
                 {paginatedInventario.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">No hay productos en inventario.</TableCell>
+                    <TableCell colSpan={10} align="center">No hay productos en inventario.</TableCell>
                   </TableRow>
                 ) : (
                   paginatedInventario.map((inv) => {
@@ -1446,6 +1521,7 @@ export default function Inventario() {
                         }}
                       >
                         <TableCell sx={{ fontWeight: 700 }}>{inv.sucursal.nombre}</TableCell>
+                        <TableCell>{inv.bodega?.nombre || 'General'}</TableCell>
                         <TableCell>{inv.producto.sku}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{inv.producto.descripcion}</TableCell>
                         <TableCell>{inv.producto.categoria}</TableCell>
@@ -1546,8 +1622,8 @@ export default function Inventario() {
                   <TableCell>Tipo</TableCell>
                   <TableCell>Producto</TableCell>
                   <TableCell>Lote</TableCell>
-                  <TableCell>Origen</TableCell>
-                  <TableCell>Destino</TableCell>
+                  <TableCell>Origen (Bodega)</TableCell>
+                  <TableCell>Destino (Bodega)</TableCell>
                   <TableCell>Cantidad</TableCell>
                   <TableCell>Motivo</TableCell>
                   <TableCell>Usuario</TableCell>
@@ -1588,8 +1664,16 @@ export default function Inventario() {
                         <TableCell>
                           {mov.lote ? <Chip label={mov.lote.numeroLote} size="small" variant="outlined" /> : '-'}
                         </TableCell>
-                        <TableCell>{mov.sucursalOrigen?.nombre || '-'}</TableCell>
-                        <TableCell>{mov.sucursalDestino?.nombre || '-'}</TableCell>
+                        <TableCell>
+                          {mov.sucursalOrigen?.nombre}
+                          {mov.bodegaOrigen?.nombre ? ` (${mov.bodegaOrigen.nombre})` : ''}
+                          {!mov.sucursalOrigen?.nombre && '-'}
+                        </TableCell>
+                        <TableCell>
+                          {mov.sucursalDestino?.nombre}
+                          {mov.bodegaDestino?.nombre ? ` (${mov.bodegaDestino.nombre})` : ''}
+                          {!mov.sucursalDestino?.nombre && '-'}
+                        </TableCell>
                         <TableCell sx={{ fontWeight: 800 }}>{mov.cantidad} {mov.producto.unidadMedida}</TableCell>
                         <TableCell>{mov.motivo}</TableCell>
                         <TableCell>{mov.usuario.nombre}</TableCell>
@@ -2168,6 +2252,7 @@ export default function Inventario() {
                     : (usuario?.sucursalId || '');
                   setMermaForm({
                     sucursalId: defaultSucursalId,
+                    bodegaId: '',
                     productoId: '',
                     loteId: '',
                     cantidad: '',
@@ -2276,11 +2361,321 @@ export default function Inventario() {
         </Paper>
       )}
 
-      {((activeTab === 0 || activeTab === 1 || activeTab === 3 || activeTab === 4 || activeTab === 5) && !tienePermisoInventario) && (
+      {/* TAB 6: GESTIÓN DE BODEGAS */}
+      {activeTab === 6 && tienePermisoInventario && (
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Gestión de Bodegas
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Administre las ubicaciones y áreas de almacenamiento del inventario por sucursal.
+              </Typography>
+            </Box>
+            {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<Add />}
+                onClick={() => {
+                  setBodegaForm({
+                    id: '',
+                    codigo: '',
+                    nombre: '',
+                    descripcion: '',
+                    tipoBodega: 'GENERAL',
+                    sucursalId: usuario?.sucursalId || '',
+                    estado: 'ACTIVO',
+                  });
+                  setOpenBodegaModal(true);
+                }}
+              >
+                Crear Bodega
+              </Button>
+            )}
+          </Box>
+
+          <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField
+              size="small"
+              placeholder="Buscar por código o nombre..."
+              value={searchBodega}
+              onChange={(e) => {
+                setSearchBodega(e.target.value);
+                setPageBodega(0);
+              }}
+              sx={{ minWidth: 280 }}
+            />
+
+            {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+              <FormControl sx={{ minWidth: 240 }} size="small">
+                <InputLabel id="bodega-sucursal-filter-label">Filtrar por Sucursal</InputLabel>
+                <Select
+                  labelId="bodega-sucursal-filter-label"
+                  value={filterBodegaSucursalId}
+                  label="Filtrar por Sucursal"
+                  onChange={(e) => {
+                    setFilterBodegaSucursalId(e.target.value);
+                    setPageBodega(0);
+                  }}
+                >
+                  <MenuItem value=""><em>Todas las Sucursales</em></MenuItem>
+                  {sucursales.map((suc) => (
+                    <MenuItem key={suc.id} value={suc.id}>{suc.nombre}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+
+          <Box sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Código</TableCell>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Tipo de Bodega</TableCell>
+                  <TableCell>Sucursal</TableCell>
+                  <TableCell>Descripción</TableCell>
+                  <TableCell>Estado</TableCell>
+                  {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+                    <TableCell align="right">Acciones</TableCell>
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(() => {
+                  const filtered = bodegas.filter((b) => {
+                    const matchSearch =
+                      b.codigo.toLowerCase().includes(searchBodega.toLowerCase()) ||
+                      b.nombre.toLowerCase().includes(searchBodega.toLowerCase()) ||
+                      (b.descripcion && b.descripcion.toLowerCase().includes(searchBodega.toLowerCase()));
+                    const matchSuc = filterBodegaSucursalId ? b.sucursalId === filterBodegaSucursalId : true;
+                    return matchSearch && matchSuc;
+                  });
+
+                  const paginated = filtered.slice(
+                    pageBodega * rowsPerPageBodega,
+                    pageBodega * rowsPerPageBodega + rowsPerPageBodega
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">No se encontraron bodegas.</TableCell>
+                      </TableRow>
+                    );
+                  }
+
+                  return paginated.map((b) => (
+                    <TableRow key={b.id} hover>
+                      <TableCell sx={{ fontWeight: 700, fontFamily: 'monospace' }}>{b.codigo}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{b.nombre}</TableCell>
+                      <TableCell>
+                        <Chip label={b.tipoBodega} size="small" color="primary" variant="outlined" />
+                      </TableCell>
+                      <TableCell>{b.sucursal?.nombre || '-'}</TableCell>
+                      <TableCell>{b.descripcion || '-'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={b.estado}
+                          color={b.estado === 'ACTIVO' ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+                        <TableCell align="right">
+                          <IconButton
+                            color="primary"
+                            onClick={() => {
+                              setBodegaForm({
+                                id: b.id,
+                                codigo: b.codigo,
+                                nombre: b.nombre,
+                                descripcion: b.descripcion || '',
+                                tipoBodega: b.tipoBodega,
+                                sucursalId: b.sucursalId,
+                                estado: b.estado,
+                              });
+                              setOpenBodegaModal(true);
+                            }}
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton
+                            color="error"
+                            onClick={() => handleDeleteBodega(b.id)}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ));
+                })()}
+              </TableBody>
+            </Table>
+            <TablePagination
+              component="div"
+              count={bodegas.filter((b) => {
+                const matchSearch =
+                  b.codigo.toLowerCase().includes(searchBodega.toLowerCase()) ||
+                  b.nombre.toLowerCase().includes(searchBodega.toLowerCase()) ||
+                  (b.descripcion && b.descripcion.toLowerCase().includes(searchBodega.toLowerCase()));
+                const matchSuc = filterBodegaSucursalId ? b.sucursalId === filterBodegaSucursalId : true;
+                return matchSearch && matchSuc;
+              }).length}
+              page={pageBodega}
+              onPageChange={(_, newPage) => setPageBodega(newPage)}
+              rowsPerPage={rowsPerPageBodega}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageBodega(parseInt(e.target.value, 10));
+                setPageBodega(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50]}
+              labelRowsPerPage="Registros por página:"
+            />
+          </Box>
+        </Paper>
+      )}
+
+      {((activeTab === 0 || activeTab === 1 || activeTab === 3 || activeTab === 4 || activeTab === 5 || activeTab === 6) && !tienePermisoInventario) && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Alert severity="error">No tiene permisos para acceder a esta sección del inventario.</Alert>
         </Paper>
       )}
+
+      {/* DIALOG: CREAR/EDITAR BODEGA */}
+      <Dialog open={openBodegaModal} onClose={() => setOpenBodegaModal(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {bodegaForm.id ? 'Editar Bodega' : 'Crear Nueva Bodega'}
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <TextField
+            label="Código"
+            size="small"
+            fullWidth
+            disabled={!!bodegaForm.id}
+            value={bodegaForm.codigo}
+            onChange={(e) => setBodegaForm({ ...bodegaForm, codigo: e.target.value.toUpperCase() })}
+            placeholder="Ej: BOD-CD-SECA"
+          />
+
+          <TextField
+            label="Nombre"
+            size="small"
+            fullWidth
+            value={bodegaForm.nombre}
+            onChange={(e) => setBodegaForm({ ...bodegaForm, nombre: e.target.value })}
+            placeholder="Ej: Bodega Seca"
+          />
+
+          <TextField
+            label="Descripción"
+            size="small"
+            fullWidth
+            multiline
+            rows={2}
+            value={bodegaForm.descripcion}
+            onChange={(e) => setBodegaForm({ ...bodegaForm, descripcion: e.target.value })}
+            placeholder="Descripción opcional de la bodega"
+          />
+
+          <FormControl fullWidth size="small" disabled={!!bodegaForm.id}>
+            <InputLabel>Sucursal</InputLabel>
+            <Select
+              value={bodegaForm.sucursalId}
+              label="Sucursal"
+              onChange={(e) => setBodegaForm({ ...bodegaForm, sucursalId: e.target.value })}
+            >
+              {sucursales.map((s) => (
+                <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Tipo de Bodega</InputLabel>
+            <Select
+              value={bodegaForm.tipoBodega}
+              label="Tipo de Bodega"
+              onChange={(e) => setBodegaForm({ ...bodegaForm, tipoBodega: e.target.value })}
+            >
+              <MenuItem value="GENERAL">General</MenuItem>
+              <MenuItem value="INSUMOS">Insumos Secos</MenuItem>
+              <MenuItem value="QUIMICOS">Químicos</MenuItem>
+              <MenuItem value="LABORATORIO">Laboratorio</MenuItem>
+              <MenuItem value="LECHE_ENTERA">Leche Entera</MenuItem>
+              <MenuItem value="LECHE_DESCREMADA">Leche Descremada</MenuItem>
+              <MenuItem value="PRODUCTO_EN_PROCESO">Producto en Proceso (WIP)</MenuItem>
+              <MenuItem value="PRODUCTO_TERMINADO">Producto Terminado (PT)</MenuItem>
+              <MenuItem value="EMPAQUE">Empaque / Envases</MenuItem>
+            </Select>
+          </FormControl>
+
+          {bodegaForm.id && (
+            <FormControl fullWidth size="small">
+              <InputLabel>Estado</InputLabel>
+              <Select
+                value={bodegaForm.estado}
+                label="Estado"
+                onChange={(e) => setBodegaForm({ ...bodegaForm, estado: e.target.value })}
+              >
+                <MenuItem value="ACTIVO">Activo</MenuItem>
+                <MenuItem value="INACTIVO">Inactivo</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenBodegaModal(false)} color="inherit">
+            Cancelar
+          </Button>
+          <Button onClick={handleBodegaSubmit} variant="contained" color="primary">
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: CONFIRMAR ELIMINACIÓN DE BODEGA */}
+      <Dialog open={openDeleteBodega} onClose={() => setOpenDeleteBodega(false)}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Confirmar Eliminación</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Está seguro de que desea eliminar esta bodega? Se eliminarán también las existencias vacías asociadas a ella.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDeleteBodega(false)} color="inherit">
+            Cancelar
+          </Button>
+          <Button
+            onClick={async () => {
+              if (selectedBodegaId) {
+                try {
+                  setErrorMsg(null);
+                  await apiFetch(`/inventario/bodegas/${selectedBodegaId}`, {
+                    method: 'DELETE',
+                  });
+                  setSuccessMsg('Bodega eliminada con éxito.');
+                  setOpenDeleteBodega(false);
+                  setSelectedBodegaId(null);
+                  cargarDatos();
+                } catch (e: any) {
+                  setErrorMsg(e.message || 'Error al eliminar la bodega.');
+                  setOpenDeleteBodega(false);
+                  setSelectedBodegaId(null);
+                }
+              }
+            }}
+            variant="contained"
+            color="error"
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* DIALOG: AJUSTE MANUAL */}
       <Dialog open={openAjuste} onClose={() => setOpenAjuste(false)} fullWidth maxWidth="xs">
@@ -2292,11 +2687,27 @@ export default function Inventario() {
             <Select
               value={ajusteForm.sucursalId}
               label="Sucursal"
-              onChange={(e) => setAjusteForm({ ...ajusteForm, sucursalId: e.target.value })}
+              onChange={(e) => setAjusteForm({ ...ajusteForm, sucursalId: e.target.value, bodegaId: '' })}
             >
               {sucursales.map((s) => (
                 <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
               ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small" disabled={!ajusteForm.sucursalId}>
+            <InputLabel>Bodega</InputLabel>
+            <Select
+              value={ajusteForm.bodegaId}
+              label="Bodega"
+              onChange={(e) => setAjusteForm({ ...ajusteForm, bodegaId: e.target.value })}
+            >
+              <MenuItem value=""><em>Determinar automáticamente</em></MenuItem>
+              {bodegas
+                .filter((b) => b.sucursalId === ajusteForm.sucursalId)
+                .map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.nombre} ({b.codigo})</MenuItem>
+                ))}
             </Select>
           </FormControl>
 
@@ -2708,11 +3119,27 @@ export default function Inventario() {
             <Select
               value={asociarForm.sucursalId}
               label="Sucursal"
-              onChange={(e) => setAsociarForm({ ...asociarForm, sucursalId: e.target.value })}
+              onChange={(e) => setAsociarForm({ ...asociarForm, sucursalId: e.target.value, bodegaId: '' })}
             >
               {sucursales.map((s) => (
                 <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
               ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small" disabled={!asociarForm.sucursalId}>
+            <InputLabel>Bodega</InputLabel>
+            <Select
+              value={asociarForm.bodegaId}
+              label="Bodega"
+              onChange={(e) => setAsociarForm({ ...asociarForm, bodegaId: e.target.value })}
+            >
+              <MenuItem value=""><em>Determinar automáticamente</em></MenuItem>
+              {bodegas
+                .filter((b) => b.sucursalId === asociarForm.sucursalId)
+                .map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.nombre} ({b.codigo})</MenuItem>
+                ))}
             </Select>
           </FormControl>
 
@@ -3798,6 +4225,28 @@ export default function Inventario() {
               disabled
             />
           )}
+
+          {/* Bodega select */}
+          <FormControl fullWidth size="small" disabled={!(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? mermaForm.sucursalId : true)}>
+            <InputLabel>Bodega</InputLabel>
+            <Select
+              value={mermaForm.bodegaId}
+              label="Bodega"
+              onChange={(e) => setMermaForm({ ...mermaForm, bodegaId: e.target.value })}
+            >
+              <MenuItem value=""><em>Determinar automáticamente</em></MenuItem>
+              {bodegas
+                .filter((b) => {
+                  const finalSuc = (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') 
+                    ? mermaForm.sucursalId 
+                    : usuario?.sucursalId;
+                  return b.sucursalId === finalSuc;
+                })
+                .map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.nombre} ({b.codigo})</MenuItem>
+                ))}
+            </Select>
+          </FormControl>
 
           {/* Producto select */}
           <FormControl fullWidth size="small" disabled={!(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? mermaForm.sucursalId : true)}>

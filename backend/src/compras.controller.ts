@@ -252,18 +252,24 @@ export class ComprasController {
           },
         });
 
+        const targetBodega = await this.obtenerBodegaParaProducto(oc.sucursalId, loteInfo.productoId, tx);
+        if (!targetBodega) {
+          throw new BadRequestException('No se encontró bodega para recibir el producto.');
+        }
+
         // Upsert en inventario
         await tx.inventario.upsert({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: loteInfo.productoId,
-              sucursalId: oc.sucursalId,
+              bodegaId: targetBodega.id,
             },
           },
           update: { existencia: { increment: cantidadRecibidaAhora } },
           create: {
             productoId: loteInfo.productoId,
             sucursalId: oc.sucursalId,
+            bodegaId: targetBodega.id,
             existencia: cantidadRecibidaAhora,
             existMin: 10,
             existMax: 500,
@@ -277,6 +283,7 @@ export class ComprasController {
             productoId: loteInfo.productoId,
             loteId: nuevoLote.id,
             sucursalDestinoId: oc.sucursalId,
+            bodegaDestinoId: targetBodega.id,
             cantidad: cantidadRecibidaAhora,
             motivo: `Recepción de mercadería por OC ${oc.numeroOrden}`,
             usuarioId: req.user.id,
@@ -540,10 +547,9 @@ export class ComprasController {
     });
 
     const reporteProductos = productos.map(p => {
-      const inv = p.inventarios[0];
-      const existencia = inv ? inv.existencia : 0;
-      const existMin = inv ? inv.existMin : 0;
-      const existMax = inv ? inv.existMax : 0;
+      const existencia = p.inventarios.reduce((sum, i) => sum + i.existencia, 0);
+      const existMin = p.inventarios.length > 0 ? p.inventarios.reduce((sum, i) => sum + i.existMin, 0) : 0;
+      const existMax = p.inventarios.length > 0 ? p.inventarios.reduce((sum, i) => sum + i.existMax, 0) : 0;
       const esDeficit = existencia < existMin;
 
       const tipo = (p.tipoProducto || '').toUpperCase();
@@ -666,10 +672,9 @@ export class ComprasController {
         continue;
       }
 
-      const inv = p.inventarios[0];
-      const existencia = inv ? inv.existencia : 0;
-      const existMin = inv ? inv.existMin : 0;
-      const existMax = inv ? inv.existMax : 0;
+      const existencia = p.inventarios.reduce((sum, i) => sum + i.existencia, 0);
+      const existMin = p.inventarios.length > 0 ? p.inventarios.reduce((sum, i) => sum + i.existMin, 0) : 0;
+      const existMax = p.inventarios.length > 0 ? p.inventarios.reduce((sum, i) => sum + i.existMax, 0) : 0;
 
       if (existencia < existMin) {
         const provAsocPredet = p.proveedoresAsociados.find((pa) => pa.esPredeterminado) 
@@ -775,5 +780,40 @@ export class ComprasController {
     });
 
     return { success: true, ordenesCreadas: creadas.length, detalles: creadas };
+  }
+
+  private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {
+    const client = tx || this.prisma;
+    const sucursal = await client.sucursal.findUnique({ where: { id: sucursalId } });
+    if (sucursal && sucursal.codigo === 'SUC-001') {
+      const prod = await client.producto.findUnique({ where: { id: productoId } });
+      if (prod) {
+        let tipoBodega = 'PRODUCTO_TERMINADO';
+        if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
+          tipoBodega = 'INSUMOS';
+        } else if (prod.categoria === 'QUIMICOS') {
+          tipoBodega = 'QUIMICOS';
+        } else if (prod.categoria === 'LABORATORIO') {
+          tipoBodega = 'LABORATORIO';
+        } else if (prod.sku === 'MP-LECHE-CRUDA') {
+          tipoBodega = 'LECHE_ENTERA';
+        } else if (prod.unidadMedida === 'UNIDAD' && (prod.sku.includes('ENV') || prod.descripcion.toLowerCase().includes('envase') || prod.descripcion.toLowerCase().includes('empaque'))) {
+          tipoBodega = 'EMPAQUE';
+        }
+        const targetBodega = await client.bodega.findFirst({
+          where: { sucursalId, tipoBodega },
+        });
+        if (targetBodega) return targetBodega;
+      }
+    }
+    
+    const generalBodega = await client.bodega.findFirst({
+      where: { sucursalId, tipoBodega: 'GENERAL' },
+    });
+    if (generalBodega) return generalBodega;
+    
+    return client.bodega.findFirst({
+      where: { sucursalId },
+    });
   }
 }

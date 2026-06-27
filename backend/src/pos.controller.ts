@@ -313,11 +313,16 @@ export class PosController {
           );
         }
 
+        const targetBodega = await this.obtenerBodegaParaProducto(user.sucursalId, prod.productoId, tx);
+        if (!targetBodega) {
+          throw new BadRequestException('No se encontró bodega para el producto.');
+        }
+
         const inv = await tx.inventario.findUnique({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: prod.productoId,
-              sucursalId: user.sucursalId,
+              bodegaId: targetBodega.id,
             },
           },
         });
@@ -356,9 +361,9 @@ export class PosController {
         // 4. Descontar inventario sucursal
         await tx.inventario.update({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: prod.productoId,
-              sucursalId: user.sucursalId,
+              bodegaId: targetBodega.id,
             },
           },
           data: { existencia: { decrement: cantNum } },
@@ -371,6 +376,7 @@ export class PosController {
             productoId: prod.productoId,
             loteId: prod.loteId,
             sucursalOrigenId: user.sucursalId,
+            bodegaOrigenId: targetBodega.id,
             cantidad: cantNum,
             motivo: 'Venta rápida POS ticket',
             usuarioId: user.id,
@@ -468,11 +474,16 @@ export class PosController {
           data: { cantidadActual: { increment: det.cantidad } },
         });
 
+        const targetBodega = await this.obtenerBodegaParaProducto(venta.sucursalId, det.productoId, tx);
+        if (!targetBodega) {
+          throw new BadRequestException('No se encontró bodega para el producto.');
+        }
+
         await tx.inventario.update({
           where: {
-            productoId_sucursalId: {
+            productoId_bodegaId: {
               productoId: det.productoId,
-              sucursalId: venta.sucursalId,
+              bodegaId: targetBodega.id,
             },
           },
           data: { existencia: { increment: det.cantidad } },
@@ -484,6 +495,7 @@ export class PosController {
             productoId: det.productoId,
             loteId: det.loteId,
             sucursalDestinoId: venta.sucursalId,
+            bodegaDestinoId: targetBodega.id,
             cantidad: det.cantidad,
             motivo: `Devolución por anulación de venta ${venta.ticketNumero}`,
             usuarioId: user.id,
@@ -509,5 +521,40 @@ export class PosController {
     });
 
     return ventaAnulada;
+  }
+
+  private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {
+    const client = tx || this.prisma;
+    const sucursal = await client.sucursal.findUnique({ where: { id: sucursalId } });
+    if (sucursal && sucursal.codigo === 'SUC-001') {
+      const prod = await client.producto.findUnique({ where: { id: productoId } });
+      if (prod) {
+        let tipoBodega = 'PRODUCTO_TERMINADO';
+        if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
+          tipoBodega = 'INSUMOS';
+        } else if (prod.categoria === 'QUIMICOS') {
+          tipoBodega = 'QUIMICOS';
+        } else if (prod.categoria === 'LABORATORIO') {
+          tipoBodega = 'LABORATORIO';
+        } else if (prod.sku === 'MP-LECHE-CRUDA') {
+          tipoBodega = 'LECHE_ENTERA';
+        } else if (prod.unidadMedida === 'UNIDAD' && (prod.sku.includes('ENV') || prod.descripcion.toLowerCase().includes('envase') || prod.descripcion.toLowerCase().includes('empaque'))) {
+          tipoBodega = 'EMPAQUE';
+        }
+        const targetBodega = await client.bodega.findFirst({
+          where: { sucursalId, tipoBodega },
+        });
+        if (targetBodega) return targetBodega;
+      }
+    }
+    
+    const generalBodega = await client.bodega.findFirst({
+      where: { sucursalId, tipoBodega: 'GENERAL' },
+    });
+    if (generalBodega) return generalBodega;
+    
+    return client.bodega.findFirst({
+      where: { sucursalId },
+    });
   }
 }

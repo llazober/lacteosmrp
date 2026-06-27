@@ -1318,12 +1318,10 @@ TOUR GUIADO DEL SISTEMA:
       if (sucursalId && suc.id !== sucursalId) continue;
 
       for (const prod of productos) {
-        const inv = await this.prisma.inventario.findUnique({
-          where: {
-            productoId_sucursalId: { productoId: prod.id, sucursalId: suc.id },
-          },
+        const invs = await this.prisma.inventario.findMany({
+          where: { productoId: prod.id, sucursalId: suc.id },
         });
-        const stockActual = inv ? inv.existencia : 0;
+        const stockActual = invs.reduce((sum, i) => sum + i.existencia, 0);
 
         const transferenciasPendientes =
           await this.prisma.transferenciaDetalle.findMany({
@@ -1374,7 +1372,7 @@ TOUR GUIADO DEL SISTEMA:
         let stockObjetivo = promedioVentasDiarias * diasObjetivo;
 
         if (useSafetyStockMin) {
-          const stockMinimoSeguridad = inv ? inv.existMin : 5;
+          const stockMinimoSeguridad = invs.length > 0 ? invs.reduce((sum, i) => sum + i.existMin, 0) : 5;
           stockObjetivo = Math.max(stockObjetivo, stockMinimoSeguridad);
         }
 
@@ -1433,15 +1431,13 @@ TOUR GUIADO DEL SISTEMA:
           }
 
           if (tipoOrigen === 'CD' && plantaPrincipal) {
-            const CDInv = await this.prisma.inventario.findUnique({
+            const CDInvs = await this.prisma.inventario.findMany({
               where: {
-                productoId_sucursalId: {
-                  productoId: prod.id,
-                  sucursalId: plantaPrincipal.id,
-                },
+                productoId: prod.id,
+                sucursalId: plantaPrincipal.id,
               },
             });
-            const CDStock = CDInv ? CDInv.existencia : 0;
+            const CDStock = CDInvs.reduce((sum, i) => sum + i.existencia, 0);
             if (CDStock < cantidadSugerida) {
               if (prod.marca === 'Lácteos ERP') {
                 tipoOrigen = 'PRODUCCION';

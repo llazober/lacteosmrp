@@ -46,6 +46,7 @@ async function main() {
   await prisma.transferencia.deleteMany({});
   await prisma.movimientoInventario.deleteMany({});
   await prisma.inventario.deleteMany({});
+  await prisma.bodega.deleteMany({});
   await prisma.lote.deleteMany({});
   await prisma.producto.deleteMany({});
   await prisma.proveedor.deleteMany({});
@@ -215,6 +216,49 @@ async function main() {
   });
 
   console.log('Sucursales creadas.');
+
+  // 1.5 Crear Bodegas para Planta de Producción (SUC-001)
+  const bodSecaInsumos = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-INSUMOS', nombre: 'Bodega Seca de Insumos', tipoBodega: 'INSUMOS', sucursalId: s1.id }
+  });
+  const bodQuimicos = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-QUIMICOS', nombre: 'Bodega de Químicos', tipoBodega: 'QUIMICOS', sucursalId: s1.id }
+  });
+  const bodLecheEntera = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-LECHE-ENTERA', nombre: 'Bodega de Leche Entera Fluida', tipoBodega: 'LECHE_ENTERA', sucursalId: s1.id }
+  });
+  const bodLecheDescremada = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-LECHE-DESCREMADA', nombre: 'Bodega de Leche Descremada Fluida', tipoBodega: 'LECHE_DESCREMADA', sucursalId: s1.id }
+  });
+  const bodLabs = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-LAB', nombre: 'Bodega de Laboratorios', tipoBodega: 'LABORATORIO', sucursalId: s1.id }
+  });
+  const bodWIP = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-WIP', nombre: 'Bodega de Producto en Proceso', tipoBodega: 'PRODUCTO_EN_PROCESO', sucursalId: s1.id }
+  });
+  const bodTerminado = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-TERMINADO', nombre: 'Bodega de Producto Terminado', tipoBodega: 'PRODUCTO_TERMINADO', sucursalId: s1.id }
+  });
+  const bodEmpaque = await prisma.bodega.create({
+    data: { codigo: 'BOD-CD-EMPAQUE', nombre: 'Bodega de Empaque', tipoBodega: 'EMPAQUE', sucursalId: s1.id }
+  });
+
+  // Crear Bodega General para las demás sucursales
+  const bodGeneralS2 = await prisma.bodega.create({
+    data: { codigo: 'BOD-SUC-002-GEN', nombre: 'Bodega General', tipoBodega: 'GENERAL', sucursalId: s2.id }
+  });
+  const bodGeneralS3 = await prisma.bodega.create({
+    data: { codigo: 'BOD-SUC-003-GEN', nombre: 'Bodega General', tipoBodega: 'GENERAL', sucursalId: s3.id }
+  });
+  const bodGeneralS4 = await prisma.bodega.create({
+    data: { codigo: 'BOD-SUC-004-GEN', nombre: 'Bodega General', tipoBodega: 'GENERAL', sucursalId: s4.id }
+  });
+  const bodGeneralS5 = await prisma.bodega.create({
+    data: { codigo: 'BOD-SUC-005-GEN', nombre: 'Bodega General', tipoBodega: 'GENERAL', sucursalId: s5.id }
+  });
+  const bodGeneralS6 = await prisma.bodega.create({
+    data: { codigo: 'BOD-SUC-006-GEN', nombre: 'Bodega General', tipoBodega: 'GENERAL', sucursalId: s6.id }
+  });
 
   // Encriptar contraseñas
   const salt = bcrypt.genSaltSync(10);
@@ -712,65 +756,65 @@ async function main() {
   // 6. Inventario (Existencias en Sucursales/Plantas)
   // Planta de Producción
   await prisma.inventario.create({
-    data: { productoId: rawLeche.id, sucursalId: s1.id, existencia: 4200, existMin: 1000, existMax: 10000 },
+    data: { productoId: rawLeche.id, sucursalId: s1.id, bodegaId: bodLecheEntera.id, existencia: 4200, existMin: 1000, existMax: 10000 },
   });
   await prisma.inventario.create({
-    data: { productoId: insFrutilla.id, sucursalId: s1.id, existencia: 185, existMin: 20, existMax: 500 },
+    data: { productoId: insFrutilla.id, sucursalId: s1.id, bodegaId: bodSecaInsumos.id, existencia: 185, existMin: 20, existMax: 500 },
   });
   await prisma.inventario.create({
-    data: { productoId: insAzucar.id, sucursalId: s1.id, existencia: 950, existMin: 100, existMax: 2000 },
+    data: { productoId: insAzucar.id, sucursalId: s1.id, bodegaId: bodSecaInsumos.id, existencia: 950, existMin: 100, existMax: 2000 },
   });
   await prisma.inventario.create({
-    data: { productoId: insCultivos.id, sucursalId: s1.id, existencia: 48, existMin: 10, existMax: 100 },
+    data: { productoId: insCultivos.id, sucursalId: s1.id, bodegaId: bodSecaInsumos.id, existencia: 48, existMin: 10, existMax: 100 },
   });
   await prisma.inventario.create({
-    data: { productoId: insCuajo.id, sucursalId: s1.id, existencia: 19.5, existMin: 5, existMax: 50 },
+    data: { productoId: insCuajo.id, sucursalId: s1.id, bodegaId: bodSecaInsumos.id, existencia: 19.5, existMin: 5, existMax: 50 },
   });
   await prisma.inventario.create({
-    data: { productoId: p1.id, sucursalId: s1.id, existencia: 380, existMin: 100, existMax: 2000 },
+    data: { productoId: p1.id, sucursalId: s1.id, bodegaId: bodTerminado.id, existencia: 380, existMin: 100, existMax: 2000 },
   });
   await prisma.inventario.create({
-    data: { productoId: p2.id, sucursalId: s1.id, existencia: 240, existMin: 50, existMax: 1000 },
+    data: { productoId: p2.id, sucursalId: s1.id, bodegaId: bodTerminado.id, existencia: 240, existMin: 50, existMax: 1000 },
   });
   await prisma.inventario.create({
-    data: { productoId: p3.id, sucursalId: s1.id, existencia: 100, existMin: 20, existMax: 500 },
+    data: { productoId: p3.id, sucursalId: s1.id, bodegaId: bodTerminado.id, existencia: 100, existMin: 20, existMax: 500 },
   });
   await prisma.inventario.create({
-    data: { productoId: p4.id, sucursalId: s1.id, existencia: 15, existMin: 20, existMax: 200 }, // Stock Crítico
+    data: { productoId: p4.id, sucursalId: s1.id, bodegaId: bodTerminado.id, existencia: 15, existMin: 20, existMax: 200 }, // Stock Crítico
   });
 
   // Sucursal Express
   await prisma.inventario.create({
-    data: { productoId: p1.id, sucursalId: s2.id, existencia: 50, existMin: 10, existMax: 100 },
+    data: { productoId: p1.id, sucursalId: s2.id, bodegaId: bodGeneralS2.id, existencia: 50, existMin: 10, existMax: 100 },
   });
   await prisma.inventario.create({
-    data: { productoId: p2.id, sucursalId: s2.id, existencia: 45, existMin: 10, existMax: 100 },
+    data: { productoId: p2.id, sucursalId: s2.id, bodegaId: bodGeneralS2.id, existencia: 45, existMin: 10, existMax: 100 },
   });
 
   // Inventarios Sucursales Nuevas (s3, s4, s5, s6)
   // s3 - Maipú
-  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s3.id, existencia: 12, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s3.id, existencia: 8, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s3.id, existencia: 22, existMin: 10, existMax: 50 } });
-  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s3.id, existencia: 18, existMin: 5, existMax: 30 } });
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s3.id, bodegaId: bodGeneralS3.id, existencia: 12, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s3.id, bodegaId: bodGeneralS3.id, existencia: 8, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s3.id, bodegaId: bodGeneralS3.id, existencia: 22, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s3.id, bodegaId: bodGeneralS3.id, existencia: 18, existMin: 5, existMax: 30 } });
 
   // s4 - Las Condes
-  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s4.id, existencia: 60, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s4.id, existencia: 55, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s4.id, existencia: 4, existMin: 10, existMax: 50 } });
-  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s4.id, existencia: 12, existMin: 5, existMax: 30 } });
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s4.id, bodegaId: bodGeneralS4.id, existencia: 60, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s4.id, bodegaId: bodGeneralS4.id, existencia: 55, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s4.id, bodegaId: bodGeneralS4.id, existencia: 4, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s4.id, bodegaId: bodGeneralS4.id, existencia: 12, existMin: 5, existMax: 30 } });
 
   // s5 - Ñuñoa
-  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s5.id, existencia: 8, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s5.id, existencia: 75, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s5.id, existencia: 15, existMin: 10, existMax: 50 } });
-  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s5.id, existencia: 14, existMin: 5, existMax: 30 } });
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s5.id, bodegaId: bodGeneralS5.id, existencia: 8, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s5.id, bodegaId: bodGeneralS5.id, existencia: 75, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s5.id, bodegaId: bodGeneralS5.id, existencia: 15, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s5.id, bodegaId: bodGeneralS5.id, existencia: 14, existMin: 5, existMax: 30 } });
 
   // s6 - La Florida
-  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s6.id, existencia: 70, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s6.id, existencia: 12, existMin: 15, existMax: 100 } });
-  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s6.id, existencia: 35, existMin: 10, existMax: 50 } });
-  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s6.id, existencia: 6, existMin: 5, existMax: 30 } });
+  await prisma.inventario.create({ data: { productoId: p1.id, sucursalId: s6.id, bodegaId: bodGeneralS6.id, existencia: 70, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p2.id, sucursalId: s6.id, bodegaId: bodGeneralS6.id, existencia: 12, existMin: 15, existMax: 100 } });
+  await prisma.inventario.create({ data: { productoId: p3.id, sucursalId: s6.id, bodegaId: bodGeneralS6.id, existencia: 35, existMin: 10, existMax: 50 } });
+  await prisma.inventario.create({ data: { productoId: p4.id, sucursalId: s6.id, bodegaId: bodGeneralS6.id, existencia: 6, existMin: 5, existMax: 30 } });
 
   console.log('Inventarios inicializados para todas las sucursales.');
 

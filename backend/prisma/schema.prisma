@@ -25,6 +25,7 @@ model Sucursal {
 
   usuarios     Usuario[]
   inventarios  Inventario[]
+  bodegas      Bodega[]
   freezers     Freezer[]
   ventas       Venta[]
   ordenCompras OrdenCompra[]
@@ -179,10 +180,28 @@ model Lote {
   ordenDetalles        OrdenProduccionDetalle[]
 }
 
+model Bodega {
+  id          String   @id @default(uuid())
+  codigo      String   @unique
+  nombre      String
+  descripcion String?
+  tipoBodega  String   @default("GENERAL") // INSUMOS, QUIMICOS, LECHE_ENTERA, LECHE_DESCREMADA, LABORATORIO, PRODUCTO_EN_PROCESO, PRODUCTO_TERMINADO, EMPAQUE, GENERAL
+  sucursalId  String
+  estado      String   @default("ACTIVO") // ACTIVO, INACTIVO
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
+  inventarios Inventario[]
+  movimientosOrigen  MovimientoInventario[] @relation("OrigenBodegaRelationMov")
+  movimientosDestino MovimientoInventario[] @relation("DestinoBodegaRelationMov")
+}
+
 model Inventario {
   id           String   @id @default(uuid())
   productoId   String
   sucursalId   String
+  bodegaId     String
   existencia   Float    @default(0)
   existMin     Float    @default(0)
   existMax     Float    @default(0)
@@ -192,8 +211,9 @@ model Inventario {
 
   producto Producto @relation(fields: [productoId], references: [id])
   sucursal Sucursal @relation(fields: [sucursalId], references: [id])
+  bodega   Bodega   @relation(fields: [bodegaId], references: [id])
 
-  @@unique([productoId, sucursalId])
+  @@unique([productoId, bodegaId])
 }
 
 model MovimientoInventario {
@@ -203,6 +223,8 @@ model MovimientoInventario {
   loteId            String?
   sucursalOrigenId  String?
   sucursalDestinoId String?
+  bodegaOrigenId    String?
+  bodegaDestinoId   String?
   cantidad          Float
   fecha             DateTime @default(now())
   motivo            String
@@ -212,6 +234,8 @@ model MovimientoInventario {
   lote           Lote?     @relation(fields: [loteId], references: [id])
   sucursalOrigen Sucursal? @relation("OrigenRelationMov", fields: [sucursalOrigenId], references: [id])
   sucursalDestino Sucursal? @relation("DestinoRelationMov", fields: [sucursalDestinoId], references: [id])
+  bodegaOrigen    Bodega?   @relation("OrigenBodegaRelationMov", fields: [bodegaOrigenId], references: [id])
+  bodegaDestino   Bodega?   @relation("DestinoBodegaRelationMov", fields: [bodegaDestinoId], references: [id])
   usuario        Usuario   @relation(fields: [usuarioId], references: [id])
 }
 
