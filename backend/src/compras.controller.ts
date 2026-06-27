@@ -39,6 +39,7 @@ export class ComprasController {
           include: {
             producto: true,
           },
+          orderBy: { lineaNum: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -98,6 +99,7 @@ export class ComprasController {
         },
       });
 
+      let idx = 1;
       for (const p of productos) {
         await tx.ordenCompraDetalle.create({
           data: {
@@ -106,6 +108,7 @@ export class ComprasController {
             cantidad: parseFloat(p.cantidad),
             costoUnitario: parseFloat(p.costoUnitario),
             fechaEntrega: p.fechaEntrega ? new Date(p.fechaEntrega) : null,
+            lineaNum: idx++,
           },
         });
       }
@@ -168,7 +171,11 @@ export class ComprasController {
 
     const oc = await this.prisma.ordenCompra.findUnique({
       where: { id },
-      include: { detalles: true },
+      include: {
+        detalles: {
+          orderBy: { lineaNum: 'asc' },
+        },
+      },
     });
 
     if (!oc || (oc.estado !== 'APROBADA' && oc.estado !== 'PARCIAL')) {
@@ -323,7 +330,11 @@ export class ComprasController {
 
     const oc = await this.prisma.ordenCompra.findUnique({
       where: { id },
-      include: { detalles: true },
+      include: {
+        detalles: {
+          orderBy: { lineaNum: 'asc' },
+        },
+      },
     });
 
     if (!oc) {
@@ -388,6 +399,7 @@ export class ComprasController {
           where: { ordenCompraId: id },
         });
 
+        let idx = 1;
         for (const p of productos) {
           await tx.ordenCompraDetalle.create({
             data: {
@@ -396,6 +408,7 @@ export class ComprasController {
               cantidad: parseFloat(p.cantidad),
               costoUnitario: parseFloat(p.costoUnitario),
               fechaEntrega: p.fechaEntrega ? new Date(p.fechaEntrega) : null,
+              lineaNum: idx++,
             },
           });
         }

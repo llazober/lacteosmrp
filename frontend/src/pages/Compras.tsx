@@ -352,13 +352,14 @@ export default function Compras() {
     const lotesInit = oc.detalles.map((det: any, idx: number) => {
       const cantRecibidaPrevia = det.cantidadRecibida || 0;
       const restante = Math.max(0, det.cantidad - cantRecibidaPrevia);
+      const lineNum = det.lineaNum || (idx + 1);
       return {
         productoId: det.productoId,
         productoNombre: det.producto.descripcion,
         productoSku: det.producto.sku,
-        lineaNum: idx + 1,
+        lineaNum: lineNum,
         habilitado: false, // el operador activa manualmente las líneas a recibir
-        numeroLote: `LOT-${oc.numeroOrden.replace('OC-', '')}-${det.producto.sku.replace(/-/g, '').toUpperCase()}-L${idx + 1}`,
+        numeroLote: `LOT-${oc.numeroOrden.replace('OC-', '')}-${det.producto.sku.replace(/-/g, '').toUpperCase()}-L${lineNum}`,
         fechaProduccion: new Date().toISOString().substring(0, 10),
         fechaVencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
         tempMin: det.producto.temperaturaMin,
