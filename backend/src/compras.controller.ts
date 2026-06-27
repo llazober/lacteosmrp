@@ -741,6 +741,30 @@ export class ComprasController {
           0,
         );
 
+        let maxFechaEntrega: Date | null = null;
+        const lineasData: any[] = [];
+
+        for (const p of provItems) {
+          const prodDb = await tx.producto.findUnique({
+            where: { id: p.productoId },
+          });
+          const leadTimeDays = prodDb?.leadTime || 0;
+          const fechaEntregaLine = new Date();
+          fechaEntregaLine.setHours(0, 0, 0, 0);
+          fechaEntregaLine.setDate(fechaEntregaLine.getDate() + leadTimeDays);
+
+          if (!maxFechaEntrega || fechaEntregaLine > maxFechaEntrega) {
+            maxFechaEntrega = fechaEntregaLine;
+          }
+
+          lineasData.push({
+            productoId: p.productoId,
+            cantidad: parseFloat(p.cantidad),
+            costoUnitario: parseFloat(p.costoUnitario),
+            fechaEntrega: fechaEntregaLine,
+          });
+        }
+
         const cabecera = await tx.ordenCompra.create({
           data: {
             numeroOrden,
@@ -749,17 +773,19 @@ export class ComprasController {
             estado: 'PENDIENTE',
             total,
             creadoPorId: req.user.id,
+            fechaEntrega: maxFechaEntrega,
           },
         });
 
         let idx = 1;
-        for (const p of provItems) {
+        for (const line of lineasData) {
           await tx.ordenCompraDetalle.create({
             data: {
               ordenCompraId: cabecera.id,
-              productoId: p.productoId,
-              cantidad: parseFloat(p.cantidad),
-              costoUnitario: parseFloat(p.costoUnitario),
+              productoId: line.productoId,
+              cantidad: line.cantidad,
+              costoUnitario: line.costoUnitario,
+              fechaEntrega: line.fechaEntrega,
               lineaNum: idx++,
             },
           });

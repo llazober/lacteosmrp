@@ -530,6 +530,9 @@ export default function Compras() {
                           bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
                         },
                         transition: 'background-color 0.2s ease',
+                        '& .MuiTableCell-root': {
+                          verticalAlign: 'top',
+                        },
                       }}
                     >
                       <TableCell sx={{ fontWeight: 700 }}>{oc.numeroOrden}</TableCell>
@@ -568,7 +571,7 @@ export default function Compras() {
                                 {estadoLinea}
                               </span>
                               <span style={{ fontSize: '0.75rem', display: 'block', color: 'rgba(255,255,255,0.6)', marginLeft: '24px' }}>
-                                Entrega: {det.fechaEntrega ? new Date(det.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada'} | Subtotal: {formatCurrency(det.cantidad * det.costoUnitario)}
+                                Entrega: {det.fechaEntrega ? new Date(det.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada'} | Costo Unitario: {formatCurrency(det.costoUnitario)} | Subtotal: {formatCurrency(det.cantidad * det.costoUnitario)}
                               </span>
                             </div>
                           );
