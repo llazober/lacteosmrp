@@ -527,16 +527,45 @@ export default function Compras() {
                       <TableCell sx={{ fontWeight: 700 }}>{oc.proveedor.nombre}</TableCell>
                       <TableCell>{oc.sucursal.nombre}</TableCell>
                       <TableCell>
-                        {oc.detalles.map((det: any) => (
-                          <div key={det.id}>
-                            <strong>{det.producto.descripcion}</strong> (Recibido: {det.cantidadRecibida || 0} / {det.cantidad})
-                            {det.fechaEntrega && (
-                              <span style={{ fontSize: '0.75rem', display: 'block', color: 'rgba(255,255,255,0.6)' }}>
-                                Entrega: {new Date(det.fechaEntrega).toLocaleDateString('es-CO')}
+                        {oc.detalles.map((det: any, idx: number) => {
+                          const lineNum = det.lineaNum || (idx + 1);
+                          const cantRecibida = det.cantidadRecibida || 0;
+                          const cantOrdenada = det.cantidad;
+                          let estadoLinea = 'PENDIENTE';
+                          let colorEstado = '#3b82f6'; // azul
+                          if (cantRecibida >= cantOrdenada) {
+                            estadoLinea = 'RECIBIDA';
+                            colorEstado = '#10b981'; // verde
+                          } else if (cantRecibida > 0) {
+                            estadoLinea = 'PARCIAL';
+                            colorEstado = '#f59e0b'; // naranja/ámbar
+                          }
+                          return (
+                            <div key={det.id} style={{ marginBottom: '8px' }}>
+                              <span style={{ fontWeight: 800, color: '#93c5fd', marginRight: '6px' }}>L{lineNum}:</span>
+                              <strong>{det.producto.descripcion}</strong> (Recibido: {cantRecibida} / {cantOrdenada})
+                              <span style={{
+                                marginLeft: '8px',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                backgroundColor: `${colorEstado}22`,
+                                color: colorEstado,
+                                border: `1px solid ${colorEstado}44`,
+                                textTransform: 'uppercase',
+                                display: 'inline-block'
+                              }}>
+                                {estadoLinea}
                               </span>
-                            )}
-                          </div>
-                        ))}
+                              {det.fechaEntrega && (
+                                <span style={{ fontSize: '0.75rem', display: 'block', color: 'rgba(255,255,255,0.6)', marginLeft: '24px' }}>
+                                  Entrega: {new Date(det.fechaEntrega).toLocaleDateString('es-CO')}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 800 }}>{formatCurrency(oc.total)}</TableCell>
                       <TableCell>{new Date(oc.createdAt).toLocaleDateString('es-CO')}</TableCell>
