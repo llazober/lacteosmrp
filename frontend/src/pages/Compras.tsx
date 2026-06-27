@@ -781,7 +781,7 @@ export default function Compras() {
                   }}
                 >
                   {productos.map((p) => (
-                    <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)})</MenuItem>
+                    <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)} | Lead Time: {p.leadTime} días)</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -837,7 +837,7 @@ export default function Compras() {
               <TableBody>
                 {ocForm.productos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                       No se han agregado productos a la orden. Use el formulario superior para añadir líneas.
                     </TableCell>
                   </TableRow>
@@ -847,8 +847,46 @@ export default function Compras() {
                       <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
                       <TableCell>{item.productoSku}</TableCell>
-                      <TableCell align="right">{item.cantidad}</TableCell>
-                      <TableCell align="right">{formatCurrency(item.costoUnitario)}</TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={item.cantidad}
+                          onChange={(e) => {
+                            const updated = [...ocForm.productos];
+                            updated[idx].cantidad = parseFloat(e.target.value) || 0;
+                            setOcForm({
+                              ...ocForm,
+                              productos: updated,
+                              fechaEntrega: calcularFechaEntregaSugerida(updated),
+                            });
+                          }}
+                          sx={{
+                            width: 80,
+                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={item.costoUnitario}
+                          onChange={(e) => {
+                            const updated = [...ocForm.productos];
+                            updated[idx].costoUnitario = parseFloat(e.target.value) || 0;
+                            setOcForm({
+                              ...ocForm,
+                              productos: updated,
+                              fechaEntrega: calcularFechaEntregaSugerida(updated),
+                            });
+                          }}
+                          sx={{
+                            width: 100,
+                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell align="center">
                         <TextField
                           type="date"
@@ -882,7 +920,7 @@ export default function Compras() {
                 )}
                 {ocForm.productos.length > 0 && (
                   <TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.01)' }}>
-                    <TableCell colSpan={5} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
+                    <TableCell colSpan={6} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.light', fontSize: '1rem' }}>
                       {formatCurrency(ocForm.productos.reduce((sum: number, p: any) => sum + (p.cantidad * p.costoUnitario), 0))}
                     </TableCell>
@@ -1110,7 +1148,7 @@ export default function Compras() {
                   }}
                 >
                   {productos.map((p) => (
-                    <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)})</MenuItem>
+                    <MenuItem key={p.id} value={p.id}>{p.descripcion} (Costo: {formatCurrency(p.costo)} | Lead Time: {p.leadTime} días)</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -1166,7 +1204,7 @@ export default function Compras() {
               <TableBody>
                 {editarOcForm.productos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                       No hay productos en esta orden de compra. Añada líneas usando el formulario.
                     </TableCell>
                   </TableRow>
@@ -1176,8 +1214,46 @@ export default function Compras() {
                       <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
                       <TableCell>{item.productoSku}</TableCell>
-                      <TableCell align="right">{item.cantidad}</TableCell>
-                      <TableCell align="right">{formatCurrency(item.costoUnitario)}</TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={item.cantidad}
+                          onChange={(e) => {
+                            const updated = [...editarOcForm.productos];
+                            updated[idx].cantidad = parseFloat(e.target.value) || 0;
+                            setEditarOcForm({
+                              ...editarOcForm,
+                              productos: updated,
+                              fechaEntrega: calcularFechaEntregaSugerida(updated),
+                            });
+                          }}
+                          sx={{
+                            width: 80,
+                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={item.costoUnitario}
+                          onChange={(e) => {
+                            const updated = [...editarOcForm.productos];
+                            updated[idx].costoUnitario = parseFloat(e.target.value) || 0;
+                            setEditarOcForm({
+                              ...editarOcForm,
+                              productos: updated,
+                              fechaEntrega: calcularFechaEntregaSugerida(updated),
+                            });
+                          }}
+                          sx={{
+                            width: 100,
+                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell align="center">
                         <TextField
                           type="date"
@@ -1211,7 +1287,7 @@ export default function Compras() {
                 )}
                 {editarOcForm.productos.length > 0 && (
                   <TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.01)' }}>
-                    <TableCell colSpan={5} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
+                    <TableCell colSpan={6} align="right" sx={{ fontWeight: 700 }}>Total Estimado:</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.light', fontSize: '1rem' }}>
                       {formatCurrency(editarOcForm.productos.reduce((sum: number, p: any) => sum + (p.cantidad * p.costoUnitario), 0))}
                     </TableCell>
