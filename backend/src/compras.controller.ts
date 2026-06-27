@@ -474,6 +474,112 @@ export class ComprasController {
     };
   }
 
+  @Get('requerimientos-debug')
+  async debugRequerimientosMateriaPrima() {
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
+    
+    const sucursalId = cd?.id;
+    if (!sucursalId) {
+      return { error: 'El Centro de Distribución principal (SUC-001) no está registrado.' };
+    }
+
+    const categoriasMP = await this.prisma.categoria.findMany({
+      where: {
+        tipoProducto: {
+          in: ['MATERIA_PRIMA', 'INSUMO', 'MP'],
+        },
+      },
+    });
+    const nombresCategoriasMP = categoriasMP.map((c) => c.nombre);
+    const nombresCategoriasMPUpper = new Set(nombresCategoriasMP.map(n => n.toUpperCase()));
+    
+    const nombresCategoriasFijasUpper = new Set([
+      'MATERIA_PRIMA',
+      'INSUMOS',
+      'INSUMO',
+      'LECHE Y DERIVADOS',
+      'LECHES Y DERIVADOS',
+      'CULTIVOS Y FERMENTOS',
+      'ADITIVOS',
+      'INSUMOS'
+    ]);
+
+    const ordenesAbiertas = await this.prisma.ordenCompra.findMany({
+      where: {
+        estado: {
+          notIn: ['RECIBIDA', 'CANCELADA'],
+        },
+      },
+      include: {
+        detalles: true,
+      },
+    });
+
+    const ocsAbiertasInfo = ordenesAbiertas.map(oc => ({
+      id: oc.id,
+      numeroOrden: oc.numeroOrden,
+      estado: oc.estado,
+      productos: oc.detalles.map(d => d.productoId),
+    }));
+
+    const productosConOCAbierta = new Set(
+      ordenesAbiertas.flatMap((oc) => oc.detalles.map((d) => d.productoId)),
+    );
+
+    const productos = await this.prisma.producto.findMany({
+      where: {
+        estado: 'ACTIVO',
+      },
+      include: {
+        inventarios: {
+          where: { sucursalId },
+        },
+      },
+    });
+
+    const reporteProductos = productos.map(p => {
+      const inv = p.inventarios[0];
+      const existencia = inv ? inv.existencia : 0;
+      const existMin = inv ? inv.existMin : 0;
+      const existMax = inv ? inv.existMax : 0;
+      const esDeficit = existencia < existMin;
+
+      const tipo = (p.tipoProducto || '').toUpperCase();
+      const cat = (p.categoria || '').toUpperCase();
+
+      const matchesTipo = ['MATERIA_PRIMA', 'INSUMO', 'MP'].includes(tipo);
+      const matchesCategoria = nombresCategoriasMPUpper.has(cat) || nombresCategoriasFijasUpper.has(cat);
+      const isRawMaterial = matchesTipo || matchesCategoria;
+      
+      const hasOC = productosConOCAbierta.has(p.id);
+
+      return {
+        id: p.id,
+        sku: p.sku,
+        descripcion: p.descripcion,
+        categoria: p.categoria,
+        tipoProducto: p.tipoProducto,
+        existencia,
+        existMin,
+        existMax,
+        esDeficit,
+        isRawMaterial,
+        hasOC,
+        incluidoEnRequerimientos: isRawMaterial && esDeficit && !hasOC,
+      };
+    });
+
+    return {
+      sucursalId,
+      sucursalNombre: cd.nombre,
+      categoriasMP,
+      ocsAbiertasInfo,
+      reporteProductos: reporteProductos.filter(rp => rp.esDeficit || rp.sku === 'MP-ADI-CDC'),
+    };
+  }
+
   @Get('requerimientos')
   async obtenerRequerimientosMateriaPrima(@Request() req: any) {
     const cd = await this.prisma.sucursal.findFirst({
@@ -485,12 +591,31 @@ export class ComprasController {
       throw new BadRequestException('El Centro de Distribución principal (SUC-001) no está registrado.');
     }
 
-    // 1. Obtener todos los productos del tipo MATERIA_PRIMA, INSUMO o MP
-    const productos = await this.prisma.producto.findMany({
+    // Obtener las categorías que corresponden a materia prima o insumo
+    const categoriasMP = await this.prisma.categoria.findMany({
       where: {
         tipoProducto: {
           in: ['MATERIA_PRIMA', 'INSUMO', 'MP'],
         },
+      },
+      select: { nombre: true },
+    });
+    
+    const nombresCategoriasMPUpper = new Set([
+      ...categoriasMP.map((c) => c.nombre.toUpperCase()),
+      'MATERIA_PRIMA',
+      'INSUMOS',
+      'INSUMO',
+      'LECHE Y DERIVADOS',
+      'LECHES Y DERIVADOS',
+      'CULTIVOS Y FERMENTOS',
+      'ADITIVOS',
+      'INSUMOS'
+    ]);
+
+    // 1. Obtener todos los productos activos
+    const productos = await this.prisma.producto.findMany({
+      where: {
         estado: 'ACTIVO',
       },
       include: {
@@ -528,6 +653,15 @@ export class ComprasController {
     const requerimientos: any[] = [];
 
     for (const p of productos) {
+      // Filtrar por tipo de producto o categoría de materia prima
+      const tipo = (p.tipoProducto || '').toUpperCase();
+      const cat = (p.categoria || '').toUpperCase();
+      const esMateriaPrima = ['MATERIA_PRIMA', 'INSUMO', 'MP'].includes(tipo) || nombresCategoriasMPUpper.has(cat);
+
+      if (!esMateriaPrima) {
+        continue;
+      }
+
       if (productosConOCAbierta.has(p.id)) {
         continue;
       }
