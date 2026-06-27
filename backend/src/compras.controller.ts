@@ -8,6 +8,7 @@ import {
   Param,
   Request,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
@@ -471,5 +472,181 @@ export class ComprasController {
       success: true,
       message: 'Orden de compra eliminada exitosamente.',
     };
+  }
+
+  @Get('requerimientos')
+  async obtenerRequerimientosMateriaPrima(@Request() req: any, @Query('sucursalId') querySucursalId?: string) {
+    const user = req.user;
+    
+    let sucursalId = querySucursalId;
+    if (!sucursalId) {
+      if (user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR') {
+        const cd = await this.prisma.sucursal.findFirst({
+          where: { codigo: 'SUC-001' },
+        });
+        sucursalId = cd?.id || user.sucursalId;
+      } else {
+        sucursalId = user.sucursalId;
+      }
+    }
+
+    if (!sucursalId) {
+      throw new BadRequestException('Se requiere especificar una sucursal.');
+    }
+
+    // 1. Obtener todos los productos del tipo MATERIA_PRIMA
+    const productos = await this.prisma.producto.findMany({
+      where: {
+        tipoProducto: 'MATERIA_PRIMA',
+        estado: 'ACTIVO',
+      },
+      include: {
+        inventarios: {
+          where: { sucursalId },
+        },
+        proveedoresAsociados: {
+          include: { proveedor: true },
+        },
+        recetasFinales: {
+          select: { id: true },
+        },
+      },
+    });
+
+    // 2. Obtener IDs de productos con órdenes de compra abiertas (no recibidas ni canceladas)
+    const ordenesAbiertas = await this.prisma.ordenCompra.findMany({
+      where: {
+        estado: {
+          notIn: ['RECIBIDA', 'CANCELADA'],
+        },
+      },
+      include: {
+        detalles: {
+          select: { productoId: true },
+        },
+      },
+    });
+
+    const productosConOCAbierta = new Set(
+      ordenesAbiertas.flatMap((oc) => oc.detalles.map((d) => d.productoId)),
+    );
+
+    // 3. Filtrar aquellos productos bajo el mínimo y sin OCs pendientes
+    const requerimientos: any[] = [];
+
+    for (const p of productos) {
+      if (productosConOCAbierta.has(p.id)) {
+        continue;
+      }
+
+      const inv = p.inventarios[0];
+      const existencia = inv ? inv.existencia : 0;
+      const existMin = inv ? inv.existMin : 0;
+      const existMax = inv ? inv.existMax : 0;
+
+      if (existencia < existMin) {
+        const provAsocPredet = p.proveedoresAsociados.find((pa) => pa.esPredeterminado) 
+          || p.proveedoresAsociados[0];
+
+        const sugerido = existMax > existencia ? (existMax - existencia) : (existMin - existencia);
+
+        requerimientos.push({
+          productoId: p.id,
+          sku: p.sku,
+          descripcion: p.descripcion,
+          categoria: p.categoria,
+          existencia,
+          existMin,
+          existMax,
+          cantidadSugerida: sugerido,
+          esManufacturado: p.esManufacturado,
+          recetaId: p.recetasFinales[0]?.id || null,
+          proveedorId: provAsocPredet?.proveedorId || null,
+          proveedorNombre: provAsocPredet?.proveedor?.nombre || null,
+          costoProveedor: provAsocPredet?.costoProveedor || p.costo,
+          proveedoresAsociados: p.proveedoresAsociados.map((pa) => ({
+            proveedorId: pa.proveedorId,
+            nombre: pa.proveedor.nombre,
+            costoProveedor: pa.costoProveedor || p.costo,
+          })),
+        });
+      }
+    }
+
+    return requerimientos;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
+  @Post('requerimientos/crear')
+  async crearOrdenesCompraRequerimientos(@Request() req: any, @Body() body: any) {
+    const { items, sucursalId } = body; 
+    // items: [{ productoId, proveedorId, cantidad, costoUnitario }]
+
+    if (!items || !Array.isArray(items) || items.length === 0 || !sucursalId) {
+      throw new BadRequestException('La lista de ítems y la sucursal de destino son obligatorios.');
+    }
+
+    const itemsPorProveedor: Record<string, typeof items> = {};
+    for (const item of items) {
+      if (!item.proveedorId) {
+        throw new BadRequestException(`El producto con ID ${item.productoId} no tiene un proveedor asignado.`);
+      }
+      if (!itemsPorProveedor[item.proveedorId]) {
+        itemsPorProveedor[item.proveedorId] = [];
+      }
+      itemsPorProveedor[item.proveedorId].push(item);
+    }
+
+    const creadas: any[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const [proveedorId, provItems] of Object.entries(itemsPorProveedor)) {
+        const count = await tx.ordenCompra.count();
+        const numeroOrden = `OC-${String(count + 1).padStart(5, '0')}`;
+
+        const total = provItems.reduce(
+          (sum, item) => sum + (item.cantidad * item.costoUnitario),
+          0,
+        );
+
+        const cabecera = await tx.ordenCompra.create({
+          data: {
+            numeroOrden,
+            proveedorId,
+            sucursalId,
+            estado: 'PENDIENTE',
+            total,
+            creadoPorId: req.user.id,
+          },
+        });
+
+        let idx = 1;
+        for (const p of provItems) {
+          await tx.ordenCompraDetalle.create({
+            data: {
+              ordenCompraId: cabecera.id,
+              productoId: p.productoId,
+              cantidad: parseFloat(p.cantidad),
+              costoUnitario: parseFloat(p.costoUnitario),
+              lineaNum: idx++,
+            },
+          });
+        }
+
+        await tx.auditoria.create({
+          data: {
+            usuarioId: req.user.id,
+            usuarioNombre: req.user.nombre,
+            accion: 'CREAR_ORDEN_COMPRA',
+            modulo: 'COMPRAS',
+            detalles: JSON.stringify({ id: cabecera.id, numeroOrden }),
+          },
+        });
+
+        creadas.push(cabecera);
+      }
+    });
+
+    return { success: true, ordenesCreadas: creadas.length, detalles: creadas };
   }
 }
