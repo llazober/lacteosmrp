@@ -91,7 +91,7 @@ export default function RequerimientosMateriaPrima() {
           .filter((c: any) => c.tipoProducto === 'MATERIA_PRIMA' || c.tipoProducto === 'INSUMO' || c.tipoProducto === 'MP')
           .map((c: any) => c.nombre);
         
-        const finalCats = relevantCats.length > 0 ? relevantCats : ['Leches y Derivados', 'Cultivos y Fermentos', 'Aditivos', 'Insumos'];
+        const finalCats = relevantCats.length > 0 ? relevantCats : ['Leche y derivados', 'Cultivos y Fermentos', 'Aditivos', 'Insumos'];
         setAllCategories(finalCats);
         setSelectedCategories(finalCats);
       } catch (e: any) {
