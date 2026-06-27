@@ -2810,6 +2810,20 @@ export class ProduccionController implements OnModuleInit {
   }
   private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {
     const client = tx || this.prisma;
+    
+    // Primero, buscar si ya existe una asociación de inventario para este producto en esta sucursal con una bodega válida
+    const existingInv = await client.inventario.findFirst({
+      where: {
+        productoId,
+        sucursalId,
+        NOT: { bodegaId: null },
+      },
+      include: { bodega: true },
+    });
+    if (existingInv && existingInv.bodega) {
+      return existingInv.bodega;
+    }
+
     const sucursal = await client.sucursal.findUnique({ where: { id: sucursalId } });
     if (sucursal && sucursal.codigo === 'SUC-001') {
       const prod = await client.producto.findUnique({ where: { id: productoId } });
