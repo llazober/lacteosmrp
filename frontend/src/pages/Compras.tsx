@@ -567,11 +567,9 @@ export default function Compras() {
                               }}>
                                 {estadoLinea}
                               </span>
-                              {det.fechaEntrega && (
-                                <span style={{ fontSize: '0.75rem', display: 'block', color: 'rgba(255,255,255,0.6)', marginLeft: '24px' }}>
-                                  Entrega: {new Date(det.fechaEntrega).toLocaleDateString('es-CO')}
-                                </span>
-                              )}
+                              <span style={{ fontSize: '0.75rem', display: 'block', color: 'rgba(255,255,255,0.6)', marginLeft: '24px' }}>
+                                Entrega: {det.fechaEntrega ? new Date(det.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada'} | Subtotal: {formatCurrency(det.cantidad * det.costoUnitario)}
+                              </span>
                             </div>
                           );
                         })}
