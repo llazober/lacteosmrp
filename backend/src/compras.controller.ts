@@ -485,11 +485,11 @@ export class ComprasController {
       throw new BadRequestException('El Centro de Distribución principal (SUC-001) no está registrado.');
     }
 
-    // 1. Obtener todos los productos del tipo MATERIA_PRIMA o INSUMO
+    // 1. Obtener todos los productos del tipo MATERIA_PRIMA, INSUMO o MP
     const productos = await this.prisma.producto.findMany({
       where: {
         tipoProducto: {
-          in: ['MATERIA_PRIMA', 'INSUMO'],
+          in: ['MATERIA_PRIMA', 'INSUMO', 'MP'],
         },
         estado: 'ACTIVO',
       },

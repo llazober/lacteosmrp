@@ -85,13 +85,13 @@ export default function RequerimientosMateriaPrima() {
           setCdName(mainCd.nombre);
         }
 
-        // 2. Fetch all categories and filter MATERIA_PRIMA and INSUMO
+        // 2. Fetch all categories and filter MATERIA_PRIMA, INSUMO, and MP
         const catsData = await apiFetch('/categorias');
         const relevantCats = catsData
-          .filter((c: any) => c.tipoProducto === 'MATERIA_PRIMA' || c.tipoProducto === 'INSUMO')
+          .filter((c: any) => c.tipoProducto === 'MATERIA_PRIMA' || c.tipoProducto === 'INSUMO' || c.tipoProducto === 'MP')
           .map((c: any) => c.nombre);
         
-        const finalCats = relevantCats.length > 0 ? relevantCats : ['MATERIA_PRIMA', 'INSUMOS', 'ADITIVOS'];
+        const finalCats = relevantCats.length > 0 ? relevantCats : ['Leche y Derivados', 'Cultivos y Fermentos', 'Insumos y aditivos'];
         setAllCategories(finalCats);
         setSelectedCategories(finalCats);
       } catch (e: any) {
