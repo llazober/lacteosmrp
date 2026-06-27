@@ -2117,6 +2117,8 @@ export class ProduccionController implements OnModuleInit {
       await tx.facturaCompra.deleteMany({});
       await tx.recepcionCompraDetalle.deleteMany({});
       await tx.recepcionCompra.deleteMany({});
+      await tx.recepcionMaterialDetalle.deleteMany({});
+      await tx.recepcionMaterial.deleteMany({});
       await tx.ordenCompraDetalle.deleteMany({});
       await tx.ordenCompra.deleteMany({});
 
