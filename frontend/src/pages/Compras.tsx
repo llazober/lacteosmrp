@@ -23,6 +23,7 @@ import {
   IconButton,
   Tooltip,
   Switch,
+  TablePagination,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -81,6 +82,10 @@ export default function Compras() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // States for pagination
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
   // Buscador de órdenes de compra
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
@@ -91,6 +96,7 @@ export default function Compras() {
 
   const cargarDatos = async () => {
     setSelectedRowId(null);
+    setPage(0);
     try {
       const data = await apiFetch('/compras');
       setCompras(data);
@@ -469,6 +475,7 @@ export default function Compras() {
           onChange={(e) => {
             setSearchQuery(e.target.value);
             setSelectedRowId(null);
+            setPage(0);
           }}
           sx={{ width: 350, backgroundColor: 'rgba(255,255,255,0.03)' }}
         />
@@ -507,7 +514,9 @@ export default function Compras() {
                   );
                 }
 
-                return filtered.map((oc) => {
+                return filtered
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((oc) => {
                   const isSelected = selectedRowId === oc.id;
                   return (
                     <TableRow
@@ -645,6 +654,30 @@ export default function Compras() {
             </TableBody>
           </Table>
         </Box>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={(() => {
+            const query = searchQuery.toLowerCase();
+            return compras.filter((oc) =>
+              oc.numeroOrden.toLowerCase().includes(query) ||
+              oc.proveedor.nombre.toLowerCase().includes(query) ||
+              oc.detalles.some((det: any) => det.producto.descripcion.toLowerCase().includes(query))
+            ).length;
+          })()}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          labelRowsPerPage="Órdenes por página:"
+          sx={{
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            color: 'text.secondary',
+          }}
+        />
       </Paper>
 
       {/* MODAL CREAR ORDEN COMPRA */}
