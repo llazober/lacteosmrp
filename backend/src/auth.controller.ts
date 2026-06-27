@@ -529,6 +529,8 @@ export class AuthController {
         'GESTIONAR_CALIDAD',
         'VER_COMPRAS',
         'GESTIONAR_COMPRAS',
+        'VER_REQUERIMIENTOS_MP',
+        'GESTIONAR_REQUERIMIENTOS_MP',
         'VER_FINANZAS',
         'GESTIONAR_FINANZAS',
         'VER_AUDITORIA',
@@ -561,8 +563,29 @@ export class AuthController {
         'GESTIONAR_RUTA_OPERACIONES',
         'VER_COMPRAS',
         'GESTIONAR_COMPRAS',
+        'VER_REQUERIMIENTOS_MP',
+        'GESTIONAR_REQUERIMIENTOS_MP',
         'VER_CHAT',
         'VER_UTILIDADES',
+        'VER_TRASLADO_INTERSUCURSALES',
+      ];
+    } else if (rolNombre === 'GERENTE_TIENDA') {
+      return [
+        'VER_DASHBOARD',
+        'VER_POS',
+        'REALIZAR_VENTAS',
+        'VER_VENTAS',
+        'VER_FRIO',
+        'VER_TRAZABILIDAD',
+        'VER_INVENTARIO',
+        'GESTIONAR_INVENTARIO',
+        'VER_COMPRAS',
+        'VER_REQUERIMIENTOS_MP',
+        'VER_CHAT',
+        'USAR_ASISTENTE',
+        'VER_UTILIDADES',
+        'VER_PRODUCTOS',
+        'VER_LOTES',
         'VER_TRASLADO_INTERSUCURSALES',
       ];
     } else if (rolNombre === 'CAJERO') {

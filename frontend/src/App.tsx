@@ -200,7 +200,7 @@ function MainLayout() {
     { text: 'Ruta de Operaciones', icon: <RutaIcon />, path: '/produccion/operaciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_RUTA_OPERACIONES' },
     { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'], permission: 'VER_CALIDAD' },
     { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [], permission: 'VER_COMPRAS' },
-    { text: 'Requerimientos MP', icon: <PlanificacionIcon />, path: '/compras/requerimientos', roles: [], permission: 'VER_COMPRAS' },
+    { text: 'Requerimientos MP', icon: <PlanificacionIcon />, path: '/compras/requerimientos', roles: [], permission: 'VER_REQUERIMIENTOS_MP' },
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
     { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_AUDITORIA' },
     { text: 'Chat Operativo', icon: <ChatIcon />, path: '/chat', roles: [], permission: 'VER_CHAT' },
@@ -516,7 +516,11 @@ function MainLayout() {
             <Route path="/calidad" element={<Navigate to="/" />} />
           )}
           <Route path="/compras" element={<Compras />} />
-          <Route path="/compras/requerimientos" element={<RequerimientosMateriaPrima />} />
+          {usuario?.permisos?.includes('VER_REQUERIMIENTOS_MP') || usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? (
+            <Route path="/compras/requerimientos" element={<RequerimientosMateriaPrima />} />
+          ) : (
+            <Route path="/compras/requerimientos" element={<Navigate to="/" />} />
+          )}
           {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? (
             <Route path="/finanzas" element={<CuentasPorPagar />} />
           ) : (

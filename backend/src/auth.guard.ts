@@ -76,8 +76,13 @@ export class AuthGuard implements CanActivate {
         requiredPermission = isRead ? 'VER_FRIO' : 'GESTIONAR_FRIO';
       else if (className === 'FinanzasController')
         requiredPermission = isRead ? 'VER_FINANZAS' : 'GESTIONAR_FINANZAS';
-      else if (className === 'ComprasController')
-        requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
+      else if (className === 'ComprasController') {
+        if (request.url.includes('/requerimientos')) {
+          requiredPermission = isRead ? 'VER_REQUERIMIENTOS_MP' : 'GESTIONAR_REQUERIMIENTOS_MP';
+        } else {
+          requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
+        }
+      }
       else if (className === 'CalidadController')
         requiredPermission = isRead ? 'VER_CALIDAD' : 'GESTIONAR_CALIDAD';
       else if (className === 'AuditoriaController')
@@ -125,10 +130,32 @@ export class AuthGuard implements CanActivate {
               'GESTIONAR_RUTA_OPERACIONES',
               'VER_COMPRAS',
               'GESTIONAR_COMPRAS',
+              'VER_REQUERIMIENTOS_MP',
+              'GESTIONAR_REQUERIMIENTOS_MP',
               'VER_CHAT',
               'VER_UTILIDADES',
             ];
             hasPermission = almacenPerms.includes(requiredPermission);
+          } else if (payload.rol === 'GERENTE_TIENDA') {
+            const gerentePerms = [
+              'VER_DASHBOARD',
+              'VER_POS',
+              'REALIZAR_VENTAS',
+              'VER_VENTAS',
+              'VER_FRIO',
+              'VER_TRAZABILIDAD',
+              'VER_INVENTARIO',
+              'GESTIONAR_INVENTARIO',
+              'VER_COMPRAS',
+              'VER_REQUERIMIENTOS_MP',
+              'VER_CHAT',
+              'USAR_ASISTENTE',
+              'VER_UTILIDADES',
+              'VER_PRODUCTOS',
+              'VER_LOTES',
+              'VER_TRASLADO_INTERSUCURSALES',
+            ];
+            hasPermission = gerentePerms.includes(requiredPermission);
           } else if (payload.rol === 'CAJERO') {
             const cajeroPerms = ['VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
             hasPermission = cajeroPerms.includes(requiredPermission);
