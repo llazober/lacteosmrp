@@ -475,29 +475,22 @@ export class ComprasController {
   }
 
   @Get('requerimientos')
-  async obtenerRequerimientosMateriaPrima(@Request() req: any, @Query('sucursalId') querySucursalId?: string) {
-    const user = req.user;
+  async obtenerRequerimientosMateriaPrima(@Request() req: any) {
+    const cd = await this.prisma.sucursal.findFirst({
+      where: { codigo: 'SUC-001' },
+    });
     
-    let sucursalId = querySucursalId;
+    const sucursalId = cd?.id;
     if (!sucursalId) {
-      if (user.rol === 'ADMINISTRADOR' || user.rol === 'SUPERVISOR') {
-        const cd = await this.prisma.sucursal.findFirst({
-          where: { codigo: 'SUC-001' },
-        });
-        sucursalId = cd?.id || user.sucursalId;
-      } else {
-        sucursalId = user.sucursalId;
-      }
+      throw new BadRequestException('El Centro de Distribución principal (SUC-001) no está registrado.');
     }
 
-    if (!sucursalId) {
-      throw new BadRequestException('Se requiere especificar una sucursal.');
-    }
-
-    // 1. Obtener todos los productos del tipo MATERIA_PRIMA
+    // 1. Obtener todos los productos del tipo MATERIA_PRIMA o INSUMO
     const productos = await this.prisma.producto.findMany({
       where: {
-        tipoProducto: 'MATERIA_PRIMA',
+        tipoProducto: {
+          in: ['MATERIA_PRIMA', 'INSUMO'],
+        },
         estado: 'ACTIVO',
       },
       include: {

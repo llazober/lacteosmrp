@@ -29,7 +29,7 @@ import {
   FilterList as FilterIcon,
   CheckCircle as SuccessIcon,
 } from '@mui/icons-material';
-import { useAuthStore, apiFetch } from '../store/useAuthStore';
+import { apiFetch } from '../store/useAuthStore';
 
 interface RequerimientoItem {
   productoId: string;
@@ -53,67 +53,73 @@ interface RequerimientoItem {
 }
 
 export default function RequerimientosMateriaPrima() {
-  const usuario = useAuthStore((state) => state.usuario);
-  
   // States
   const [requerimientos, setRequerimientos] = useState<RequerimientoItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   
   // Filters
-  const [sucursales, setSucursales] = useState<any[]>([]);
   const [selectedSucursal, setSelectedSucursal] = useState<string>('');
+  const [cdName, setCdName] = useState<string>('Centro de Distribución (CD) - Santa Ana');
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [calculated, setCalculated] = useState<boolean>(false);
   
   // Row edits (local overrides)
   const [editableCantidades, setEditableCantidades] = useState<Record<string, number>>({});
   const [editableProveedores, setEditableProveedores] = useState<Record<string, string>>({});
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
-  
 
-
-  const isHQ = usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR';
-
-  // Load sucursales
+  // Initialize sucursales and categories
   useEffect(() => {
-    const loadSucursales = async () => {
+    const init = async () => {
+      setLoading(true);
+      setErrorMsg(null);
       try {
-        const data = await apiFetch('/sucursales');
-        setSucursales(data);
-        // Default sucursal
-        if (isHQ) {
-          const cd = data.find((s: any) => s.codigo === 'SUC-001');
-          setSelectedSucursal(cd?.id || data[0]?.id || '');
-        } else {
-          setSelectedSucursal(usuario?.sucursalId || '');
+        // 1. Fetch sucursales and find SUC-001 (CD)
+        const sucs = await apiFetch('/sucursales');
+        const mainCd = sucs.find((s: any) => s.codigo === 'SUC-001') || sucs[0];
+        if (mainCd) {
+          setSelectedSucursal(mainCd.id);
+          setCdName(mainCd.nombre);
         }
+
+        // 2. Fetch all categories and filter MATERIA_PRIMA and INSUMO
+        const catsData = await apiFetch('/categorias');
+        const relevantCats = catsData
+          .filter((c: any) => c.tipoProducto === 'MATERIA_PRIMA' || c.tipoProducto === 'INSUMO')
+          .map((c: any) => c.nombre);
+        
+        const finalCats = relevantCats.length > 0 ? relevantCats : ['MATERIA_PRIMA', 'INSUMOS', 'ADITIVOS'];
+        setAllCategories(finalCats);
+        setSelectedCategories(finalCats);
       } catch (e: any) {
-        setErrorMsg('Error al cargar sucursales.');
+        setErrorMsg('Error al inicializar la pantalla de requerimientos.');
+      } finally {
+        setLoading(false);
       }
     };
-    loadSucursales();
-  }, [usuario, isHQ]);
+    init();
+  }, []);
 
   // Load raw material requirements
-  const loadRequirements = async (sucId: string) => {
-    if (!sucId) return;
+  const loadRequirements = async () => {
+    if (!selectedSucursal) {
+      setErrorMsg('No se ha detectado la sucursal principal.');
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
+    setSuccessMsg(null);
     try {
-      const data: RequerimientoItem[] = await apiFetch(`/compras/requerimientos?sucursalId=${sucId}`);
+      const data: RequerimientoItem[] = await apiFetch(`/compras/requerimientos?sucursalId=${selectedSucursal}`);
       setRequerimientos(data);
       
       // Initialize edit states
       const cants: Record<string, number> = {};
       const provs: Record<string, string> = {};
       const checked: Record<string, boolean> = {};
-      
-      // Categories list
-      const cats = Array.from(new Set(data.map((item) => item.categoria)));
-      setAllCategories(cats);
-      setSelectedCategories(cats); // Default all checked
       
       data.forEach((item) => {
         cants[item.productoId] = item.cantidadSugerida;
@@ -124,18 +130,13 @@ export default function RequerimientosMateriaPrima() {
       setEditableCantidades(cants);
       setEditableProveedores(provs);
       setSelectedItems(checked);
+      setCalculated(true);
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al cargar los requerimientos de materia prima.');
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (selectedSucursal) {
-      loadRequirements(selectedSucursal);
-    }
-  }, [selectedSucursal]);
 
   const handleCategoryChange = (event: any) => {
     const value = event.target.value;
@@ -234,7 +235,7 @@ export default function RequerimientosMateriaPrima() {
       setSuccessMsg(`Se han creado con éxito ${result.ordenesCreadas} órdenes de compra agrupadas por proveedor.`);
       
       // Refresh list to update requirements (now that they have open OCs)
-      loadRequirements(selectedSucursal);
+      loadRequirements();
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al generar las órdenes de compra.');
     }
@@ -265,35 +266,38 @@ export default function RequerimientosMateriaPrima() {
             Requerimientos de Materia Prima
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Revise los insumos y materias primas bajo el límite mínimo de inventario. Genere órdenes de compra masivas o lance órdenes de producción internas.
+            Revise los insumos y materias primas bajo el límite mínimo de inventario en la sucursal principal.
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isHQ && (
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel id="sucursal-label">Sucursal / Planta</InputLabel>
-              <Select
-                labelId="sucursal-label"
-                value={selectedSucursal}
-                label="Sucursal / Planta"
-                onChange={(e) => setSelectedSucursal(e.target.value)}
-              >
-                {sucursales.map((suc) => (
-                  <MenuItem key={suc.id} value={suc.id}>
-                    {suc.nombre}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
+          {/* Sucursal Principal indicator */}
+          <Box sx={{
+            px: 2,
+            py: 1,
+            borderRadius: 2,
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 'bold', color: 'primary.main' }}>
+              Sucursal:
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {cdName}
+            </Typography>
+          </Box>
 
           <Button
-            variant="outlined"
+            variant="contained"
+            color="secondary"
             startIcon={<RefreshIcon />}
-            onClick={() => loadRequirements(selectedSucursal)}
+            onClick={loadRequirements}
+            disabled={loading}
           >
-            Actualizar
+            Calcular Requerimientos
           </Button>
 
           <Button
@@ -301,7 +305,7 @@ export default function RequerimientosMateriaPrima() {
             color="primary"
             startIcon={<ComprasIcon />}
             onClick={handleGeneratePurchaseOrders}
-            disabled={filteredItems.length === 0}
+            disabled={filteredItems.length === 0 || !calculated}
           >
             Crear Órdenes de Compra
           </Button>
@@ -343,9 +347,11 @@ export default function RequerimientosMateriaPrima() {
               ))}
             </Select>
           </FormControl>
-          <Typography variant="body2" color="text.secondary">
-            Mostrando {filteredItems.length} de {requerimientos.length} insumos con faltantes.
-          </Typography>
+          {calculated && (
+            <Typography variant="body2" color="text.secondary">
+              Mostrando {filteredItems.length} de {requerimientos.length} insumos con faltantes.
+            </Typography>
+          )}
         </Box>
       )}
 
@@ -355,12 +361,30 @@ export default function RequerimientosMateriaPrima() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
           </Box>
+        ) : !calculated ? (
+          <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+            <FilterIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2, opacity: 0.7 }} />
+            <Typography variant="h6" sx={{ color: 'text.primary', mb: 1 }}>
+              Cálculo de Requerimientos Pendiente
+            </Typography>
+            <Typography variant="body2" sx={{ maxWidth: 450, mx: 'auto', mb: 3 }}>
+              Haga clic en el botón <strong>"Calcular Requerimientos"</strong> para analizar el inventario actual de materias primas y consumibles contra sus mínimos establecidos.
+            </Typography>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<RefreshIcon />}
+              onClick={loadRequirements}
+            >
+              Iniciar Cálculo
+            </Button>
+          </Box>
         ) : filteredItems.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
             <SuccessIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
             <Typography variant="h6">¡Todo Abastecido!</Typography>
             <Typography variant="body2">
-              No hay materias primas por debajo de su límite mínimo en la sucursal seleccionada.
+              No hay materias primas por debajo de su límite mínimo en la sucursal principal.
             </Typography>
           </Box>
         ) : (
