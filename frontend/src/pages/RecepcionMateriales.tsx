@@ -1,0 +1,854 @@
+import { useState, useEffect } from 'react';
+import {
+  Paper,
+  Typography,
+  Box,
+  Button,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  IconButton,
+  Autocomplete,
+  Card,
+  CardContent,
+  Divider,
+} from '@mui/material';
+import {
+  LocalShipping,
+  CheckCircle,
+  Search,
+  Add,
+  Delete,
+  Assignment,
+  ArrowBack,
+  PostAdd,
+} from '@mui/icons-material';
+import dayjs from 'dayjs';
+import { apiFetch, useAuthStore } from '../store/useAuthStore';
+
+interface ItemRecepcion {
+  productoId: string;
+  sku: string;
+  descripcion: string;
+  cantidadMax?: number; // si viene de OC, la cantidad pendiente
+  cantidad: number;
+  costoUnitario: number;
+  esMateriaPrima: boolean;
+  numeroLote?: string;
+  fechaProduccion?: string;
+  fechaVencimiento?: string;
+  tempMin?: number;
+  tempMax?: number;
+}
+
+export default function RecepcionMateriales() {
+  const usuario = useAuthStore((state) => state.usuario);
+
+  // Catálogos
+  const [proveedores, setProveedores] = useState<any[]>([]);
+  const [sucursales, setSucursales] = useState<any[]>([]);
+  const [productos, setProductos] = useState<any[]>([]);
+  const [ordenesPendientes, setOrdenesPendientes] = useState<any[]>([]);
+
+  // Búsqueda y Selección
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOC, setSelectedOC] = useState<any>(null);
+  const [modoAdHoc, setModoAdHoc] = useState(false);
+
+  // Formulario Recepción
+  const [sucursalId, setSucursalId] = useState('');
+  const [proveedorId, setProveedorId] = useState('');
+  const [facturaNumero, setFacturaNumero] = useState('');
+  const [packingSlip, setPackingSlip] = useState('');
+  const [observaciones, setObservaciones] = useState('');
+  const [itemsRecibir, setItemsRecibir] = useState<ItemRecepcion[]>([]);
+
+  // Autocomplete state
+  const [selectedProductToAdd, setSelectedProductToAdd] = useState<any>(null);
+
+  // Mensajes de feedback
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Cargar catálogos
+  useEffect(() => {
+    cargarCatalogos();
+  }, []);
+
+  const cargarCatalogos = async () => {
+    try {
+      const provs = await apiFetch('/proveedores');
+      setProveedores(provs);
+
+      const sucs = await apiFetch('/sucursales');
+      setSucursales(sucs);
+
+      const prods = await apiFetch('/productos');
+      setProductos(prods);
+
+      const pendingOcs = await apiFetch('/recepciones/ordenes-pendientes');
+      setOrdenesPendientes(pendingOcs);
+
+      // Default branch
+      if (usuario?.sucursalId) {
+        setSucursalId(usuario.sucursalId);
+      } else if (sucs.length > 0) {
+        setSucursalId(sucs[0].id);
+      }
+    } catch (e: any) {
+      console.error('Error al cargar catálogos:', e);
+      setErrorMsg('No se pudieron cargar los catálogos.');
+    }
+  };
+
+  // Handler para cuando se selecciona una OC
+  const handleSelectOC = (oc: any) => {
+    setSelectedOC(oc);
+    setModoAdHoc(false);
+    setSucursalId(oc.sucursalId);
+    setProveedorId(oc.proveedorId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    // Cargar items de la OC con cantidad sugerida (pendiente por recibir)
+    const items = oc.detalles
+      .map((det: any) => {
+        const pendiente = Math.max(0, det.cantidad - det.cantidadRecibida);
+        const esMP =
+          det.producto.tipoProducto === 'MATERIA_PRIMA' ||
+          det.producto.tipoProducto === 'INSUMO' ||
+          det.producto.tipoProducto === 'MP';
+
+        // Generar lote sugerido único
+        const loteSugerido = esMP
+          ? `${det.producto.sku}-${dayjs().format('YYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
+          : undefined;
+
+        return {
+          productoId: det.productoId,
+          sku: det.producto.sku,
+          descripcion: det.producto.descripcion,
+          cantidadMax: pendiente,
+          cantidad: pendiente,
+          costoUnitario: det.costoUnitario,
+          esMateriaPrima: esMP,
+          numeroLote: loteSugerido,
+          fechaProduccion: esMP ? dayjs().format('YYYY-MM-DD') : undefined,
+          fechaVencimiento: esMP
+            ? dayjs().add(det.producto.vidaUtilDias || 30, 'day').format('YYYY-MM-DD')
+            : undefined,
+          tempMin: esMP ? det.producto.temperaturaMin || 2.0 : undefined,
+          tempMax: esMP ? det.producto.temperaturaMax || 6.0 : undefined,
+        };
+      })
+      .filter((item: any) => item.cantidad > 0); // Solo items con saldo pendiente
+
+    setItemsRecibir(items);
+  };
+
+  // Activar modo ad-hoc (sin OC)
+  const handleActivarAdHoc = () => {
+    setSelectedOC(null);
+    setModoAdHoc(true);
+    setProveedorId('');
+    setItemsRecibir([]);
+    setFacturaNumero('');
+    setPackingSlip('');
+    setObservaciones('');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    if (usuario?.sucursalId) {
+      setSucursalId(usuario.sucursalId);
+    }
+  };
+
+  // Volver a selección
+  const handleVolver = () => {
+    setSelectedOC(null);
+    setModoAdHoc(false);
+    setItemsRecibir([]);
+    setFacturaNumero('');
+    setPackingSlip('');
+    setObservaciones('');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    // Recargar pendientes
+    cargarCatalogos();
+  };
+
+  // Agregar item en modo Ad-hoc
+  const handleAgregarItemAdHoc = () => {
+    if (!selectedProductToAdd) return;
+
+    // Verificar si ya existe
+    if (itemsRecibir.some((it) => it.productoId === selectedProductToAdd.id)) {
+      setErrorMsg('El producto ya se encuentra en la lista.');
+      return;
+    }
+
+    const esMP =
+      selectedProductToAdd.tipoProducto === 'MATERIA_PRIMA' ||
+      selectedProductToAdd.tipoProducto === 'INSUMO' ||
+      selectedProductToAdd.tipoProducto === 'MP';
+
+    const loteSugerido = esMP
+      ? `${selectedProductToAdd.sku}-${dayjs().format('YYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
+      : undefined;
+
+    const nuevoItem: ItemRecepcion = {
+      productoId: selectedProductToAdd.id,
+      sku: selectedProductToAdd.sku,
+      descripcion: selectedProductToAdd.descripcion,
+      cantidad: 1,
+      costoUnitario: selectedProductToAdd.costo || 0,
+      esMateriaPrima: esMP,
+      numeroLote: loteSugerido,
+      fechaProduccion: esMP ? dayjs().format('YYYY-MM-DD') : undefined,
+      fechaVencimiento: esMP
+        ? dayjs().add(selectedProductToAdd.vidaUtilDias || 30, 'day').format('YYYY-MM-DD')
+        : undefined,
+      tempMin: esMP ? selectedProductToAdd.temperaturaMin || 2.0 : undefined,
+      tempMax: esMP ? selectedProductToAdd.temperaturaMax || 6.0 : undefined,
+    };
+
+    setItemsRecibir([...itemsRecibir, nuevoItem]);
+    setSelectedProductToAdd(null);
+    setErrorMsg(null);
+  };
+
+  // Eliminar item de la lista
+  const handleEliminarItem = (index: number) => {
+    const copia = [...itemsRecibir];
+    copia.splice(index, 1);
+    setItemsRecibir(copia);
+  };
+
+  // Modificar campo de un item específico
+  const handleChangeItem = (index: number, campo: keyof ItemRecepcion, valor: any) => {
+    const copia = [...itemsRecibir];
+    copia[index] = { ...copia[index], [campo]: valor };
+    setItemsRecibir(copia);
+  };
+
+  // Enviar recepción
+  const handleSubmitRecepcion = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (itemsRecibir.length === 0) {
+      setErrorMsg('Debe registrar al menos un producto en el recibo.');
+      return;
+    }
+
+    // Validar datos por cada item
+    for (const item of itemsRecibir) {
+      if (item.cantidad <= 0) {
+        setErrorMsg(`La cantidad para el producto ${item.sku} debe ser mayor que 0.`);
+        return;
+      }
+      if (item.esMateriaPrima) {
+        if (!item.numeroLote || item.numeroLote.trim() === '') {
+          setErrorMsg(`El producto ${item.sku} es Materia Prima y requiere ingresar un número de lote.`);
+          return;
+        }
+        if (!item.fechaProduccion || !item.fechaVencimiento) {
+          setErrorMsg(`El producto ${item.sku} requiere fechas de producción y vencimiento.`);
+          return;
+        }
+      }
+    }
+
+    const payload = {
+      ordenCompraId: selectedOC ? selectedOC.id : undefined,
+      proveedorId: proveedorId || undefined,
+      sucursalId,
+      facturaNumero: facturaNumero || undefined,
+      packingSlip: packingSlip || undefined,
+      observaciones: observaciones || undefined,
+      items: itemsRecibir.map((it) => ({
+        productoId: it.productoId,
+        cantidad: it.cantidad,
+        costoUnitario: it.costoUnitario,
+        numeroLote: it.esMateriaPrima ? it.numeroLote : undefined,
+        fechaProduccion: it.esMateriaPrima ? it.fechaProduccion : undefined,
+        fechaVencimiento: it.esMateriaPrima ? it.fechaVencimiento : undefined,
+        tempMin: it.esMateriaPrima ? it.tempMin : undefined,
+        tempMax: it.esMateriaPrima ? it.tempMax : undefined,
+      })),
+    };
+
+    try {
+      const res = await apiFetch('/recepciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.success) {
+        setSuccessMsg(
+          `Recepción registrada exitosamente con el recibo número ${res.data.numeroRecibo}.`
+        );
+        // Volver a cargar estado inicial tras 3 segundos
+        setTimeout(() => {
+          handleVolver();
+        }, 3000);
+      } else {
+        setErrorMsg(res.message || 'Error al guardar la recepción.');
+      }
+    } catch (e: any) {
+      console.error('Error al guardar recepción:', e);
+      setErrorMsg(e.message || 'Error al procesar la solicitud.');
+    }
+  };
+
+  // Filtrar órdenes pendientes basado en el buscador
+  const ordenesFiltradas = ordenesPendientes.filter((oc) => {
+    const term = searchQuery.toLowerCase();
+    return (
+      oc.numeroOrden.toLowerCase().includes(term) ||
+      oc.proveedor.nombre.toLowerCase().includes(term)
+    );
+  });
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(val);
+  };
+
+  return (
+    <Box sx={{ p: 4, height: '100%', overflowY: 'auto', color: '#fff' }}>
+      {/* Encabezado Principal */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              p: 1.5,
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)',
+            }}
+          >
+            <LocalShipping sx={{ fontSize: 32, color: '#fff' }} />
+          </Box>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+              Recepción de Materiales
+            </Typography>
+            <Typography variant="subtitle2" color="text.secondary">
+              Ingreso de materias primas e insumos no alimentarios
+            </Typography>
+          </Box>
+        </Box>
+
+        {!selectedOC && !modoAdHoc && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PostAdd />}
+            onClick={handleActivarAdHoc}
+            sx={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              fontWeight: 700,
+              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+              borderRadius: 2,
+              px: 3,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              },
+            }}
+          >
+            Recepción Ad-hoc (Sin OC)
+          </Button>
+        )}
+      </Box>
+
+      {/* Alertas de Notificación */}
+      {errorMsg && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setErrorMsg(null)}>
+          {errorMsg}
+        </Alert>
+      )}
+      {successMsg && (
+        <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMsg(null)}>
+          {successMsg}
+        </Alert>
+      )}
+
+      {/* VISTA 1: BÚSQUEDA Y SELECCIÓN DE OC */}
+      {!selectedOC && !modoAdHoc && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 4 }}>
+          <Box sx={{ gridColumn: 'span 12' }}>
+            <Card
+              sx={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 4,
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: '#93c5fd' }}>
+                  Seleccione una Orden de Compra Pendiente
+                </Typography>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Buscar por Número de OC o Proveedor..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: <Search sx={{ color: 'text.secondary', mr: 1 }} />,
+                    },
+                  }}
+                  sx={{
+                    mb: 3,
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                      borderRadius: 2,
+                    },
+                  }}
+                />
+
+                {ordenesFiltradas.length === 0 ? (
+                  <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
+                    <Assignment sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
+                    <Typography>No hay órdenes de compra aprobadas pendientes de recibir.</Typography>
+                  </Box>
+                ) : (
+                  <Table sx={{ minWidth: 650 }}>
+                    <TableHead sx={{ backgroundColor: 'rgba(15, 23, 42, 0.5)' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Orden</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Proveedor</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Sucursal</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Fecha Solicitud</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Total</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Estado</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>Acción</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {ordenesFiltradas.map((oc) => (
+                        <TableRow
+                          key={oc.id}
+                          sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.02)' } }}
+                        >
+                          <TableCell sx={{ fontWeight: 700, color: '#93c5fd' }}>{oc.numeroOrden}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>{oc.proveedor.nombre}</TableCell>
+                          <TableCell>{oc.sucursal.nombre}</TableCell>
+                          <TableCell>{new Date(oc.createdAt).toLocaleDateString('es-CO')}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>{formatCurrency(oc.total)}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={oc.estado}
+                              color={oc.estado === 'PARCIAL' ? 'warning' : 'primary'}
+                              size="small"
+                              sx={{ fontWeight: 700 }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleSelectOC(oc)}
+                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                              Seleccionar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
+      )}
+
+      {/* VISTA 2: FORMULARIO DE RECEPCIÓN (CON OC O AD-HOC) */}
+      {(selectedOC || modoAdHoc) && (
+        <Box>
+          {/* Botón de retorno */}
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={handleVolver}
+            sx={{ mb: 3, textTransform: 'none', color: '#93c5fd', fontWeight: 700 }}
+          >
+            Volver a la Lista
+          </Button>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 4 }}>
+            {/* 1. Datos Generales de la Recepción */}
+            <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 4' } }}>
+              <Card
+                sx={{
+                  background: 'rgba(30, 41, 59, 0.5)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 4,
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#93c5fd' }}>
+                    Información del Recibo
+                  </Typography>
+
+                  {selectedOC && (
+                    <Box
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Orden de Compra Asociada
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 800, color: '#93c5fd' }}>
+                        {selectedOC.numeroOrden}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        Proveedor
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {selectedOC.proveedor.nombre}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Sucursal Destino */}
+                  <FormControl fullWidth>
+                    <InputLabel id="sucursal-label">Sucursal Destino</InputLabel>
+                    <Select
+                      labelId="sucursal-label"
+                      label="Sucursal Destino"
+                      value={sucursalId}
+                      onChange={(e) => setSucursalId(e.target.value)}
+                      disabled={!!selectedOC} // Bloqueada si viene de OC
+                    >
+                      {sucursales.map((suc) => (
+                        <MenuItem key={suc.id} value={suc.id}>
+                          {suc.nombre}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* Selector Proveedor (solo en Ad-hoc) */}
+                  {modoAdHoc && (
+                    <FormControl fullWidth>
+                      <InputLabel id="proveedor-label">Proveedor (Opcional)</InputLabel>
+                      <Select
+                        labelId="proveedor-label"
+                        label="Proveedor (Opcional)"
+                        value={proveedorId}
+                        onChange={(e) => setProveedorId(e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>Ninguno (Proveedor Genérico)</em>
+                        </MenuItem>
+                        {proveedores.map((prov) => (
+                          <MenuItem key={prov.id} value={prov.id}>
+                            {prov.nombre}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  {/* Documentación */}
+                  <TextField
+                    fullWidth
+                    label="Número de Factura"
+                    variant="outlined"
+                    placeholder="Ej. FAC-12345"
+                    value={facturaNumero}
+                    onChange={(e) => setFacturaNumero(e.target.value)}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Packing Slip / Guía de Despacho"
+                    variant="outlined"
+                    placeholder="Ej. GUIA-98765"
+                    value={packingSlip}
+                    onChange={(e) => setPackingSlip(e.target.value)}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Observaciones"
+                    variant="outlined"
+                    multiline
+                    rows={3}
+                    placeholder="Notas o comentarios sobre el estado de la entrega..."
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                  />
+
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    startIcon={<CheckCircle />}
+                    onClick={handleSubmitRecepcion}
+                    sx={{
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                      fontWeight: 800,
+                      borderRadius: 2,
+                      py: 1.5,
+                      boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+                    }}
+                  >
+                    Procesar Recepción
+                  </Button>
+                </CardContent>
+              </Card>
+            </Box>
+
+            {/* 2. Grid de Productos y Lotes */}
+            <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 8' } }}>
+              <Card
+                sx={{
+                  background: 'rgba(30, 41, 59, 0.5)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 4,
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#93c5fd', mb: 3 }}>
+                    Productos a Recibir
+                  </Typography>
+
+                  {/* Buscador de productos (solo en modo Ad-Hoc) */}
+                  {modoAdHoc && (
+                    <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={productos}
+                        getOptionLabel={(option) => `${option.sku} - ${option.descripcion}`}
+                        value={selectedProductToAdd}
+                        onChange={(_, newValue) => setSelectedProductToAdd(newValue)}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Buscar Producto para Agregar" variant="outlined" />
+                        )}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                          },
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleAgregarItemAdHoc}
+                        startIcon={<Add />}
+                        sx={{
+                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                          px: 3,
+                          borderRadius: 2,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Añadir
+                      </Button>
+                    </Box>
+                  )}
+
+                  {itemsRecibir.length === 0 ? (
+                    <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
+                      <Assignment sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
+                      <Typography>No hay productos agregados en el recibo.</Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {itemsRecibir.map((item, idx) => (
+                        <Paper
+                          key={item.productoId}
+                          elevation={0}
+                          sx={{
+                            p: 3,
+                            borderRadius: 3,
+                            backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                          }}
+                        >
+                          {/* Fila del Producto y Cantidad */}
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              flexWrap: 'wrap',
+                              gap: 2,
+                              mb: 2,
+                            }}
+                          >
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="body1" sx={{ fontWeight: 800, color: '#93c5fd' }}>
+                                {item.descripcion}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                SKU: <strong>{item.sku}</strong> | Tipo:{' '}
+                                <Chip
+                                  label={item.esMateriaPrima ? 'Materia Prima' : 'MNA'}
+                                  color={item.esMateriaPrima ? 'success' : 'default'}
+                                  size="small"
+                                  sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800 }}
+                                />
+                              </Typography>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <TextField
+                                label="Cantidad"
+                                type="number"
+                                size="small"
+                                value={item.cantidad}
+                                onChange={(e) =>
+                                  handleChangeItem(idx, 'cantidad', parseFloat(e.target.value) || 0)
+                                }
+                                slotProps={{
+                                  htmlInput: {
+                                    min: 0.1,
+                                    max: item.cantidadMax,
+                                  },
+                                }}
+                                sx={{ width: 110 }}
+                              />
+
+                              {selectedOC && item.cantidadMax !== undefined && (
+                                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                                  Pendiente: {item.cantidadMax}
+                                </Typography>
+                              )}
+
+                              {modoAdHoc && (
+                                <IconButton color="error" onClick={() => handleEliminarItem(idx)}>
+                                  <Delete />
+                                </IconButton>
+                              )}
+                            </Box>
+                          </Box>
+
+                          <Divider sx={{ my: 1.5, borderColor: 'rgba(255,255,255,0.05)' }} />
+
+                          {/* Sección Lote para Materia Prima */}
+                          {item.esMateriaPrima ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 800 }}>
+                                📋 INFORMACIÓN DE LOTE (Materia Prima / Insumo obligatorio)
+                              </Typography>
+                              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 2 }}>
+                                <Box sx={{ gridColumn: { xs: 'span 12', sm: 'span 4' } }}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Número de Lote"
+                                    value={item.numeroLote || ''}
+                                    onChange={(e) =>
+                                      handleChangeItem(idx, 'numeroLote', e.target.value)
+                                    }
+                                  />
+                                </Box>
+                                <Box sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Fecha Producción"
+                                    type="date"
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    value={item.fechaProduccion || ''}
+                                    onChange={(e) =>
+                                      handleChangeItem(idx, 'fechaProduccion', e.target.value)
+                                    }
+                                  />
+                                </Box>
+                                <Box sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Fecha Vencimiento"
+                                    type="date"
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    value={item.fechaVencimiento || ''}
+                                    onChange={(e) =>
+                                      handleChangeItem(idx, 'fechaVencimiento', e.target.value)
+                                    }
+                                  />
+                                </Box>
+                                <Box sx={{ gridColumn: { xs: 'span 6', sm: 'span 6' } }}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Temperatura Mín (°C)"
+                                    type="number"
+                                    value={item.tempMin || ''}
+                                    onChange={(e) =>
+                                      handleChangeItem(idx, 'tempMin', parseFloat(e.target.value) || 0)
+                                    }
+                                  />
+                                </Box>
+                                <Box sx={{ gridColumn: { xs: 'span 6', sm: 'span 6' } }}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Temperatura Máx (°C)"
+                                    type="number"
+                                    value={item.tempMax || ''}
+                                    onChange={(e) =>
+                                      handleChangeItem(idx, 'tempMax', parseFloat(e.target.value) || 0)
+                                    }
+                                  />
+                                </Box>
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                borderRadius: 2,
+                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px dashed rgba(255, 255, 255, 0.1)',
+                              }}
+                            >
+                              <Typography variant="caption" color="text.secondary">
+                                ℹ️ <strong>MNA (Material No Alimentario):</strong> No requiere lote de
+                                trazabilidad. Bodega Destino: General / Fallback.
+                              </Typography>
+                            </Box>
+                          )}
+                        </Paper>
+                      ))}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}

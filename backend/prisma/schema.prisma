@@ -42,6 +42,7 @@ model Sucursal {
   rutasOrigen           Ruta[]                  @relation("OrigenRuta")
   rutasPuntos           RutaPunto[]
   solicitudesReabastecimiento SolicitudReabastecimiento[]
+  recepcionesMaterial   RecepcionMaterial[]
 }
 
 model Usuario {
@@ -74,6 +75,7 @@ model Usuario {
   controlesLeche     ControlLeche[]
   controlesCalidad   ControlCalidad[]
   noConformidades    NoConformidad[]
+  recepcionesMaterial RecepcionMaterial[]
 }
 
 model Rol {
@@ -124,6 +126,7 @@ model Producto {
   solicitudesReabastecimiento SolicitudReabastecimiento[]
   billOfOperations BillOfOperations[]
   proveedoresAsociados ProductoProveedor[]
+  recepcionMaterialDetalles RecepcionMaterialDetalle[]
 }
 
 model Proveedor {
@@ -151,6 +154,7 @@ model Proveedor {
   ordenCompras OrdenCompra[]
   facturas     FacturaCompra[]
   productosAsociados ProductoProveedor[]
+  recepcionesMaterial RecepcionMaterial[]
 }
 
 model Lote {
@@ -178,6 +182,7 @@ model Lote {
   transferenciaDetalles TransferenciaDetalle[]
   movimientos          MovimientoInventario[]
   ordenDetalles        OrdenProduccionDetalle[]
+  recepcionMaterialDetalles RecepcionMaterialDetalle[]
 }
 
 model Bodega {
@@ -290,6 +295,7 @@ model OrdenCompra {
   detalles    OrdenCompraDetalle[]
   recepciones RecepcionCompra[]
   facturas    FacturaCompra[]
+  recepcionesMaterial RecepcionMaterial[]
 }
 
 model OrdenCompraDetalle {
@@ -856,3 +862,38 @@ model ProductoProveedor {
 
   @@unique([productoId, proveedorId])
 }
+
+model RecepcionMaterial {
+  id              String   @id @default(uuid())
+  numeroRecibo    String   @unique // Código autogenerado REC-00001
+  ordenCompraId   String?  // Opcional: relación a Orden de Compra
+  proveedorId     String?  // Opcional: relación a Proveedor
+  sucursalId      String   // Sucursal que recibe
+  fecha           DateTime @default(now())
+  recibidoPorId   String   // Usuario que recibe
+  facturaNumero   String?  // Factura de cliente/proveedor
+  packingSlip     String?  // Packing Slip / Guía de despacho
+  observaciones   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  ordenCompra     OrdenCompra?            @relation(fields: [ordenCompraId], references: [id])
+  proveedor       Proveedor?              @relation(fields: [proveedorId], references: [id])
+  recibidoPor     Usuario                 @relation(fields: [recibidoPorId], references: [id])
+  sucursal        Sucursal                @relation(fields: [sucursalId], references: [id])
+  detalles        RecepcionMaterialDetalle[]
+}
+
+model RecepcionMaterialDetalle {
+  id                  String   @id @default(uuid())
+  recepcionMaterialId String
+  productoId          String
+  cantidad            Float
+  costoUnitario       Float?   // Costo unitario (del PO o ingresado manualmente)
+  loteId              String?  // Opcional: lote generado (solo para Materias Primas)
+
+  recepcionMaterial   RecepcionMaterial @relation(fields: [recepcionMaterialId], references: [id], onDelete: Cascade)
+  producto            Producto          @relation(fields: [productoId], references: [id])
+  lote                Lote?             @relation(fields: [loteId], references: [id])
+}
+

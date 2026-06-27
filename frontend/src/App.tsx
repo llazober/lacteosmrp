@@ -31,6 +31,7 @@ import {
   History as TrazabilidadIcon,
   Inventory as InventarioIcon,
   ShoppingCart as ComprasIcon,
+  FactCheck as RecepcionIcon,
   AdminPanelSettings as AuditoriaIcon,
   Logout as LogoutIcon,
   Storefront,
@@ -74,6 +75,7 @@ import Logistica from './pages/Logistica';
 import PlanificacionProduccion from './pages/PlanificacionProduccion';
 import RutaOperaciones from './pages/RutaOperaciones';
 import RequerimientosMateriaPrima from './pages/RequerimientosMateriaPrima';
+import RecepcionMateriales from './pages/RecepcionMateriales';
 import FloatingAIPanel from './components/FloatingAIPanel';
 
 const DRAWER_WIDTH = 280;
@@ -200,6 +202,7 @@ function MainLayout() {
     { text: 'Ruta de Operaciones', icon: <RutaIcon />, path: '/produccion/operaciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_RUTA_OPERACIONES' },
     { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'], permission: 'VER_CALIDAD' },
     { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [], permission: 'VER_COMPRAS' },
+    { text: 'Recepción Materiales', icon: <RecepcionIcon />, path: '/compras/recepcion', roles: [], permission: 'VER_COMPRAS' },
     { text: 'Requerimientos MP', icon: <PlanificacionIcon />, path: '/compras/requerimientos', roles: [], permission: 'VER_REQUERIMIENTOS_MP' },
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
     { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_AUDITORIA' },
@@ -516,6 +519,7 @@ function MainLayout() {
             <Route path="/calidad" element={<Navigate to="/" />} />
           )}
           <Route path="/compras" element={<Compras />} />
+          <Route path="/compras/recepcion" element={<RecepcionMateriales />} />
           {usuario?.permisos?.includes('VER_REQUERIMIENTOS_MP') || usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? (
             <Route path="/compras/requerimientos" element={<RequerimientosMateriaPrima />} />
           ) : (

@@ -26,6 +26,7 @@ import { ProduccionController } from './produccion.controller';
 import { CalidadController } from './calidad.controller';
 import { RolesController } from './roles.controller';
 import { LogisticaController } from './logistica.controller';
+import { RecepcionController } from './recepcion.controller';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { LogisticaController } from './logistica.controller';
     CalidadController,
     RolesController,
     LogisticaController,
+    RecepcionController,
   ],
   providers: [
     AppService,
