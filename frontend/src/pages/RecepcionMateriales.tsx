@@ -112,49 +112,51 @@ export default function RecepcionMateriales() {
     }
   };
 
-  // Handler para cuando se selecciona una OC
-  const handleSelectOC = (oc: any) => {
-    setSelectedOC(oc);
+  // Handler para cuando se selecciona una línea de OC
+  const handleSelectLine = (line: any) => {
+    setSelectedOC({
+      id: line.ordenId,
+      numeroOrden: line.numeroOrden,
+      proveedorId: line.proveedor.id,
+      proveedor: line.proveedor,
+      sucursalId: line.sucursal.id,
+    });
     setModoAdHoc(false);
-    setSucursalId(oc.sucursalId);
-    setProveedorId(oc.proveedorId);
+    setSucursalId(line.sucursal.id);
+    setProveedorId(line.proveedor.id);
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Cargar items de la OC con cantidad sugerida (pendiente por recibir)
-    const items = oc.detalles
-      .map((det: any) => {
-        const pendiente = Math.max(0, det.cantidad - det.cantidadRecibida);
-        const esMP =
-          det.producto.tipoProducto === 'MATERIA_PRIMA' ||
-          det.producto.tipoProducto === 'INSUMO' ||
-          det.producto.tipoProducto === 'MP';
+    const esMP =
+      line.producto.tipoProducto === 'MATERIA_PRIMA' ||
+      line.producto.tipoProducto === 'INSUMO' ||
+      line.producto.tipoProducto === 'MP';
 
-        // Generar lote sugerido único
-        const loteSugerido = esMP
-          ? `${det.producto.sku}-${dayjs().format('YYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
-          : undefined;
+    // Generar lote sugerido único
+    const loteSugerido = esMP
+      ? `${line.producto.sku}-${dayjs().format('YYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
+      : undefined;
 
-        return {
-          ordenCompraDetalleId: det.id,
-          lineaNum: det.lineaNum,
-          productoId: det.productoId,
-          sku: det.producto.sku,
-          descripcion: det.producto.descripcion,
-          cantidadMax: pendiente,
-          cantidad: pendiente,
-          costoUnitario: det.costoUnitario,
-          esMateriaPrima: esMP,
-          numeroLote: loteSugerido,
-          fechaProduccion: esMP ? dayjs().format('YYYY-MM-DD') : undefined,
-          fechaVencimiento: esMP
-            ? dayjs().add(det.producto.vidaUtilDias || 30, 'day').format('YYYY-MM-DD')
-            : undefined,
-          tempMin: esMP ? det.producto.temperaturaMin || 2.0 : undefined,
-          tempMax: esMP ? det.producto.temperaturaMax || 6.0 : undefined,
-        };
-      })
-      .filter((item: any) => item.cantidad > 0); // Solo items con saldo pendiente
+    const items = [
+      {
+        ordenCompraDetalleId: line.id,
+        lineaNum: line.lineaNum,
+        productoId: line.productoId,
+        sku: line.producto.sku,
+        descripcion: line.producto.descripcion,
+        cantidadMax: line.pendiente,
+        cantidad: line.pendiente,
+        costoUnitario: line.costoUnitario,
+        esMateriaPrima: esMP,
+        numeroLote: loteSugerido,
+        fechaProduccion: esMP ? dayjs().format('YYYY-MM-DD') : undefined,
+        fechaVencimiento: esMP
+          ? dayjs().add(line.producto.vidaUtilDias || 30, 'day').format('YYYY-MM-DD')
+          : undefined,
+        tempMin: esMP ? line.producto.temperaturaMin || 2.0 : undefined,
+        tempMax: esMP ? line.producto.temperaturaMax || 6.0 : undefined,
+      }
+    ];
 
     setItemsRecibir(items);
   };
@@ -315,21 +317,38 @@ export default function RecepcionMateriales() {
     }
   };
 
-  // Filtrar órdenes pendientes basado en el buscador
-  const ordenesFiltradas = ordenesPendientes.filter((oc) => {
+  // Aplanar todas las líneas de orden de compra pendientes
+  const lineasPendientes = ordenesPendientes.reduce((acc: any[], oc: any) => {
+    if (oc.detalles) {
+      oc.detalles.forEach((det: any) => {
+        const pendiente = Math.max(0, det.cantidad - det.cantidadRecibida);
+        if (pendiente > 0) {
+          acc.push({
+            ...det,
+            ordenId: oc.id,
+            numeroOrden: oc.numeroOrden,
+            proveedor: oc.proveedor,
+            sucursal: oc.sucursal,
+            ocCreatedAt: oc.createdAt,
+            pendiente,
+          });
+        }
+      });
+    }
+    return acc;
+  }, []);
+
+  // Filtrar líneas basadas en el buscador
+  const lineasFiltradas = lineasPendientes.filter((line) => {
     const term = searchQuery.toLowerCase();
     return (
-      oc.numeroOrden.toLowerCase().includes(term) ||
-      oc.proveedor.nombre.toLowerCase().includes(term)
+      line.numeroOrden.toLowerCase().includes(term) ||
+      line.proveedor.nombre.toLowerCase().includes(term) ||
+      line.producto.sku.toLowerCase().includes(term) ||
+      line.producto.descripcion.toLowerCase().includes(term)
     );
   });
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(val);
-  };
 
   return (
     <Box sx={{ p: 4, height: '100%', overflowY: 'auto', color: '#fff' }}>
@@ -429,48 +448,45 @@ export default function RecepcionMateriales() {
                   }}
                 />
 
-                {ordenesFiltradas.length === 0 ? (
+                {lineasFiltradas.length === 0 ? (
                   <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
                     <Assignment sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
-                    <Typography>No hay órdenes de compra aprobadas pendientes de recibir.</Typography>
+                    <Typography>No hay líneas de orden de compra aprobadas pendientes de recibir.</Typography>
                   </Box>
                 ) : (
                   <Table sx={{ minWidth: 650 }}>
                     <TableHead sx={{ backgroundColor: 'rgba(15, 23, 42, 0.5)' }}>
                       <TableRow>
                         <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Orden</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Línea</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Producto</TableCell>
                         <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Proveedor</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Sucursal</TableCell>
                         <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Fecha Solicitud</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Total</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Estado</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Cant. Pendiente</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>Acción</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {ordenesFiltradas.map((oc) => (
+                      {lineasFiltradas.map((line) => (
                         <TableRow
-                          key={oc.id}
+                          key={line.id}
                           sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.02)' } }}
                         >
-                          <TableCell sx={{ fontWeight: 700, color: '#93c5fd' }}>{oc.numeroOrden}</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>{oc.proveedor.nombre}</TableCell>
-                          <TableCell>{oc.sucursal.nombre}</TableCell>
-                          <TableCell>{new Date(oc.createdAt).toLocaleDateString('es-CO')}</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>{formatCurrency(oc.total)}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={oc.estado}
-                              color={oc.estado === 'PARCIAL' ? 'warning' : 'primary'}
-                              size="small"
-                              sx={{ fontWeight: 700 }}
-                            />
+                          <TableCell sx={{ fontWeight: 700, color: '#93c5fd' }}>{line.numeroOrden}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Línea {line.lineaNum}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            {line.producto.descripcion} ({line.producto.sku})
+                          </TableCell>
+                          <TableCell>{line.proveedor.nombre}</TableCell>
+                          <TableCell>{new Date(line.ocCreatedAt).toLocaleDateString('es-CO')}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            {line.pendiente} / {line.cantidad} {line.producto.unidadMedida}
                           </TableCell>
                           <TableCell align="right">
                             <Button
                               variant="outlined"
                               size="small"
-                              onClick={() => handleSelectOC(oc)}
+                              onClick={() => handleSelectLine(line)}
                               sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                             >
                               Seleccionar
