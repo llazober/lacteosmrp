@@ -1592,7 +1592,7 @@ export class ProduccionController implements OnModuleInit {
           sku: sust.producto.sku,
           descripcion: sust.producto.descripcion,
           unidadMedida: sust.producto.unidadMedida || 'U',
-          stockDisponible: parseFloat(stockSust.toFixed(2)),
+          stockDisponible: parseFloat(stockSust.toFixed(8)),
           lotesDisponibles: lotesSust.map((l) => ({
             id: l.id,
             numeroLote: l.numeroLote,
@@ -1634,10 +1634,10 @@ export class ProduccionController implements OnModuleInit {
         sku: reqDetalle.producto.sku,
         descripcion: reqDetalle.producto.descripcion,
         unidadMedida: reqDetalle.producto.unidadMedida || 'U',
-        cantidadRequerida: parseFloat(cantidadRequerida.toFixed(2)),
-        stockDisponible: parseFloat(stockDisponible.toFixed(2)),
-        yaEntregado: parseFloat(yaEntregado.toFixed(2)),
-        cantidadPicked: parseFloat(cantidadPicked.toFixed(2)),
+        cantidadRequerida: parseFloat(cantidadRequerida.toFixed(8)),
+        stockDisponible: parseFloat(stockDisponible.toFixed(8)),
+        yaEntregado: parseFloat(yaEntregado.toFixed(8)),
+        cantidadPicked: parseFloat(cantidadPicked.toFixed(8)),
         picked: op.pickingCompletado,
         loteNumero,
         lotesDisponibles: lotes.map((l) => ({
@@ -1934,7 +1934,7 @@ export class ProduccionController implements OnModuleInit {
         });
         const totalPicked = aggregate._sum.cantidadConsumida || 0;
 
-        if (Math.round(totalPicked * 10000) < Math.round(cantidadRequerida * 10000)) {
+        if (Math.round(totalPicked * 100000000) < Math.round(cantidadRequerida * 100000000)) {
           tieneShortage = true;
         }
       }
@@ -2095,8 +2095,8 @@ export class ProduccionController implements OnModuleInit {
         // Balance pendiente por recolectar
         const balancePendiente = Math.max(0, totalRequerido - alreadyPicked);
 
-        // Si el balance restante es mayor que 0.0001 (redondeado a 4 decimales), verificar stock disponible
-        if (Math.round(balancePendiente * 10000) > 0) {
+        // Si el balance restante es mayor que 0.00000001 (redondeado a 8 decimales), verificar stock disponible
+        if (Math.round(balancePendiente * 100000000) > 0) {
           const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
           const inv = targetBodega ? await tx.inventario.findUnique({
             where: {

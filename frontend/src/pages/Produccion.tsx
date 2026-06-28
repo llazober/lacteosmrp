@@ -557,7 +557,7 @@ export default function Produccion() {
       const data = await apiFetch(`/produccion/ordenes/${order.id}/picking`);
       const ingredientes = data.ingredientes.map((i: any) => ({
         ...i,
-        picked: i.cantidadPicked > 0,
+        picked: false,
         selectedProductoId: i.productoId,
       }));
       setPickingData({ ...data, ingredientes });
@@ -1844,7 +1844,7 @@ export default function Produccion() {
                         <TableCell align="right">
                           {balRequired > 0 ? (
                             <Box sx={{ display: 'inline-flex', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', px: 1, py: 0.5, borderRadius: 1, fontWeight: 700 }}>
-                              {balRequired.toFixed(2).replace(/\.00$/, '')} {ing.unidadMedida}
+                              {parseFloat(balRequired.toFixed(8))} {ing.unidadMedida}
                             </Box>
                           ) : (
                             <span style={{ color: 'rgba(16, 185, 129, 0.2)', fontWeight: 'bold' }}>0 {ing.unidadMedida}</span>

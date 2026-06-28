@@ -27,6 +27,7 @@ import {
   IconButton,
   Tooltip,
   LinearProgress,
+  InputAdornment,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -39,6 +40,7 @@ import {
   Delete,
   Visibility,
   Info,
+  Search,
 } from '@mui/icons-material';
 import { apiFetch } from '../store/useAuthStore';
 
@@ -100,6 +102,7 @@ export default function CuentasPorPagar() {
   const [productos, setProductos] = useState<any[]>([]);
   const [recepciones, setRecepciones] = useState<any[]>([]);
   const [filtroEstado, setFiltroEstado] = useState<'PENDIENTES' | 'PAGADAS'>('PENDIENTES');
+  const [searchRecepcion, setSearchRecepcion] = useState('');
 
   // Dialog states
   const [openCrearFactura, setOpenCrearFactura] = useState(false);
@@ -684,9 +687,27 @@ export default function CuentasPorPagar() {
           <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, color: 'warning.light' }}>
             Recepciones Pendientes de Facturar
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Listado de recepciones de materiales ingresadas al almacén que aún no han sido asociadas a una factura de compra.
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Listado de recepciones de materiales ingresadas al almacén que aún no han sido asociadas a una factura de compra.
+            </Typography>
+            <TextField
+              size="small"
+              placeholder="Buscar por recibo, factura o packing..."
+              value={searchRecepcion}
+              onChange={(e) => setSearchRecepcion(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ width: { xs: '100%', sm: 320 } }}
+            />
+          </Box>
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
               <TableHead>
@@ -694,54 +715,72 @@ export default function CuentasPorPagar() {
                   <TableCell>N° Recibo</TableCell>
                   <TableCell>Fecha</TableCell>
                   <TableCell>Proveedor</TableCell>
+                  <TableCell>N° Factura</TableCell>
+                  <TableCell>Packing Slip</TableCell>
                   <TableCell>Productos Recibidos</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {recepciones.filter((r) => !r.facturaCompra).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      No hay recepciones pendientes de facturar.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  recepciones
-                    .filter((r) => !r.facturaCompra)
-                    .map((r) => (
-                      <TableRow key={r.id} hover>
-                        <TableCell sx={{ fontWeight: 700 }}>{r.numeroRecibo}</TableCell>
-                        <TableCell>{new Date(r.fecha).toLocaleDateString('es-CL')}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {r.proveedor?.nombre || 'Proveedor Genérico'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Código: {r.proveedor?.codigo || 'N/A'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {r.detalles.map((d: any, idx: number) => (
-                              <Typography key={idx} variant="body2" color="text.secondary">
-                                • {d.producto?.descripcion} ({d.cantidad} {d.producto?.unidadMedida || ''})
-                              </Typography>
-                            ))}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Button
-                            variant="outlined"
-                            color="primary"
-                            size="small"
-                            onClick={() => handleFacturarRecepcion(r)}
-                          >
-                            Facturar
-                          </Button>
+                {(() => {
+                  const filteredRecepciones = recepciones.filter((r) => {
+                    if (r.facturaCompra) return false;
+                    if (!searchRecepcion) return true;
+                    const query = searchRecepcion.toLowerCase();
+                    return (
+                      (r.numeroRecibo?.toLowerCase() || '').includes(query) ||
+                      (r.facturaNumero?.toLowerCase() || '').includes(query) ||
+                      (r.packingSlip?.toLowerCase() || '').includes(query) ||
+                      (r.proveedor?.nombre?.toLowerCase() || '').includes(query)
+                    );
+                  });
+
+                  if (filteredRecepciones.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          No se encontraron recepciones pendientes de facturar.
                         </TableCell>
                       </TableRow>
-                    ))
-                )}
+                    );
+                  }
+
+                  return filteredRecepciones.map((r) => (
+                    <TableRow key={r.id} hover>
+                      <TableCell sx={{ fontWeight: 700 }}>{r.numeroRecibo}</TableCell>
+                      <TableCell>{new Date(r.fecha).toLocaleDateString('es-CL')}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {r.proveedor?.nombre || 'Proveedor Genérico'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Código: {r.proveedor?.codigo || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{r.facturaNumero || '-'}</TableCell>
+                      <TableCell>{r.packingSlip || '-'}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {r.detalles.map((d: any, idx: number) => (
+                            <Typography key={idx} variant="body2" color="text.secondary">
+                              • {d.producto?.descripcion} ({d.cantidad} {d.producto?.unidadMedida || ''})
+                            </Typography>
+                          ))}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          size="small"
+                          onClick={() => handleFacturarRecepcion(r)}
+                        >
+                          Facturar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ));
+                })()}
               </TableBody>
             </Table>
           </Box>
