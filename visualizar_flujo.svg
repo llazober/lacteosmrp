@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 950" width="100%" height="100%" style="background-color: #0f172a; font-family: 'Inter', system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Arrowhead marker definition -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#64748b" />
+    </marker>
+    
+    <!-- Gradients for different components -->
+    <linearGradient id="blue-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+    <linearGradient id="green-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#064e3b" />
+    </linearGradient>
+    <linearGradient id="orange-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#7c2d12" />
+    </linearGradient>
+    <linearGradient id="magenta-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c026d3" />
+      <stop offset="100%" stop-color="#701a75" />
+    </linearGradient>
+    <linearGradient id="red-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#7f1d1d" />
+    </linearGradient>
+
+    <!-- Drop shadows -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Title & Subtitle -->
+  <text x="450" y="50" text-anchor="middle" fill="#f8fafc" font-size="28" font-weight="800" letter-spacing="-0.02em">Flujograma del Proceso Operativo Integrado</text>
+  <text x="450" y="80" text-anchor="middle" fill="#94a3b8" font-size="15" font-weight="500">Ciclo Completo de Producción y Finanzas en Lácteos ERP</text>
+
+  <!-- Flow Steps -->
+
+  <!-- 1. Planificación de la producción -->
+  <g transform="translate(225, 120)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#blue-grad)" stroke="#3b82f6" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">1. Planificación de la Producción</text>
+    <text x="225" y="52" text-anchor="middle" fill="#93c5fd" font-size="12">Cálculo automático de lotes sugeridos según demanda y stock</text>
+  </g>
+
+  <!-- Link 1 -> 2 -->
+  <path d="M 450 190 L 450 230" fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" />
+
+  <!-- 2. Requerimiento de materia prima -->
+  <g transform="translate(225, 230)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#blue-grad)" stroke="#3b82f6" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">2. Requerimiento de Materia Prima</text>
+    <text x="225" y="52" text-anchor="middle" fill="#93c5fd" font-size="12">Explosión de receta (BOM) y cálculo de faltantes</text>
+  </g>
+
+  <!-- Link 2 -> 3 -->
+  <path d="M 450 300 L 450 340" fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" />
+
+  <!-- 3. Aprobar Órdenes de Compra -->
+  <g transform="translate(225, 340)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#green-grad)" stroke="#10b981" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">3. Aprobar Órdenes de Compra</text>
+    <text x="225" y="52" text-anchor="middle" fill="#a7f3d0" font-size="12">Supervisión y envío de órdenes de compra formalizadas a proveedores</text>
+  </g>
+
+  <!-- Link 3 -> 4 -->
+  <path d="M 450 410 L 450 450" fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" />
+
+  <!-- 4. Recepción de Materiales -->
+  <g transform="translate(225, 450)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#green-grad)" stroke="#10b981" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">4. Recepción de Materiales</text>
+    <text x="225" y="52" text-anchor="middle" fill="#a7f3d0" font-size="12">Ingreso a bodega con Factura/Guía. Materias primas se marcan PENDIENTES</text>
+  </g>
+
+  <!-- Link 4 -> 5 -->
+  <path d="M 450 520 L 450 560" fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" />
+
+  <!-- 5. Control de Calidad -->
+  <g transform="translate(225, 560)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#orange-grad)" stroke="#f97316" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">5. Control de Calidad (Inspección)</text>
+    <text x="225" y="52" text-anchor="middle" fill="#ffedd5" font-size="12">Pruebas fisicoquímicas/microbiológicas obligatorias antes del uso</text>
+  </g>
+
+  <!-- Link 5 -> 6 (Aprobado) -->
+  <path d="M 450 630 L 450 670" fill="none" stroke="#10b981" stroke-width="3" marker-end="url(#arrow)" />
+  <text x="460" y="652" fill="#10b981" font-size="12" font-weight="700">Lote Aprobado</text>
+
+  <!-- Link 5 -> Alerta (Rechazado) -->
+  <path d="M 675 595 L 720 595" fill="none" stroke="#ef4444" stroke-width="3" marker-end="url(#arrow)" />
+  <text x="682" y="585" fill="#ef4444" font-size="11" font-weight="700">Bloqueado</text>
+
+  <!-- Alerta / No Conformidad -->
+  <g transform="translate(720, 560)" filter="url(#shadow)">
+    <rect width="140" height="70" rx="12" fill="url(#red-grad)" stroke="#f87171" stroke-width="2" />
+    <text x="70" y="32" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">No Conformidad</text>
+    <text x="70" y="50" text-anchor="middle" fill="#fca5a5" font-size="10">Alerta e inmovilización</text>
+  </g>
+
+  <!-- 6. Pick List -->
+  <g transform="translate(225, 670)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#blue-grad)" stroke="#3b82f6" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">6. Pick List (Preparación de Insumos)</text>
+    <text x="225" y="52" text-anchor="middle" fill="#93c5fd" font-size="12">Despacho optimizado de ingredientes siguiendo el principio FEFO</text>
+  </g>
+
+  <!-- Link 6 -> 7 -->
+  <path d="M 450 740 L 450 780" fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" />
+
+  <!-- 7. Ruta de Operaciones -->
+  <g transform="translate(225, 780)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#blue-grad)" stroke="#3b82f6" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">7. Ruta de Operaciones</text>
+    <text x="225" y="52" text-anchor="middle" fill="#93c5fd" font-size="12">Secuencia y tiempos de fases de manufactura en planta</text>
+  </g>
+
+  <!-- Link 7 -> 8 -->
+  <path d="M 450 850 L 450 890" fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" />
+
+  <!-- 8. Cuentas por Pagar -->
+  <g transform="translate(225, 890)" filter="url(#shadow)">
+    <rect width="450" height="70" rx="12" fill="url(#magenta-grad)" stroke="#d946ef" stroke-width="2" />
+    <text x="225" y="32" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">8. Cuentas por Pagar</text>
+    <text x="225" y="52" text-anchor="middle" fill="#f5d0fe" font-size="12">Conciliación final de facturas recibidas y programación de pagos</text>
+  </g>
+</svg>
