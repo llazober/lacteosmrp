@@ -1934,7 +1934,7 @@ export class ProduccionController implements OnModuleInit {
         });
         const totalPicked = aggregate._sum.cantidadConsumida || 0;
 
-        if (totalPicked < cantidadRequerida) {
+        if (Math.round(totalPicked * 10000) < Math.round(cantidadRequerida * 10000)) {
           tieneShortage = true;
         }
       }
@@ -1980,7 +1980,16 @@ export class ProduccionController implements OnModuleInit {
       include: {
         receta: {
           include: {
-            detalles: true,
+            detalles: {
+              include: {
+                producto: true,
+                sustitutos: {
+                  include: {
+                    producto: true,
+                  },
+                },
+              },
+            },
             productoFinal: true,
           },
         },
@@ -2062,23 +2071,45 @@ export class ProduccionController implements OnModuleInit {
         });
       }
 
-      // 2. Verificar si con la nueva cantidad hay shortages en el inventario actual
+      // 2. Verificar si con la nueva cantidad hay shortages en el inventario actual (descontando lo ya recolectado)
       let tieneShortage = false;
       for (const reqDetalle of op.receta.detalles) {
         const totalRequerido = reqDetalle.cantidadRequerida * nuevaCantidad;
 
-        const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
-        const inv = targetBodega ? await tx.inventario.findUnique({
+        // Obtener lo que ya fue recolectado para esta línea (incluyendo sustitutos)
+        const substituteIds = reqDetalle.sustitutos.map((s) => s.productoId);
+        const allowedProductIds = [reqDetalle.productoId, ...substituteIds];
+
+        const aggregate = await tx.ordenProduccionDetalle.aggregate({
           where: {
-            productoId_bodegaId: {
-              productoId: reqDetalle.productoId,
-              bodegaId: targetBodega.id,
-            },
+            ordenProduccionId: op.id,
+            productoId: { in: allowedProductIds },
+            loteId: { not: null },
           },
-        }) : null;
-        const stockDisponible = inv ? inv.existencia : 0;
-        if (stockDisponible < totalRequerido) {
-          tieneShortage = true;
+          _sum: {
+            cantidadConsumida: true,
+          },
+        });
+        const alreadyPicked = aggregate._sum.cantidadConsumida || 0;
+
+        // Balance pendiente por recolectar
+        const balancePendiente = Math.max(0, totalRequerido - alreadyPicked);
+
+        // Si el balance restante es mayor que 0.0001 (redondeado a 4 decimales), verificar stock disponible
+        if (Math.round(balancePendiente * 10000) > 0) {
+          const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
+          const inv = targetBodega ? await tx.inventario.findUnique({
+            where: {
+              productoId_bodegaId: {
+                productoId: reqDetalle.productoId,
+                bodegaId: targetBodega.id,
+              },
+            },
+          }) : null;
+          const stockDisponible = inv ? inv.existencia : 0;
+          if (stockDisponible < balancePendiente) {
+            tieneShortage = true;
+          }
         }
       }
 
