@@ -160,12 +160,11 @@ export default function CuentasPorPagar() {
   // Helper calculation for new invoice totals
   useEffect(() => {
     const sub = detallesForm.reduce((acc, curr) => acc + curr.cantidad * curr.costoUnitario, 0);
-    const ivaCalc = Math.round(sub * 0.19);
     setFacturaForm((prev) => ({
       ...prev,
       subtotal: sub,
-      iva: ivaCalc,
-      total: sub + ivaCalc,
+      iva: 0,
+      total: sub,
     }));
   }, [detallesForm]);
 
@@ -182,7 +181,7 @@ export default function CuentasPorPagar() {
 
     const mappedDetails = oc.detalles.map((d: any) => ({
       productoId: d.productoId,
-      nombre: d.producto?.nombre || 'Producto',
+      nombre: d.producto?.descripcion || 'Producto',
       cantidad: d.cantidad,
       costoUnitario: d.costoUnitario,
     }));
@@ -216,6 +215,29 @@ export default function CuentasPorPagar() {
       costoUnitario: d.costoUnitario || d.producto?.costo || 0,
     }));
     setDetallesForm(mappedDetails);
+  };
+
+  const handleFacturarRecepcion = (rec: any) => {
+    setFacturaForm({
+      numeroFactura: rec.facturaNumero || '',
+      proveedorId: rec.proveedorId || '',
+      ordenCompraId: rec.ordenCompraId || '',
+      recepcionMaterialId: rec.id,
+      fechaEmision: new Date().toISOString().split('T')[0],
+      subtotal: 0,
+      iva: 0,
+      total: 0,
+      observaciones: rec.observaciones || '',
+    });
+
+    const mappedDetails = rec.detalles.map((d: any) => ({
+      productoId: d.productoId,
+      nombre: d.producto?.descripcion || 'Producto',
+      cantidad: d.cantidad,
+      costoUnitario: d.costoUnitario || d.producto?.costo || 0,
+    }));
+    setDetallesForm(mappedDetails);
+    setOpenCrearFactura(true);
   };
 
   useEffect(() => {
@@ -271,7 +293,7 @@ export default function CuentasPorPagar() {
           return {
             ...item,
             productoId: val,
-            nombre: prod ? prod.nombre : '',
+            nombre: prod ? prod.descripcion : '',
             costoUnitario: prod ? prod.costo || 0 : 0,
           };
         }
@@ -467,27 +489,31 @@ export default function CuentasPorPagar() {
       </Tabs>
 
       {activeTab === 0 && (
-        <Paper className="glass-panel" sx={{ p: 3 }}>
-          <Box sx={{ overflowX: 'auto', width: '100%' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>N° Factura</TableCell>
-                  <TableCell>Proveedor</TableCell>
-                  <TableCell>Recibo Asociado</TableCell>
-                  <TableCell>OC Asociada</TableCell>
-                  <TableCell>Emisión</TableCell>
-                  <TableCell>Vencimiento</TableCell>
-                  <TableCell>Total Factura</TableCell>
-                  <TableCell>Saldo Pendiente</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {facturas.length === 0 ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Paper className="glass-panel" sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, color: 'primary.light' }}>
+              Facturas Registradas
+            </Typography>
+            <Box sx={{ overflowX: 'auto', width: '100%' }}>
+              <Table>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell>N° Factura</TableCell>
+                    <TableCell>Proveedor</TableCell>
+                    <TableCell>Recibo Asociado</TableCell>
+                    <TableCell>OC Asociada</TableCell>
+                    <TableCell>Emisión</TableCell>
+                    <TableCell>Vencimiento</TableCell>
+                    <TableCell>Total Factura</TableCell>
+                    <TableCell>Saldo Pendiente</TableCell>
+                    <TableCell>Estado</TableCell>
+                    <TableCell align="right">Acciones</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {facturas.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} align="center">
                       No se encontraron facturas registradas.
                     </TableCell>
                   </TableRow>
@@ -620,6 +646,74 @@ export default function CuentasPorPagar() {
             </Table>
           </Box>
         </Paper>
+
+        <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, color: 'warning.light' }}>
+            Recepciones Pendientes de Facturar
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Listado de recepciones de materiales ingresadas al almacén que aún no han sido asociadas a una factura de compra.
+          </Typography>
+          <Box sx={{ overflowX: 'auto', width: '100%' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>N° Recibo</TableCell>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell>Proveedor</TableCell>
+                  <TableCell>Productos Recibidos</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {recepciones.filter((r) => !r.facturaCompra).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      No hay recepciones pendientes de facturar.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  recepciones
+                    .filter((r) => !r.facturaCompra)
+                    .map((r) => (
+                      <TableRow key={r.id} hover>
+                        <TableCell sx={{ fontWeight: 700 }}>{r.numeroRecibo}</TableCell>
+                        <TableCell>{new Date(r.fecha).toLocaleDateString('es-CL')}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {r.proveedor?.nombre || 'Proveedor Genérico'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Código: {r.proveedor?.codigo || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                            {r.detalles.map((d: any, idx: number) => (
+                              <Typography key={idx} variant="body2" color="text.secondary">
+                                • {d.producto?.descripcion} ({d.cantidad} {d.producto?.unidadMedida || ''})
+                              </Typography>
+                            ))}
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            onClick={() => handleFacturarRecepcion(r)}
+                          >
+                            Facturar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
+      </Box>
       )}
 
       {activeTab === 1 && (
@@ -814,7 +908,7 @@ export default function CuentasPorPagar() {
                       >
                         {productos.map((p) => (
                           <MenuItem key={p.id} value={p.id}>
-                            {p.nombre} ({p.codigo})
+                            {p.descripcion} ({p.sku})
                           </MenuItem>
                         ))}
                       </Select>
@@ -857,15 +951,6 @@ export default function CuentasPorPagar() {
           </Table>
 
           <Box sx={{ alignSelf: 'flex-end', width: 300, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2" color="text.secondary">Neto/Subtotal:</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(facturaForm.subtotal)}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2" color="text.secondary">IVA (19%):</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(facturaForm.iva)}</Typography>
-            </Box>
-            <Divider />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Total Factura:</Typography>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'primary.main' }}>
@@ -953,7 +1038,7 @@ export default function CuentasPorPagar() {
                 <TableBody>
                   {selectedFactura.detalles?.map((d: any) => (
                     <TableRow key={d.id}>
-                      <TableCell>{d.producto?.nombre}</TableCell>
+                      <TableCell>{d.producto?.descripcion}</TableCell>
                       <TableCell align="right">{d.cantidad}</TableCell>
                       <TableCell align="right">{formatCurrency(d.costoUnitario)}</TableCell>
                       <TableCell align="right">{formatCurrency(d.subtotal)}</TableCell>
