@@ -471,7 +471,7 @@ function MainLayout() {
       </Drawer>
 
       {/* Main Content Area */}
-      <Box component="main" sx={{ flexGrow: 1, height: { xs: 'calc(100vh - 56px)', md: '100vh' }, overflow: 'hidden', backgroundColor: '#0b0f19' }}>
+      <Box component="main" sx={{ flexGrow: 1, height: { xs: 'calc(100vh - 56px)', md: '100vh' }, overflowX: 'auto', overflowY: 'hidden', backgroundColor: '#0b0f19' }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pos" element={<POS />} />
