@@ -892,6 +892,29 @@ export default function Inventario() {
     return full12 + checkDigit;
   };
 
+  const matchTipo = (tipo1: string, tipo2: string) => {
+    if (!tipo1 || !tipo2) return false;
+    const norm1 = tipo1 === 'PT' ? 'PRODUCTO_TERMINADO' : tipo1 === 'MP' ? 'MATERIA_PRIMA' : tipo1 === 'INS' ? 'INSUMO' : tipo1;
+    const norm2 = tipo2 === 'PT' ? 'PRODUCTO_TERMINADO' : tipo2 === 'MP' ? 'MATERIA_PRIMA' : tipo2 === 'INS' ? 'INSUMO' : tipo2;
+    return norm1 === norm2;
+  };
+
+  const getFallbackCategorias = (tipo: string) => {
+    const normTipo = tipo === 'PT' ? 'PRODUCTO_TERMINADO' : tipo === 'MP' ? 'MATERIA_PRIMA' : tipo === 'INS' ? 'INSUMO' : tipo;
+    if (normTipo === 'INSUMO') return ['INSUMOS'];
+    if (normTipo === 'MATERIA_PRIMA') return ['MATERIA_PRIMA'];
+    return ['LECHE', 'YOGURT', 'QUESOS', 'MANTEQUILLA', 'HELADOS', 'POSTRES', 'OTROS'];
+  };
+
+  const getPrimerCategoriaDeTipo = (tipo: string) => {
+    const matchingCats = categorias.filter((c: any) => matchTipo(c.tipoProducto, tipo));
+    if (matchingCats.length > 0) {
+      return matchingCats[0].nombre;
+    }
+    const fallback = getFallbackCategorias(tipo);
+    return fallback[0] || '';
+  };
+
   // Genera SKU automático: AbrevTipo-3LetrasCat-InicialesNombre
   const generarSKU = (tipoProducto: string, categoria: string, descripcion: string): string => {
     // Parte 1: Usar el código del Tipo de Producto directamente (MP, PT, MNA, etc.)
@@ -3266,38 +3289,19 @@ export default function Inventario() {
           />
 
           <FormControl fullWidth size="small">
-            <InputLabel>Categoría</InputLabel>
-            <Select
-              value={productoForm.categoria}
-              label="Categoría"
-              onChange={(e) => {
-                const catName = e.target.value;
-                const matchedCat = categorias.find((c: any) => c.nombre === catName);
-                setProductoForm({
-                  ...productoForm,
-                  categoria: catName,
-                  tipoProducto: matchedCat ? matchedCat.tipoProducto : 'PRODUCTO_TERMINADO'
-                });
-              }}
-            >
-              {categorias.length === 0 ? (
-                ['LECHE', 'YOGURT', 'QUESOS', 'MANTEQUILLA', 'HELADOS', 'POSTRES', 'OTROS'].map((cat) => (
-                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                ))
-              ) : (
-                categorias.map((cat) => (
-                  <MenuItem key={cat.id} value={cat.nombre}>{cat.nombre}</MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth size="small">
             <InputLabel>Tipo de Producto</InputLabel>
             <Select
               value={productoForm.tipoProducto}
               label="Tipo de Producto"
-              onChange={(e) => setProductoForm({ ...productoForm, tipoProducto: e.target.value })}
+              onChange={(e) => {
+                const newTipo = e.target.value;
+                const newCat = getPrimerCategoriaDeTipo(newTipo);
+                setProductoForm({
+                  ...productoForm,
+                  tipoProducto: newTipo,
+                  categoria: newCat,
+                });
+              }}
             >
               {tiposProducto.length === 0 ? (
                 [
@@ -3311,6 +3315,32 @@ export default function Inventario() {
                 tiposProducto.map((t) => (
                   <MenuItem key={t.id} value={t.nombre}>{t.descripcion}</MenuItem>
                 ))
+              )}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Categoría</InputLabel>
+            <Select
+              value={productoForm.categoria}
+              label="Categoría"
+              onChange={(e) => {
+                setProductoForm({
+                  ...productoForm,
+                  categoria: e.target.value,
+                });
+              }}
+            >
+              {categorias.length === 0 ? (
+                getFallbackCategorias(productoForm.tipoProducto).map((cat) => (
+                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                ))
+              ) : (
+                categorias
+                  .filter((cat: any) => matchTipo(cat.tipoProducto, productoForm.tipoProducto))
+                  .map((cat) => (
+                    <MenuItem key={cat.id} value={cat.nombre}>{cat.nombre}</MenuItem>
+                  ))
               )}
             </Select>
           </FormControl>
@@ -3504,31 +3534,6 @@ export default function Inventario() {
           />
 
           <FormControl fullWidth size="small">
-            <InputLabel>Categoría</InputLabel>
-            <Select
-              value={editarProductoForm.categoria}
-              label="Categoría"
-              onChange={(e) => {
-                const catName = e.target.value;
-                setEditarProductoForm({
-                  ...editarProductoForm,
-                  categoria: catName,
-                });
-              }}
-            >
-              {categorias.length === 0 ? (
-                ['LECHE', 'YOGURT', 'QUESOS', 'MANTEQUILLA', 'HELADOS', 'POSTRES', 'OTROS'].map((cat) => (
-                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                ))
-              ) : (
-                categorias.map((cat) => (
-                  <MenuItem key={cat.id} value={cat.nombre}>{cat.nombre}</MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth size="small">
             <InputLabel>Tipo de Producto</InputLabel>
             <Select
               value={editarProductoForm.tipoProducto}
@@ -3548,6 +3553,33 @@ export default function Inventario() {
                 tiposProducto.map((t) => (
                   <MenuItem key={t.id} value={t.nombre}>{t.descripcion}</MenuItem>
                 ))
+              )}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Categoría</InputLabel>
+            <Select
+              value={editarProductoForm.categoria}
+              label="Categoría"
+              onChange={(e) => {
+                const catName = e.target.value;
+                setEditarProductoForm({
+                  ...editarProductoForm,
+                  categoria: catName,
+                });
+              }}
+            >
+              {categorias.length === 0 ? (
+                getFallbackCategorias(editarProductoForm.tipoProducto).map((cat) => (
+                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                ))
+              ) : (
+                categorias
+                  .filter((cat: any) => matchTipo(cat.tipoProducto, editarProductoForm.tipoProducto))
+                  .map((cat) => (
+                    <MenuItem key={cat.id} value={cat.nombre}>{cat.nombre}</MenuItem>
+                  ))
               )}
             </Select>
           </FormControl>
