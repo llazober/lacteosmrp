@@ -125,7 +125,7 @@ export default function RutaOperaciones() {
 
     if (!orden.operaciones || orden.operaciones.length === 0) {
       // Sin operaciones: el primer Centro de Trabajo activo es el primero de la lista global
-      if (orden.estado === 'PLANIFICADA' && centrosTrabajo.length > 0) {
+      if ((orden.estado === 'PLANIFICADA' || orden.estado === 'FALTANTES') && centrosTrabajo.length > 0) {
         activeWc = centrosTrabajo[0].id;
       }
     } else {

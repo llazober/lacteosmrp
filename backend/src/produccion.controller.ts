@@ -2214,7 +2214,7 @@ export class ProduccionController implements OnModuleInit {
   async listarOperacionesActivas() {
     return this.prisma.ordenProduccion.findMany({
       where: {
-        estado: { in: ['PLANIFICADA', 'EN_PROCESO'] },
+        estado: { in: ['PLANIFICADA', 'EN_PROCESO', 'FALTANTES'] },
       },
       include: {
         receta: {
