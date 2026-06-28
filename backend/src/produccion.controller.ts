@@ -589,14 +589,14 @@ export class ProduccionController implements OnModuleInit {
     if (!op) {
       throw new BadRequestException('La orden de producción no existe.');
     }
-    if (op.estado !== 'PLANIFICADA') {
+    if (op.estado !== 'PLANIFICADA' && !(op.estado === 'FALTANTES' && op.pickingCompletado)) {
       if (op.estado === 'FALTANTES') {
         throw new BadRequestException(
           'No se puede iniciar una orden con faltantes de materia prima (Shortages).',
         );
       }
       throw new BadRequestException(
-        'Solo se pueden iniciar órdenes en estado PLANIFICADA.',
+        'Solo se pueden iniciar órdenes en estado PLANIFICADA o con picking completado.',
       );
     }
 
@@ -2266,8 +2266,8 @@ export class ProduccionController implements OnModuleInit {
       );
     }
 
-    // Si la orden está en PLANIFICADA y el workCenter es el primero, iniciar la orden general
-    if (firstOp && op.estado === 'PLANIFICADA' && workCenter === firstOp.workCenter) {
+    // Si la orden está en PLANIFICADA o FALTANTES y el workCenter es el primero, iniciar la orden general
+    if (firstOp && (op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && workCenter === firstOp.workCenter) {
       await this.prisma.ordenProduccion.update({
         where: { id: opId },
         data: {
