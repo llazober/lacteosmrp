@@ -684,7 +684,7 @@ export default function Calidad() {
                         }}
                       >
                         <TableCell>{new Date(c.fecha).toLocaleString()}</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>{c.loteId || 'Leche Directa Silo'}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{c.numeroLote || c.loteId || 'Leche Directa Silo'}</TableCell>
                         <TableCell sx={{ color: c.temperatura > 4.5 ? 'error.main' : 'inherit' }}>
                           {c.temperatura} °C
                         </TableCell>
@@ -766,7 +766,7 @@ export default function Calidad() {
                       </TableCell>
                       <TableCell>
                         {i.ordenProduccion ? `OP: ${i.ordenProduccion.numeroOrden}` : ''}
-                        {i.loteId ? ` | Lote: ${i.loteId}` : ''}
+                        {i.numeroLote || i.loteId ? ` | Lote: ${i.numeroLote || i.loteId}` : ''}
                       </TableCell>
                       <TableCell>{i.temperatura != null ? `${i.temperatura} °C` : '-'}</TableCell>
                       <TableCell>{i.ph != null ? i.ph : '-'}</TableCell>

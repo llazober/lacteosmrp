@@ -684,8 +684,8 @@ export class ProductosController {
       );
     }
 
-    const normNombre = nombre.trim().toUpperCase();
-    const normAbrev = abreviacion.trim().toUpperCase();
+    const normNombre = nombre.trim();
+    const normAbrev = abreviacion.trim();
     const exist = await this.prisma.unidadMedida.findUnique({
       where: { nombre: normNombre },
     });
@@ -727,8 +727,8 @@ export class ProductosController {
       );
     }
 
-    const normNombre = nombre.trim().toUpperCase();
-    const normAbrev = abreviacion.trim().toUpperCase();
+    const normNombre = nombre.trim();
+    const normAbrev = abreviacion.trim();
 
     // Verificar unicidad excluyendo la actual
     const exist = await this.prisma.unidadMedida.findFirst({

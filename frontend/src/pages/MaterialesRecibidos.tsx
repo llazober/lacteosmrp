@@ -41,7 +41,7 @@ interface RecepcionDetalle {
     tipoProducto: string;
   };
   lote?: {
-    numero: string;
+    numeroLote: string;
     fechaProduccion: string;
     fechaVencimiento: string;
     tempMin?: number;
@@ -528,7 +528,7 @@ export default function MaterialesRecibidos() {
                                 Lote Nro
                               </Typography>
                               <Typography variant="body2" sx={{ fontWeight: 800, color: '#10b981' }}>
-                                {det.lote.numero}
+                                {det.lote.numeroLote}
                               </Typography>
                             </Box>
                             <Box sx={{ gridColumn: { xs: 'span 6', sm: 'span 4' } }}>

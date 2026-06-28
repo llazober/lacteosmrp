@@ -18,12 +18,23 @@ export class CalidadController {
   // --- RECEPCIÓN DE LECHE ---
   @Get('recepcion-leche')
   async listarControlesLeche() {
-    return this.prisma.controlLeche.findMany({
+    const controles = await this.prisma.controlLeche.findMany({
       include: {
         inspector: true,
       },
       orderBy: { fecha: 'desc' },
     });
+
+    const loteIds = controles.map((c) => c.loteId).filter((id): id is string => !!id);
+    const lotes = await this.prisma.lote.findMany({
+      where: { id: { in: loteIds } },
+    });
+    const loteMap = new Map(lotes.map((l) => [l.id, l.numeroLote]));
+
+    return controles.map((c) => ({
+      ...c,
+      numeroLote: c.loteId ? (loteMap.get(c.loteId) || c.loteId) : null,
+    }));
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD')
@@ -108,13 +119,24 @@ export class CalidadController {
   // --- INSPECCIONES GENERALES (PROCESO / PRODUCTO TERMINADO) ---
   @Get('inspecciones')
   async listarInspecciones() {
-    return this.prisma.controlCalidad.findMany({
+    const inspecciones = await this.prisma.controlCalidad.findMany({
       include: {
         ordenProduccion: true,
         inspector: true,
       },
       orderBy: { fecha: 'desc' },
     });
+
+    const loteIds = inspecciones.map((i) => i.loteId).filter((id): id is string => !!id);
+    const lotes = await this.prisma.lote.findMany({
+      where: { id: { in: loteIds } },
+    });
+    const loteMap = new Map(lotes.map((l) => [l.id, l.numeroLote]));
+
+    return inspecciones.map((i) => ({
+      ...i,
+      numeroLote: i.loteId ? (loteMap.get(i.loteId) || i.loteId) : null,
+    }));
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD')
