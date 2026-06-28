@@ -5,6 +5,7 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 ---
 
 ## Índice
+*   [Flujo de Proceso Operativo Integrado](#flujo-de-proceso-operativo-integrado)
 1. [Roles y Permisos del Sistema](#1-roles-y-permisos-del-sistema)
 2. [Módulo de Punto de Venta (POS)](#2-módulo-de-punto-de-venta-pos)
 3. [Módulo de Inventario y Control de Lotes](#3-módulo-de-inventario-y-control-de-lotes)
@@ -19,6 +20,48 @@ Este manual documenta el funcionamiento general y operativo del sistema de gesti
 12. [Administración de Personal y Auditoría](#12-administración-de-personal-y-auditoría)
 13. [Utilidades y Configuración de Tablas Maestras](#13-utilidades-y-configuración-de-tablas-maestras)
 14. [Rutas Inteligentes y Reabastecimiento Automático](#14-rutas-inteligentes-y-reabastecimiento-automático)
+
+---
+
+## Flujo de Proceso Operativo Integrado
+
+A continuación se presenta el mapa del flujo operativo desde la planificación inicial hasta el cierre financiero:
+
+```mermaid
+graph TD
+    %% Estilos de nodos
+    classDef prod fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef quality fill:#b45309,stroke:#f59e0b,stroke-width:2px,color:#fff;
+    classDef purchase fill:#065f46,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef finance fill:#701a75,stroke:#d946ef,stroke-width:2px,color:#fff;
+
+    P1["1. Planificación de la Producción<br/>(Cálculo de lotes y sugerencias)"]:::prod --> P2["2. Requerimiento de Materia Prima<br/>(Definición de faltantes y stock mínimo)"]:::prod
+    P2 --> P3["3. Aprobar Órdenes de Compra<br/>(Validación de OC a Proveedores)"]:::purchase
+    P3 --> P4["4. Recepción de Materiales<br/>(Ingreso físico, factura y guía)"]:::purchase
+    P4 --> P5["5. Control de Calidad<br/>(Auditoría fisicoquímica y microbiológica)"]:::quality
+    
+    P5 -->|Lote Aprobado| P6["6. Pick List<br/>(Preparación y despacho bajo regla FEFO)"]:::prod
+    P5 -->|Lote Rechazado / Cuarentena| QA_Inc["Alerta de Calidad / No Conformidad"]:::quality
+    
+    P6 --> P7["7. Ruta de Operaciones<br/>(Secuencia de fabricación en Planta)"]:::prod
+    P7 --> P8["8. Cuentas por Pagar<br/>(Procure-to-Pay y conciliación de facturas)"]:::finance
+
+    click P1 "#9-módulo-de-producción-láctea" "Ver módulo de producción"
+    click P3 "#5-gestión-de-compras-y-flujo-de-recepción-de-materiales" "Ver compras"
+    click P5 "#10-módulo-de-control-de-calidad-y-cumplimiento" "Ver control de calidad"
+    click P8 "#6-ciclo-de-cuentas-por-pagar-procure-to-pay" "Ver cuentas por pagar"
+```
+
+### Descripción de Etapas:
+
+1. **Planificación de la Producción**: El sistema evalúa la demanda y el stock disponible para sugerir las cantidades a producir, agrupándolas en lotes de producción sugeridos.
+2. **Requerimiento de Materia Prima**: Se analizan las recetas (BOM) de la producción planificada para calcular las materias primas y aditivos necesarios, gatillando solicitudes automáticas de reabastecimiento.
+3. **Aprobar Órdenes de Compra**: Supervisores autorizan los pedidos dirigidos a los proveedores, fijando la fecha estimada de entrega y las condiciones comerciales.
+4. **Recepción de Materiales**: El bodeguero valida la carga contra el documento físico (factura/guía) registrando cantidades y temperaturas. Los lotes de materias primas entran bloqueados en estado **PENDIENTE**.
+5. **Control de Calidad**: El inspector realiza las pruebas microbiológicas (ej. antibióticos, acidez) para liberar o bloquear el lote de materia prima.
+6. **Pick List**: Listado optimizado bajo regla FEFO para surtir a la planta con los insumos y materias primas aprobados y vigentes.
+7. **Ruta de Operaciones**: Secuencia de fases de producción (ej. pasteurizado, cuajado, envasado) en los centros de trabajo de la fábrica.
+8. **Cuentas por Pagar**: Conciliación de facturas de compra contra los recibos de mercadería validados para programar los pagos finales según los términos acordados.
 
 ---
 
