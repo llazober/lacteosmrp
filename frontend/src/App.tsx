@@ -46,6 +46,7 @@ import {
   LocalShipping as LogisticaIcon,
   Assignment as PlanificacionIcon,
   AccountTree as RutaIcon,
+  ChevronLeft,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -88,6 +89,7 @@ function MainLayout() {
   const setSystemTimezone = useAuthStore((state) => state.setSystemTimezone);
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const unreadChannels = useAuthStore((state) => state.unreadChannels);
   const addUnreadChannel = useAuthStore((state) => state.addUnreadChannel);
 
@@ -237,23 +239,39 @@ function MainLayout() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Branding header */}
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(2, 132, 199, 0.15)',
+                color: 'primary.main',
+                p: 1,
+                borderRadius: 2,
+              }}
+            >
+              <Storefront sx={{ fontSize: 28 }} />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Lácteos ERP
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setSidebarVisible(false)}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(2, 132, 199, 0.15)',
-              color: 'primary.main',
-              p: 1,
-              borderRadius: 2,
+              display: { xs: 'none', md: 'flex' },
+              color: 'text.secondary',
+              p: 0.5,
+              '&:hover': {
+                color: 'text.primary',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
             }}
           >
-            <Storefront sx={{ fontSize: 28 }} />
-          </Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em', background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Lácteos ERP
-          </Typography>
+            <ChevronLeft />
+          </IconButton>
         </Box>
         {usuario && (
           <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -455,14 +473,16 @@ function MainLayout() {
       <Drawer
         variant="permanent"
         sx={{
-          display: { xs: 'none', md: 'block' },
-          width: DRAWER_WIDTH,
+          display: { xs: 'none', md: sidebarVisible ? 'block' : 'none' },
+          width: sidebarVisible ? DRAWER_WIDTH : 0,
           flexShrink: 0,
+          transition: 'width 0.2s ease',
           '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
+            width: sidebarVisible ? DRAWER_WIDTH : 0,
             boxSizing: 'border-box',
             backgroundColor: '#111827',
             borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+            transition: 'width 0.2s ease',
           },
         }}
         open
@@ -471,7 +491,33 @@ function MainLayout() {
       </Drawer>
 
       {/* Main Content Area */}
-      <Box component="main" sx={{ flexGrow: 1, height: { xs: 'calc(100vh - 56px)', md: '100vh' }, overflowX: 'auto', overflowY: 'hidden', backgroundColor: '#0b0f19' }}>
+      <Box component="main" sx={{ flexGrow: 1, height: { xs: 'calc(100vh - 56px)', md: '100vh' }, overflowX: 'auto', overflowY: 'hidden', backgroundColor: '#0b0f19', position: 'relative' }}>
+        {!sidebarVisible && (
+          <IconButton
+            onClick={() => setSidebarVisible(true)}
+            sx={{
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 1200,
+              backgroundColor: '#111827',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderLeft: 'none',
+              borderRadius: '0 12px 12px 0',
+              boxShadow: '4px 0 15px rgba(0, 0, 0, 0.5)',
+              color: 'primary.main',
+              width: 24,
+              height: 60,
+              '&:hover': {
+                backgroundColor: 'rgba(2, 132, 199, 0.15)',
+                color: 'primary.light',
+              },
+            }}
+          >
+            <MenuIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        )}
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pos" element={<POS />} />
