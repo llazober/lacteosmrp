@@ -45,6 +45,7 @@ import {
   ArrowDownward,
   RestartAlt,
   Settings,
+  AccountTree,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 // Work centers are now loaded dynamically from the backend
@@ -104,6 +105,16 @@ export default function Produccion() {
     }).format(val);
   };
 
+  const getFormatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins < 60) return `${mins}m ${secs}s`;
+    const hrs = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return `${hrs}h ${remMins}m`;
+  };
+
   // Datos
   const [recetas, setRecetas] = useState<any[]>([]);
   const [ordenes, setOrdenes] = useState<any[]>([]);
@@ -129,6 +140,8 @@ export default function Produccion() {
   const [selectedOrdenConsumos, setSelectedOrdenConsumos] = useState<any>(null);
   const [openReadOnlyPicking, setOpenReadOnlyPicking] = useState(false);
   const [readOnlyPickingData, setReadOnlyPickingData] = useState<any>(null);
+  const [openRutaOrden, setOpenRutaOrden] = useState(false);
+  const [selectedOrdenRuta, setSelectedOrdenRuta] = useState<any>(null);
   const [ordenForm, setOrdenForm] = useState({
     recetaId: '',
     sucursalId: '',
@@ -349,6 +362,8 @@ export default function Produccion() {
         setRecetas(rec);
         const suc = await apiFetch('/sucursales');
         setSucursales(suc);
+        const wcs = await apiFetch('/produccion/centros-trabajo');
+        setCentrosTrabajo(wcs);
         
         try {
           const us = await apiFetch('/auth/usuarios');
@@ -1057,6 +1072,19 @@ export default function Produccion() {
                       </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                          <Tooltip title="Ver Ruta de Operaciones">
+                            <IconButton
+                              color="primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrdenRuta(op);
+                                setOpenRutaOrden(true);
+                              }}
+                              size="small"
+                            >
+                              <Settings fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Ver Pick List (Lectura)">
                             <IconButton color="secondary" onClick={(e) => { e.stopPropagation(); handleOpenReadOnlyPicking(op); }} size="small">
                               <Assignment fontSize="small" />
@@ -2515,6 +2543,187 @@ export default function Produccion() {
           <Button variant="outlined" onClick={() => setOpenCentroTrabajo(false)}>Cancelar</Button>
           <Button variant="contained" onClick={handleGuardarCentroTrabajo} sx={{ fontWeight: 700 }}>
             {centroTrabajoForm.isEditing ? 'Guardar Cambios' : 'Crear Centro'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para Ver Ruta de Operaciones de la Orden */}
+      <Dialog
+        open={openRutaOrden}
+        onClose={() => setOpenRutaOrden(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <AccountTree sx={{ color: 'primary.main' }} /> Hoja de Ruta / Operaciones de la Orden — {selectedOrdenRuta?.numeroOrden}
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3 }}>
+          {selectedOrdenRuta && (
+            <Box>
+              <Paper sx={{ p: 2.5, mb: 3, backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.light', mb: 1.5 }}>
+                  INFORMACIÓN GENERAL DE LA ORDEN
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Producto Final:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {selectedOrdenRuta.receta?.productoFinal?.descripcion} ({selectedOrdenRuta.receta?.productoFinal?.sku})
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Rendimiento Planificado:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {selectedOrdenRuta.cantidadPlanificada} {selectedOrdenRuta.receta?.productoFinal?.unidadMedida}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Estado General:</Typography>
+                    <Chip label={selectedOrdenRuta.estado} size="small" color={selectedOrdenRuta.estado === 'COMPLETADA' ? 'success' : 'primary'} sx={{ mt: 0.5 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Responsable:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {selectedOrdenRuta.responsable?.nombre || 'No asignado'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', mb: 2 }}>
+                Secuencia de Operaciones en Planta
+              </Typography>
+
+              {!selectedOrdenRuta.operaciones || selectedOrdenRuta.operaciones.length === 0 ? (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  No hay operaciones inicializadas para esta orden de producción.
+                </Alert>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {selectedOrdenRuta.operaciones.map((step: any) => {
+                    const ct = centrosTrabajo.find((w) => w.id === step.workCenter);
+                    const isCompleted = step.estado === 'COMPLETADA';
+                    const isInProgress = step.estado === 'EN_PROCESO';
+
+                    // Parse control fields values if completed
+                    const detailsList: { label: string; value: any }[] = [];
+                    if (step.datosJson) {
+                      try {
+                        const parsed = JSON.parse(step.datosJson);
+                        const fields = step.datosRequeridos
+                          ? (() => { try { return typeof step.datosRequeridos === 'string' ? JSON.parse(step.datosRequeridos) : step.datosRequeridos; } catch { return []; } })()
+                          : (ct?.datosRequeridos ? (typeof ct.datosRequeridos === 'string' ? JSON.parse(ct.datosRequeridos) : ct.datosRequeridos) : []);
+                        fields.forEach((f: any) => {
+                          if (parsed[f.name] !== undefined && parsed[f.name] !== '') {
+                            detailsList.push({
+                              label: f.label,
+                              value: `${parsed[f.name]}${f.suffix ? ' ' + f.suffix : ''}`,
+                            });
+                          }
+                        });
+                      } catch {}
+                    }
+
+                    return (
+                      <Box
+                        key={step.id}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          backgroundColor: isCompleted
+                            ? 'rgba(16, 185, 129, 0.03)'
+                            : isInProgress
+                            ? 'rgba(59, 130, 246, 0.05)'
+                            : 'rgba(255, 255, 255, 0.01)',
+                          border: '1px solid',
+                          borderColor: isCompleted
+                            ? 'rgba(16, 185, 129, 0.2)'
+                            : isInProgress
+                            ? 'rgba(59, 130, 246, 0.3)'
+                            : 'rgba(255, 255, 255, 0.06)',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip label={`Paso ${step.orden}`} size="small" variant="outlined" sx={{ fontWeight: 800 }} />
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              {ct?.nombre || step.workCenter} ({step.workCenter})
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={step.estado}
+                            size="small"
+                            color={isCompleted ? 'success' : isInProgress ? 'primary' : 'default'}
+                            sx={{ fontWeight: 800, fontSize: '0.7rem' }}
+                          />
+                        </Box>
+
+                        <Box sx={{ pl: 1, mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Duración Estimada: {step.duracionEstimada || ct?.duracionEstimada || 30} min
+                            {step.duracionSegundos !== null && ` | Duración Real: ${getFormatDuration(step.duracionSegundos)}`}
+                          </Typography>
+
+                          {step.usuarioNombre && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                              👤 Operario: <span style={{ fontWeight: 600, color: '#e5e7eb' }}>{step.usuarioNombre}</span>
+                            </Typography>
+                          )}
+
+                          {step.fechaInicio && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Inicio: {new Date(step.fechaInicio).toLocaleString('es-CL')}
+                            </Typography>
+                          )}
+                          {step.fechaFin && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Fin: {new Date(step.fechaFin).toLocaleString('es-CL')}
+                            </Typography>
+                          )}
+
+                          {detailsList.length > 0 && (
+                            <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                              <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.light', display: 'block', mb: 0.5 }}>
+                                Controles de Calidad Registrados:
+                              </Typography>
+                              {detailsList.map((d, idx) => (
+                                <Typography key={idx} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                  • <strong>{d.label}:</strong> {d.value}
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
+
+                          {step.notas && (
+                            <Box sx={{ mt: 1, p: 1, borderRadius: 1, bgcolor: 'rgba(239,68,68,0.05)', border: '1px dashed rgba(239,68,68,0.2)' }}>
+                              <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.light', display: 'block' }}>
+                                Notas / Desviaciones:
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {step.notas}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenRutaOrden(false)} variant="contained">
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>

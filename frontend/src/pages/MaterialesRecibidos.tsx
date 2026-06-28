@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -77,7 +76,6 @@ interface Recepcion {
 }
 
 export default function MaterialesRecibidos() {
-  const navigate = useNavigate();
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -311,21 +309,7 @@ export default function MaterialesRecibidos() {
                         >
                           Ver Detalle
                         </Button>
-                        {!rec.facturaCompra && (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            color="warning"
-                            onClick={() => navigate(`/finanzas?tab=facturas&importRecepcionId=${rec.id}`)}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              borderRadius: 2,
-                            }}
-                          >
-                            Facturar
-                          </Button>
-                        )}
+                        {/* Facturación centralizada en Cuentas por Pagar */}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -598,17 +582,12 @@ export default function MaterialesRecibidos() {
                     sx={{ fontWeight: 700 }}
                   />
                 ) : (
-                  <Button
-                    variant="contained"
+                  <Chip
+                    label="Pendiente de Facturar"
                     color="warning"
-                    onClick={() => {
-                      setSelectedRecepcion(null);
-                      navigate(`/finanzas?tab=facturas&importRecepcionId=${selectedRecepcion.id}`);
-                    }}
-                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                  >
-                    Facturar esta Recepción
-                  </Button>
+                    variant="outlined"
+                    sx={{ fontWeight: 700 }}
+                  />
                 )}
               </Box>
               <Button

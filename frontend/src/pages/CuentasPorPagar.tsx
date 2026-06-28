@@ -99,6 +99,7 @@ export default function CuentasPorPagar() {
   const [ordenesCompra, setOrdenesCompra] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [recepciones, setRecepciones] = useState<any[]>([]);
+  const [filtroEstado, setFiltroEstado] = useState<'PENDIENTES' | 'PAGADAS'>('PENDIENTES');
 
   // Dialog states
   const [openCrearFactura, setOpenCrearFactura] = useState(false);
@@ -491,9 +492,29 @@ export default function CuentasPorPagar() {
       {activeTab === 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Paper className="glass-panel" sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, color: 'primary.light' }}>
-              Facturas Registradas
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.light', mb: 0 }}>
+                Facturas Registradas
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant={filtroEstado === 'PENDIENTES' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setFiltroEstado('PENDIENTES')}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Facturas por Pagar
+                </Button>
+                <Button
+                  variant={filtroEstado === 'PAGADAS' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setFiltroEstado('PAGADAS')}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Facturas Pagadas
+                </Button>
+              </Box>
+            </Box>
             <Box sx={{ overflowX: 'auto', width: '100%' }}>
               <Table>
                 <TableHead>
@@ -511,14 +532,26 @@ export default function CuentasPorPagar() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {facturas.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} align="center">
-                      No se encontraron facturas registradas.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  facturas.map((f) => {
+                  {(() => {
+                    const facturasFiltradas = facturas.filter((f) => {
+                      if (filtroEstado === 'PENDIENTES') {
+                        return f.estado !== 'PAGADA';
+                      } else {
+                        return f.estado === 'PAGADA';
+                      }
+                    });
+
+                    if (facturasFiltradas.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={10} align="center">
+                            No se encontraron facturas {filtroEstado === 'PENDIENTES' ? 'pendientes de pago' : 'pagadas'}.
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return facturasFiltradas.map((f) => {
                     const pagado = f.pagos.reduce((sum: number, p: any) => sum + p.monto, 0);
                     const saldo = f.total - pagado;
                     const esVencida = new Date(f.fechaVencimiento) < new Date() && f.estado !== 'PAGADA';
@@ -640,8 +673,8 @@ export default function CuentasPorPagar() {
                         </TableCell>
                       </TableRow>
                     );
-                  })
-                )}
+                  });
+                })()}
               </TableBody>
             </Table>
           </Box>

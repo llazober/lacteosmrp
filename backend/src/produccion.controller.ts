@@ -506,6 +506,9 @@ export class ProduccionController implements OnModuleInit {
         },
         inspecciones: true,
         lotesProducidos: true,
+        operaciones: {
+          orderBy: { orden: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
