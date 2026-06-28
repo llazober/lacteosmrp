@@ -3258,63 +3258,6 @@ export default function Inventario() {
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           <TextField
             fullWidth
-            label="SKU (Auto-generado)"
-            placeholder="PT-QUE-QML"
-            size="small"
-            value={productoForm.sku}
-            onChange={(e) => setProductoForm({ ...productoForm, sku: e.target.value })}
-            helperText="Se genera automáticamente al completar Tipo, Categoría y Nombre. Puedes editarlo manualmente."
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Tooltip title="Regenerar SKU">
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          const sku = generarSKU(productoForm.tipoProducto, productoForm.categoria, productoForm.descripcion);
-                          if (sku) setProductoForm({ ...productoForm, sku });
-                        }}
-                        sx={{ textTransform: 'none', fontWeight: 700 }}
-                      >
-                        Regenerar
-                      </Button>
-                    </Tooltip>
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Código de Barras"
-            placeholder="7801234567890"
-            size="small"
-            value={productoForm.codigoBarras}
-            onChange={(e) => setProductoForm({ ...productoForm, codigoBarras: e.target.value })}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        const barcode = generateInternalBarcode();
-                        setProductoForm({ ...productoForm, codigoBarras: barcode });
-                      }}
-                      sx={{ textTransform: 'none', fontWeight: 700 }}
-                    >
-                      Generar
-                    </Button>
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <TextField
-            fullWidth
             label="Descripción / Nombre"
             placeholder="Queso Mantecoso Laminado"
             size="small"
@@ -3371,6 +3314,63 @@ export default function Inventario() {
               )}
             </Select>
           </FormControl>
+
+          <TextField
+            fullWidth
+            label="SKU (Auto-generado)"
+            placeholder="PT-QUE-QML"
+            size="small"
+            value={productoForm.sku}
+            onChange={(e) => setProductoForm({ ...productoForm, sku: e.target.value })}
+            helperText="Se genera automáticamente al completar Tipo, Categoría y Nombre. Puedes editarlo manualmente."
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title="Regenerar SKU">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          const sku = generarSKU(productoForm.tipoProducto, productoForm.categoria, productoForm.descripcion);
+                          if (sku) setProductoForm({ ...productoForm, sku });
+                        }}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Regenerar
+                      </Button>
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Código de Barras"
+            placeholder="7801234567890"
+            size="small"
+            value={productoForm.codigoBarras}
+            onChange={(e) => setProductoForm({ ...productoForm, codigoBarras: e.target.value })}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        const barcode = generateInternalBarcode();
+                        setProductoForm({ ...productoForm, codigoBarras: barcode });
+                      }}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Generar
+                    </Button>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
 
           <TextField
             fullWidth
@@ -3497,35 +3497,6 @@ export default function Inventario() {
 
           <TextField
             fullWidth
-            label="SKU (Auto-generado)"
-            size="small"
-            value={editarProductoForm.sku}
-            onChange={(e) => setEditarProductoForm({ ...editarProductoForm, sku: e.target.value.toUpperCase() })}
-            helperText="Identificador único del producto. Puedes editarlo o regenerarlo automáticamente."
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Tooltip title="Regenerar SKU desde Tipo, Categoría y Nombre">
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          const sku = generarSKU(editarProductoForm.tipoProducto, editarProductoForm.categoria, editarProductoForm.descripcion);
-                          if (sku) setEditarProductoForm({ ...editarProductoForm, sku });
-                        }}
-                        sx={{ textTransform: 'none', fontWeight: 700 }}
-                      >
-                        Regenerar
-                      </Button>
-                    </Tooltip>
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <TextField
-            fullWidth
             label="Descripción / Nombre"
             size="small"
             value={editarProductoForm.descripcion}
@@ -3580,6 +3551,35 @@ export default function Inventario() {
               )}
             </Select>
           </FormControl>
+
+          <TextField
+            fullWidth
+            label="SKU (Auto-generado)"
+            size="small"
+            value={editarProductoForm.sku}
+            onChange={(e) => setEditarProductoForm({ ...editarProductoForm, sku: e.target.value.toUpperCase() })}
+            helperText="Identificador único del producto. Puedes editarlo o regenerarlo automáticamente."
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title="Regenerar SKU desde Tipo, Categoría y Nombre">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          const sku = generarSKU(editarProductoForm.tipoProducto, editarProductoForm.categoria, editarProductoForm.descripcion);
+                          if (sku) setEditarProductoForm({ ...editarProductoForm, sku });
+                        }}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Regenerar
+                      </Button>
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
 
           <TextField
             fullWidth

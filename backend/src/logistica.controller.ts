@@ -1606,7 +1606,9 @@ export class LogisticaController implements OnModuleInit {
       const prod = await client.producto.findUnique({ where: { id: productoId } });
       if (prod) {
         let tipoBodega = 'PRODUCTO_TERMINADO';
-        if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
+        if (prod.tipoProducto === 'MNA' || prod.categoria === 'MNA') {
+          tipoBodega = 'GENERAL';
+        } else if (prod.tipoProducto === 'INSUMO' || prod.categoria === 'INSUMOS') {
           tipoBodega = 'INSUMOS';
         } else if (prod.categoria === 'QUIMICOS') {
           tipoBodega = 'QUIMICOS';
