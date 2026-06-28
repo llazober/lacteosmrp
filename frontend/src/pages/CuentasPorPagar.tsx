@@ -98,6 +98,7 @@ export default function CuentasPorPagar() {
   const [proveedores, setProveedores] = useState<any[]>([]);
   const [ordenesCompra, setOrdenesCompra] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
+  const [recepciones, setRecepciones] = useState<any[]>([]);
 
   // Dialog states
   const [openCrearFactura, setOpenCrearFactura] = useState(false);
@@ -110,6 +111,7 @@ export default function CuentasPorPagar() {
     numeroFactura: '',
     proveedorId: '',
     ordenCompraId: '',
+    recepcionMaterialId: '',
     fechaEmision: new Date().toISOString().split('T')[0],
     subtotal: 0,
     iva: 0,
@@ -136,16 +138,18 @@ export default function CuentasPorPagar() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [facts, provs, ocs, prods] = await Promise.all([
+      const [facts, provs, ocs, prods, recs] = await Promise.all([
         apiFetch('/finanzas/facturas'),
         apiFetch('/proveedores'),
         apiFetch('/compras'),
         apiFetch('/productos'),
+        apiFetch('/recepciones'),
       ]);
       setFacturas(facts);
       setProveedores(provs.filter((p: any) => p.estado === 'ACTIVO'));
       setOrdenesCompra(ocs);
       setProductos(prods);
+      setRecepciones(recs || []);
     } catch (e: any) {
       setErrorMsg('Error al cargar datos financieros: ' + e.message);
     } finally {
@@ -184,6 +188,68 @@ export default function CuentasPorPagar() {
     }));
     setDetallesForm(mappedDetails);
   };
+
+  const handleSelectRecepcion = (recId: string) => {
+    if (!recId) {
+      setFacturaForm((prev) => ({
+        ...prev,
+        recepcionMaterialId: '',
+      }));
+      return;
+    }
+    const rec = recepciones.find((r) => r.id === recId);
+    if (!rec) return;
+
+    setFacturaForm((prev) => ({
+      ...prev,
+      recepcionMaterialId: recId,
+      proveedorId: rec.proveedorId || '',
+      ordenCompraId: rec.ordenCompraId || '',
+      numeroFactura: rec.facturaNumero || prev.numeroFactura || '',
+      observaciones: rec.observaciones || prev.observaciones || '',
+    }));
+
+    const mappedDetails = rec.detalles.map((d: any) => ({
+      productoId: d.productoId,
+      nombre: d.producto?.descripcion || 'Producto',
+      cantidad: d.cantidad,
+      costoUnitario: d.costoUnitario || d.producto?.costo || 0,
+    }));
+    setDetallesForm(mappedDetails);
+  };
+
+  useEffect(() => {
+    const importId = searchParams.get('importRecepcionId');
+    if (importId && recepciones.length > 0) {
+      const rec = recepciones.find((r) => r.id === importId);
+      if (rec) {
+        setFacturaForm({
+          numeroFactura: rec.facturaNumero || '',
+          proveedorId: rec.proveedorId || '',
+          ordenCompraId: rec.ordenCompraId || '',
+          recepcionMaterialId: rec.id,
+          fechaEmision: new Date().toISOString().split('T')[0],
+          subtotal: 0,
+          iva: 0,
+          total: 0,
+          observaciones: rec.observaciones || '',
+        });
+
+        const mappedDetails = rec.detalles.map((d: any) => ({
+          productoId: d.productoId,
+          nombre: d.producto?.descripcion || 'Producto',
+          cantidad: d.cantidad,
+          costoUnitario: d.costoUnitario || d.producto?.costo || 0,
+        }));
+        setDetallesForm(mappedDetails);
+        setOpenCrearFactura(true);
+
+        const newParams = new URLSearchParams(window.location.search);
+        newParams.delete('importRecepcionId');
+        setSearchParams(newParams);
+      }
+    }
+  }, [searchParams, recepciones]);
 
   const handleAddDetalleRow = () => {
     setDetallesForm((prev) => [
@@ -322,6 +388,7 @@ export default function CuentasPorPagar() {
               numeroFactura: '',
               proveedorId: '',
               ordenCompraId: '',
+              recepcionMaterialId: '',
               fechaEmision: new Date().toISOString().split('T')[0],
               subtotal: 0,
               iva: 0,
@@ -407,6 +474,7 @@ export default function CuentasPorPagar() {
                 <TableRow>
                   <TableCell>N° Factura</TableCell>
                   <TableCell>Proveedor</TableCell>
+                  <TableCell>Recibo Asociado</TableCell>
                   <TableCell>OC Asociada</TableCell>
                   <TableCell>Emisión</TableCell>
                   <TableCell>Vencimiento</TableCell>
@@ -456,6 +524,22 @@ export default function CuentasPorPagar() {
                           <Typography variant="caption" color="text.secondary">
                             Rut/Código: {f.proveedor?.codigo}
                           </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {f.recepcionMaterial ? (
+                            <Chip
+                              label={f.recepcionMaterial.numeroRecibo}
+                              size="small"
+                              sx={{
+                                fontWeight: 800,
+                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                color: '#60a5fa',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                              }}
+                            />
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">Directa / Manual</Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           {f.ordenCompra ? (
@@ -627,10 +711,29 @@ export default function CuentasPorPagar() {
           
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <FormControl fullWidth size="small">
+              <InputLabel>Importar Recepción (Opcional)</InputLabel>
+              <Select
+                value={facturaForm.recepcionMaterialId || ''}
+                label="Importar Recepción (Opcional)"
+                onChange={(e) => handleSelectRecepcion(e.target.value)}
+              >
+                <MenuItem value=""><em>Ninguna (Facturación Directa)</em></MenuItem>
+                {recepciones
+                  .filter((r) => !r.facturaCompra || r.id === facturaForm.recepcionMaterialId)
+                  .map((r) => (
+                    <MenuItem key={r.id} value={r.id}>
+                      {r.numeroRecibo} - {r.proveedor?.nombre || 'Proveedor Genérico'} ({dayjs(r.fecha).format('DD/MM/YYYY')})
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth size="small">
               <InputLabel>Asociar Orden de Compra (Opcional)</InputLabel>
               <Select
                 value={facturaForm.ordenCompraId}
                 label="Asociar Orden de Compra (Opcional)"
+                disabled={!!facturaForm.recepcionMaterialId}
                 onChange={(e) => handleSelectOrdenCompra(e.target.value)}
               >
                 <MenuItem value=""><em>Ninguna (Facturación Directa)</em></MenuItem>
@@ -658,7 +761,7 @@ export default function CuentasPorPagar() {
               <Select
                 value={facturaForm.proveedorId}
                 label="Proveedor"
-                disabled={!!facturaForm.ordenCompraId}
+                disabled={!!facturaForm.ordenCompraId || !!facturaForm.recepcionMaterialId}
                 onChange={(e) => setFacturaForm({ ...facturaForm, proveedorId: e.target.value })}
               >
                 {proveedores.map((p) => (
@@ -817,6 +920,22 @@ export default function CuentasPorPagar() {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>FECHA VENCIMIENTO</Typography>
                   <Typography variant="body2">{new Date(selectedFactura.fechaVencimiento).toLocaleDateString('es-CL')}</Typography>
                 </Box>
+                {selectedFactura.recepcionMaterial && (
+                  <Box sx={{ gridColumn: 'span 2' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>RECIBO ASOCIADO</Typography>
+                    <Chip
+                      label={selectedFactura.recepcionMaterial.numeroRecibo}
+                      size="small"
+                      sx={{
+                        fontWeight: 800,
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        color: '#60a5fa',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        mt: 0.5
+                      }}
+                    />
+                  </Box>
+                )}
               </Box>
 
               <Divider />

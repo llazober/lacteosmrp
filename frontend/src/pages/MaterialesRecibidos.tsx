@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Paper,
   Typography,
@@ -69,9 +70,14 @@ interface Recepcion {
     nombre: string;
   };
   detalles: RecepcionDetalle[];
+  facturaCompra?: {
+    id: string;
+    numeroFactura: string;
+  };
 }
 
 export default function MaterialesRecibidos() {
+  const navigate = useNavigate();
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -267,24 +273,60 @@ export default function MaterialesRecibidos() {
                           <strong>Guía/Packing:</strong> {rec.packingSlip}
                         </div>
                       )}
-                      {!rec.facturaNumero && !rec.packingSlip && '-'}
+                      {rec.facturaCompra ? (
+                        <Box sx={{ mt: 0.5 }}>
+                          <Chip
+                            label={`Facturado (${rec.facturaCompra.numeroFactura})`}
+                            size="small"
+                            color="success"
+                            sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+                          />
+                        </Box>
+                      ) : (
+                        <Box sx={{ mt: 0.5 }}>
+                          <Chip
+                            label="Pendiente Facturar"
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+                          />
+                        </Box>
+                      )}
                     </TableCell>
                     <TableCell>{rec.recibidoPor.nombre}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<Visibility />}
-                        onClick={() => setSelectedRecepcion(rec)}
-                        sx={{
-                          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                          textTransform: 'none',
-                          fontWeight: 700,
-                          borderRadius: 2,
-                        }}
-                      >
-                        Ver Detalle
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<Visibility />}
+                          onClick={() => setSelectedRecepcion(rec)}
+                          sx={{
+                            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            borderRadius: 2,
+                          }}
+                        >
+                          Ver Detalle
+                        </Button>
+                        {!rec.facturaCompra && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            color="warning"
+                            onClick={() => navigate(`/finanzas?tab=facturas&importRecepcionId=${rec.id}`)}
+                            sx={{
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              borderRadius: 2,
+                            }}
+                          >
+                            Facturar
+                          </Button>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -545,9 +587,30 @@ export default function MaterialesRecibidos() {
               sx={{
                 p: 2.5,
                 borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                justifyContent: 'flex-end',
+                justifyContent: 'space-between',
               }}
             >
+              <Box>
+                {selectedRecepcion.facturaCompra ? (
+                  <Chip
+                    label={`Facturado con Factura N° ${selectedRecepcion.facturaCompra.numeroFactura}`}
+                    color="success"
+                    sx={{ fontWeight: 700 }}
+                  />
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    onClick={() => {
+                      setSelectedRecepcion(null);
+                      navigate(`/finanzas?tab=facturas&importRecepcionId=${selectedRecepcion.id}`);
+                    }}
+                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                  >
+                    Facturar esta Recepción
+                  </Button>
+                )}
+              </Box>
               <Button
                 variant="outlined"
                 onClick={() => setSelectedRecepcion(null)}

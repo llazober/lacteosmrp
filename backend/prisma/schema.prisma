@@ -503,24 +503,26 @@ model RecepcionCompraDetalle {
 }
 
 model FacturaCompra {
-  id               String   @id @default(uuid())
-  numeroFactura    String
-  proveedorId      String
-  ordenCompraId    String?
-  fechaEmision     DateTime
-  fechaVencimiento DateTime
-  subtotal         Float
-  iva              Float
-  total            Float
-  estado           String   @default("PENDIENTE") // PENDIENTE, PAGADA_PARCIAL, PAGADA, ANULADA
-  observaciones    String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  numeroFactura       String
+  proveedorId         String
+  ordenCompraId       String?
+  recepcionMaterialId String?  @unique
+  fechaEmision        DateTime
+  fechaVencimiento    DateTime
+  subtotal            Float
+  iva                 Float
+  total               Float
+  estado              String   @default("PENDIENTE") // PENDIENTE, PAGADA_PARCIAL, PAGADA, ANULADA
+  observaciones       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  proveedor        Proveedor            @relation(fields: [proveedorId], references: [id])
-  ordenCompra      OrdenCompra?         @relation(fields: [ordenCompraId], references: [id])
-  detalles         FacturaCompraDetalle[]
-  pagos            PagoCompra[]
+  proveedor         Proveedor            @relation(fields: [proveedorId], references: [id])
+  ordenCompra       OrdenCompra?         @relation(fields: [ordenCompraId], references: [id])
+  recepcionMaterial RecepcionMaterial?   @relation(fields: [recepcionMaterialId], references: [id], onDelete: SetNull)
+  detalles          FacturaCompraDetalle[]
+  pagos             PagoCompra[]
 
   @@unique([proveedorId, numeroFactura])
 }
@@ -882,6 +884,7 @@ model RecepcionMaterial {
   recibidoPor     Usuario                 @relation(fields: [recibidoPorId], references: [id])
   sucursal        Sucursal                @relation(fields: [sucursalId], references: [id])
   detalles        RecepcionMaterialDetalle[]
+  facturaCompra   FacturaCompra?
 }
 
 model RecepcionMaterialDetalle {

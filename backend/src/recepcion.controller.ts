@@ -76,6 +76,7 @@ export class RecepcionController {
         proveedor: true,
         sucursal: true,
         recibidoPor: { select: { nombre: true } },
+        facturaCompra: true,
         detalles: {
           include: {
             producto: true,

@@ -142,6 +142,7 @@ export class FinanzasController {
         proveedor: true,
         ordenCompra: true,
         pagos: true,
+        recepcionMaterial: true,
         detalles: {
           include: {
             producto: true,
@@ -159,6 +160,7 @@ export class FinanzasController {
       numeroFactura,
       proveedorId,
       ordenCompraId,
+      recepcionMaterialId,
       fechaEmision,
       subtotal,
       iva,
@@ -213,11 +215,23 @@ export class FinanzasController {
         );
       }
 
+      if (recepcionMaterialId) {
+        const existRecepcion = await tx.facturaCompra.findUnique({
+          where: { recepcionMaterialId },
+        });
+        if (existRecepcion) {
+          throw new BadRequestException(
+            'Esta recepción de materiales ya ha sido facturada.',
+          );
+        }
+      }
+
       const fact = await tx.facturaCompra.create({
         data: {
           numeroFactura,
           proveedorId,
           ordenCompraId: ordenCompraId || null,
+          recepcionMaterialId: recepcionMaterialId || null,
           fechaEmision: emision,
           fechaVencimiento: vencimiento,
           subtotal: parseFloat(subtotal || total),
