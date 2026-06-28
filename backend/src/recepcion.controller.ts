@@ -182,8 +182,14 @@ export class RecepcionController {
         }
 
         // Si viene de una OC, actualizar cantidad recibida en el detalle
+        let detalleOC: any = null;
         if (oc) {
-          const detalleOC = oc.detalles.find((d) => d.productoId === item.productoId);
+          if (item.ordenCompraDetalleId) {
+            detalleOC = oc.detalles.find((d: any) => d.id === item.ordenCompraDetalleId);
+          } else {
+            detalleOC = oc.detalles.find((d: any) => d.productoId === item.productoId);
+          }
+
           if (detalleOC) {
             await tx.ordenCompraDetalle.update({
               where: { id: detalleOC.id },
@@ -284,7 +290,7 @@ export class RecepcionController {
         // Crear detalle de RecepcionMaterial
         const costo = item.costoUnitario !== undefined
           ? parseFloat(item.costoUnitario)
-          : (oc ? oc.detalles.find((d) => d.productoId === item.productoId)?.costoUnitario : prodDb.costo);
+          : (detalleOC ? detalleOC.costoUnitario : prodDb.costo);
 
         await tx.recepcionMaterialDetalle.create({
           data: {

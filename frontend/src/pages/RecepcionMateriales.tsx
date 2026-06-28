@@ -36,6 +36,8 @@ import dayjs from 'dayjs';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 interface ItemRecepcion {
+  ordenCompraDetalleId?: string;
+  lineaNum?: number;
   productoId: string;
   sku: string;
   descripcion: string;
@@ -134,6 +136,8 @@ export default function RecepcionMateriales() {
           : undefined;
 
         return {
+          ordenCompraDetalleId: det.id,
+          lineaNum: det.lineaNum,
           productoId: det.productoId,
           sku: det.producto.sku,
           descripcion: det.producto.descripcion,
@@ -275,6 +279,7 @@ export default function RecepcionMateriales() {
       packingSlip: packingSlip || undefined,
       observaciones: observaciones || undefined,
       items: itemsRecibir.map((it) => ({
+        ordenCompraDetalleId: it.ordenCompraDetalleId,
         productoId: it.productoId,
         cantidad: it.cantidad,
         costoUnitario: it.costoUnitario,
@@ -685,7 +690,7 @@ export default function RecepcionMateriales() {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                       {itemsRecibir.map((item, idx) => (
                         <Paper
-                          key={item.productoId}
+                          key={`${item.productoId}-${idx}`}
                           elevation={0}
                           sx={{
                             p: 3,
@@ -706,7 +711,15 @@ export default function RecepcionMateriales() {
                             }}
                           >
                             <Box sx={{ flexGrow: 1 }}>
-                              <Typography variant="body1" sx={{ fontWeight: 800, color: '#93c5fd' }}>
+                              {item.lineaNum !== undefined && (
+                                <Chip
+                                  label={`Línea ${item.lineaNum}`}
+                                  color="primary"
+                                  size="small"
+                                  sx={{ mr: 1, fontWeight: 800, height: 20, verticalAlign: 'middle' }}
+                                />
+                              )}
+                              <Typography variant="body1" sx={{ fontWeight: 800, color: '#93c5fd', display: 'inline-block', verticalAlign: 'middle' }}>
                                 {item.descripcion}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
