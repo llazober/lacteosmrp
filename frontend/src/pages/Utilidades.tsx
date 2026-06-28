@@ -212,6 +212,22 @@ export default function Utilidades() {
   const [maskedKey, setMaskedKey] = useState('');
   const [probarLoading, setProbarLoading] = useState(false);
 
+  // States for Email / SMTP Alert Config
+  const [emailConfig, setEmailConfig] = useState({
+    smtp_host: 'mail.privateemail.com',
+    smtp_port: '465',
+    smtp_user: 'luislazo@datalazo.net',
+    smtp_pass: 'Rambo20224$',
+    smtp_from: '"Lácteos ERP" <luislazo@datalazo.net>',
+    smtp_secure: 'true',
+    email_departamento_calidad: 'luislazo@datalazo.net',
+    email_departamento_compras: 'luislazo@datalazo.net',
+    email_departamento_produccion: 'luislazo@datalazo.net',
+    email_departamento_almacen: 'luislazo@datalazo.net',
+  });
+  const [probarEmailLoading, setProbarEmailLoading] = useState(false);
+  const [testDestinatario, setTestDestinatario] = useState('luislazo@datalazo.net');
+
   // Notifications
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -253,6 +269,7 @@ export default function Utilidades() {
         await cargarRoles();
       } else if (activeTab === 8) {
         await cargarConfiguracionIA();
+        await cargarConfiguracionEmail();
       }
     } catch (e) {
       console.error(e);
@@ -608,6 +625,64 @@ export default function Utilidades() {
       setErrorMsg(e.message);
     } finally {
       setProbarLoading(false);
+    }
+  };
+
+  const cargarConfiguracionEmail = async () => {
+    try {
+      const res = await apiFetch('/configuracion/email-settings');
+      if (res) {
+        setEmailConfig(res);
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleGuardarConfiguracionEmail = async () => {
+    try {
+      setErrorMsg(null);
+      await apiFetch('/configuracion/email-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailConfig),
+      });
+      setSuccessMsg('Configuración de correo guardada con éxito.');
+      await cargarConfiguracionEmail();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleProbarConexionEmail = async () => {
+    try {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      setProbarEmailLoading(true);
+      const res = await apiFetch('/configuracion/test-smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpConfig: {
+            host: emailConfig.smtp_host,
+            port: parseInt(emailConfig.smtp_port),
+            user: emailConfig.smtp_user,
+            pass: emailConfig.smtp_pass,
+            secure: emailConfig.smtp_secure === 'true',
+            from: emailConfig.smtp_from,
+          },
+          destinatario: testDestinatario,
+        }),
+      });
+      if (res && res.message) {
+        setSuccessMsg(res.message);
+      } else {
+        setErrorMsg('No se pudo enviar el correo de prueba.');
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    } finally {
+      setProbarEmailLoading(false);
     }
   };
 
@@ -2169,6 +2244,245 @@ export default function Utilidades() {
                 </Typography>
                 <Typography variant="body2" sx={{ lineHeight: 1.6 }} color="text.secondary">
                   <strong>Seguridad de Datos:</strong> Los usuarios sin roles directivos (por ejemplo, Gerentes de Tienda) tienen restricción automática. Aunque pregunten por otra sucursal, el servidor de la API forzará que solo consulten su propio local.
+                </Typography>
+              </Paper>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 5 }} />
+
+          <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ 
+              p: 1, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.3)'
+            }}>
+              <span style={{ fontSize: '1.8rem' }}>📧</span>
+            </Box>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
+                Configuración de Servidor de Correo (SMTP) y Destinatarios
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Configure el servidor de correo saliente para automatizar el envío de alertas y notificaciones a los distintos departamentos.
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 2fr' }, gap: 4 }}>
+            {/* Formulario de Email */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Servidor SMTP y Puerto */}
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ flex: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Servidor SMTP
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="mail.privateemail.com"
+                    value={emailConfig.smtp_host}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Puerto
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="465"
+                    value={emailConfig.smtp_port}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+
+              {/* Autenticación y SSL */}
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ flex: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Usuario SMTP
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="luislazo@datalazo.net"
+                    value={emailConfig.smtp_user}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box sx={{ flex: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Contraseña SMTP
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    type="password"
+                    placeholder="Rambo20224$"
+                    value={emailConfig.smtp_pass}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_pass: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    SSL / TLS
+                  </Typography>
+                  <select
+                    value={emailConfig.smtp_secure}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_secure: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8.5px 12px',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.23)',
+                      color: '#fff',
+                      outline: 'none',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="true">Sí (Recomendado)</option>
+                    <option value="false">No</option>
+                  </select>
+                </Box>
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Remitente de Correo (From)
+                </Typography>
+                <TextField
+                  fullWidth
+                  placeholder='"Lácteos ERP" <luislazo@datalazo.net>'
+                  value={emailConfig.smtp_from}
+                  onChange={(e) => setEmailConfig({ ...emailConfig, smtp_from: e.target.value })}
+                  size="small"
+                />
+              </Box>
+
+              <Divider sx={{ my: 1 }} />
+
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                Direcciones de Correo por Departamento
+              </Typography>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    📧 Control de Calidad
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="calidad@lavaquita.cl"
+                    value={emailConfig.email_departamento_calidad}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, email_departamento_calidad: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    📧 Compras y Abastecimiento
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="compras@lavaquita.cl"
+                    value={emailConfig.email_departamento_compras}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, email_departamento_compras: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    📧 Producción Láctea
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="produccion@lavaquita.cl"
+                    value={emailConfig.email_departamento_produccion}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, email_departamento_produccion: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    📧 Almacén y Logística
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="almacen@lavaquita.cl"
+                    value={emailConfig.email_departamento_almacen}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, email_departamento_almacen: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleGuardarConfiguracionEmail}
+                  sx={{ borderRadius: 2, px: 3, py: 1, fontWeight: 700 }}
+                >
+                  Guardar Configuración de Correo
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Test de Envíos y Ayuda */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Paper sx={{ 
+                p: 3, 
+                backgroundColor: 'rgba(255,255,255,0.02)', 
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px'
+              }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2, color: 'success.light' }}>
+                  🧪 Probar Envío de Correo (SMTP)
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
+                  Ingrese un correo de destino para enviar un mensaje de prueba utilizando los credenciales SMTP ingresadas arriba.
+                </Typography>
+                <TextField
+                  fullWidth
+                  label="Destinatario de Prueba"
+                  value={testDestinatario}
+                  onChange={(e) => setTestDestinatario(e.target.value)}
+                  size="small"
+                  sx={{ mb: 2 }}
+                />
+                <Button
+                  variant="outlined"
+                  color="success"
+                  fullWidth
+                  disabled={probarEmailLoading}
+                  onClick={handleProbarConexionEmail}
+                  sx={{ fontWeight: 700 }}
+                >
+                  {probarEmailLoading ? 'Enviando Prueba...' : 'Enviar Correo de Prueba'}
+                </Button>
+              </Paper>
+
+              <Paper sx={{ 
+                p: 3, 
+                backgroundColor: 'rgba(255,255,255,0.02)', 
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px'
+              }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.5, color: 'primary.light' }}>
+                  💡 Automatización de Alertas
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.6 }} color="text.secondary">
+                  • <strong>Control de Calidad:</strong> Cuando una recepción de leche o inspección de proceso sea catalogada como <strong>RECHAZADO</strong> o <strong>CUARENTENA</strong>, el sistema despachará automáticamente la ficha al correo de Calidad configurado.
+                </Typography>
+                <Typography variant="body2" sx={{ lineHeight: 1.6 }} color="text.secondary">
+                  • <strong>Materia Prima e Inventario:</strong> Los avisos de stock crítico o de vencimiento se enrutan según las reglas correspondientes al Almacén o Compras.
                 </Typography>
               </Paper>
             </Box>

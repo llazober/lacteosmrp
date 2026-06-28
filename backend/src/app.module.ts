@@ -27,6 +27,8 @@ import { CalidadController } from './calidad.controller';
 import { RolesController } from './roles.controller';
 import { LogisticaController } from './logistica.controller';
 import { RecepcionController } from './recepcion.controller';
+import { ConfiguracionController } from './configuracion.controller';
+import { EmailService } from './email.service';
 
 @Module({
   imports: [
@@ -56,12 +58,14 @@ import { RecepcionController } from './recepcion.controller';
     RolesController,
     LogisticaController,
     RecepcionController,
+    ConfiguracionController,
   ],
   providers: [
     AppService,
     PrismaService,
     SocketGateway,
     AiService,
+    EmailService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

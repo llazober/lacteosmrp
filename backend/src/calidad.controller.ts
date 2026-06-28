@@ -10,10 +10,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
+import { EmailService } from './email.service';
 
 @Controller('calidad')
 export class CalidadController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   // --- RECEPCIÓN DE LECHE ---
   @Get('recepcion-leche')
@@ -99,6 +103,51 @@ export class CalidadController {
             estado: 'ACTIVA',
           },
         });
+
+        // Enviar Alerta por Correo Electrónico
+        try {
+          let numeroLoteStr = loteId;
+          let nombreProductoStr = '';
+          const lote = await this.prisma.lote.findUnique({
+            where: { id: loteId },
+            include: { producto: true },
+          });
+          if (lote) {
+            numeroLoteStr = lote.numeroLote;
+            nombreProductoStr = lote.producto.descripcion;
+          }
+
+          const configEmail = await this.prisma.configuracion.findUnique({
+            where: { clave: 'email_departamento_calidad' },
+          });
+          const dest = configEmail?.valor || 'luislazo@datalazo.net';
+
+          await this.emailService.enviarCorreo(
+            dest,
+            `🚨 Alerta Calidad Leche ${resultado}: Lote ${numeroLoteStr}`,
+            `
+              <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #0b0f19; color: #fff; border-radius: 8px;">
+                <h2 style="color: #f43f5e; margin-bottom: 15px;">Alerta de Calidad: Control de Leche ${resultado}</h2>
+                <p>Se ha registrado un control de calidad de recepción de leche con resultado de <strong>${resultado}</strong>.</p>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 15px; color: #fff;">
+                  <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold; width: 150px;">Lote:</td><td style="padding: 8px;">${numeroLoteStr}</td></tr>
+                  <tr><td style="padding: 8px; font-weight: bold;">Producto:</td><td style="padding: 8px;">${nombreProductoStr || 'Leche Recibida'}</td></tr>
+                  <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">Temperatura:</td><td style="padding: 8px;">${temperatura}°C</td></tr>
+                  <tr><td style="padding: 8px; font-weight: bold;">Grasa:</td><td style="padding: 8px;">${grasa}%</td></tr>
+                  <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">Proteína:</td><td style="padding: 8px;">${proteina}%</td></tr>
+                  <tr><td style="padding: 8px; font-weight: bold;">Acidez:</td><td style="padding: 8px;">${acidez} Dornic/pH</td></tr>
+                  <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">Antibióticos:</td><td style="padding: 8px;">${Boolean(antibioticos) ? 'DETECTADO 🚨' : 'Libre'}</td></tr>
+                  <tr><td style="padding: 8px; font-weight: bold;">Inspector:</td><td style="padding: 8px;">${req.user.nombre}</td></tr>
+                  <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">Observaciones:</td><td style="padding: 8px;">${observaciones || 'Sin observaciones'}</td></tr>
+                </table>
+                <hr style="border: 1px solid rgba(255,255,255,0.1); margin: 20px 0;" />
+                <p style="font-size: 12px; color: #888;">Este es un mensaje automático generado por Lácteos ERP.</p>
+              </div>
+            `
+          );
+        } catch (mailError) {
+          console.error('Error al enviar correo de alerta de calidad de leche:', mailError);
+        }
       }
     }
 
@@ -179,6 +228,54 @@ export class CalidadController {
         where: { id: loteId },
         data: { estado: resultado },
       });
+    }
+
+    // Enviar correo de alerta si es rechazado o puesto en cuarentena
+    if (resultado === 'RECHAZADO' || resultado === 'CUARENTENA') {
+      try {
+        let numeroLoteStr = loteId || 'N/A';
+        let nombreProductoStr = '';
+        if (loteId) {
+          const lote = await this.prisma.lote.findUnique({
+            where: { id: loteId },
+            include: { producto: true }
+          });
+          if (lote) {
+            numeroLoteStr = lote.numeroLote;
+            nombreProductoStr = lote.producto.descripcion;
+          }
+        }
+
+        const configEmail = await this.prisma.configuracion.findUnique({
+          where: { clave: 'email_departamento_calidad' },
+        });
+        const dest = configEmail?.valor || 'luislazo@datalazo.net';
+
+        await this.emailService.enviarCorreo(
+          dest,
+          `🚨 Alerta Inspección Calidad ${resultado}: Lote ${numeroLoteStr}`,
+          `
+            <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #0b0f19; color: #fff; border-radius: 8px;">
+              <h2 style="color: #f43f5e; margin-bottom: 15px;">Alerta de Calidad: Inspección de Proceso ${resultado}</h2>
+              <p>Se ha registrado una inspección de proceso/producto terminado con resultado de <strong>${resultado}</strong>.</p>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 15px; color: #fff;">
+                <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold; width: 150px;">Tipo:</td><td style="padding: 8px;">${tipo}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold;">Lote:</td><td style="padding: 8px;">${numeroLoteStr}</td></tr>
+                <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">Producto:</td><td style="padding: 8px;">${nombreProductoStr || 'N/A'}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold;">Temperatura:</td><td style="padding: 8px;">${temperatura != null ? `${temperatura}°C` : 'N/A'}</td></tr>
+                <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">pH:</td><td style="padding: 8px;">${ph != null ? ph : 'N/A'}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold;">Parámetros:</td><td style="padding: 8px;">${parametrosCriticos}</td></tr>
+                <tr style="background-color: rgba(255,255,255,0.05);"><td style="padding: 8px; font-weight: bold;">Inspector:</td><td style="padding: 8px;">${req.user.nombre}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold;">Observaciones:</td><td style="padding: 8px;">${observaciones || 'Sin observaciones'}</td></tr>
+              </table>
+              <hr style="border: 1px solid rgba(255,255,255,0.1); margin: 20px 0;" />
+              <p style="font-size: 12px; color: #888;">Este es un mensaje automático generado por Lácteos ERP.</p>
+            </div>
+          `
+        );
+      } catch (mailError) {
+        console.error('Error al enviar correo de alerta de inspección de proceso:', mailError);
+      }
     }
 
     // Auditoría
