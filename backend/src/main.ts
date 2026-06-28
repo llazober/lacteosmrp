@@ -102,6 +102,29 @@ async function runAutoMigrations(prisma: PrismaService) {
       }
       console.log('Migración de bodegas de movimientos de inventario completada.');
     }
+    // 4. Auto-aprobar lotes existentes que no sean de leche cruda y estén en PENDIENTE
+    const lotesPendientesNoLeche = await prisma.lote.findMany({
+      where: {
+        estado: 'PENDIENTE',
+        producto: {
+          sku: { not: 'MP-LECHE-CRUDA' }
+        }
+      },
+      select: { id: true }
+    });
+    if (lotesPendientesNoLeche.length > 0) {
+      const ids = lotesPendientesNoLeche.map(l => l.id);
+      console.log(`Auto-aprobando ${ids.length} lotes pendientes que no son de leche cruda...`);
+      await prisma.lote.updateMany({
+        where: {
+          id: { in: ids }
+        },
+        data: {
+          estado: 'APROBADO'
+        }
+      });
+      console.log('Lotes auto-aprobados con éxito.');
+    }
   } catch (error) {
     console.error('Error al ejecutar auto-migraciones de bodegas:', error);
   }
