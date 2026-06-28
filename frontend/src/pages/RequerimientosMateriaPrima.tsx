@@ -93,7 +93,7 @@ export default function RequerimientosMateriaPrima() {
         
         const finalCats = relevantCats.length > 0 ? relevantCats : ['Leche y derivados', 'Cultivos y Fermentos', 'Aditivos', 'Insumos'];
         setAllCategories(finalCats);
-        setSelectedCategories(finalCats);
+        setSelectedCategories(finalCats.filter((cat: string) => cat.toUpperCase() !== 'LECHE Y DERIVADOS' && !cat.toUpperCase().includes('LECHE')));
       } catch (e: any) {
         setErrorMsg('Error al inicializar la pantalla de requerimientos.');
       } finally {
