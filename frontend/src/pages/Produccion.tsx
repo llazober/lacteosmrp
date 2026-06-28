@@ -557,7 +557,7 @@ export default function Produccion() {
       const data = await apiFetch(`/produccion/ordenes/${order.id}/picking`);
       const ingredientes = data.ingredientes.map((i: any) => ({
         ...i,
-        picked: i.picked || false,
+        picked: i.cantidadPicked > 0,
         selectedProductoId: i.productoId,
       }));
       setPickingData({ ...data, ingredientes });

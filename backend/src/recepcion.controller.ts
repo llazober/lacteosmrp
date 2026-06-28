@@ -240,7 +240,7 @@ export class RecepcionController {
               temperaturaRequeridaMax: parseFloat(item.tempMax || 6.0),
               cantidadInicial: cantidad,
               cantidadActual: cantidad,
-              estado: prodDb.sku === 'MP-LECHE-CRUDA' ? 'PENDIENTE' : 'APROBADO',
+              estado: 'APROBADO',
             },
           });
           loteId = nuevoLote.id;

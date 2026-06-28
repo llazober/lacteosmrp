@@ -145,6 +145,7 @@ El módulo de **Producción Láctea** permite digitalizar el ciclo de manufactur
         *   **Número de Lote**: Un código identificador único para la trazabilidad.
         *   **Mermas Declaradas**: Desechos generados específicamente en el proceso (ej. evaporación de suero, pérdidas por derrame).
     4.  **Rendimiento (%)**: El sistema calcula y muestra un indicador de eficiencia porcentual de la orden comparando la producción planificada con la real.
+*   **Selección de Materia Prima (Picking)**: Al abrir el modal de preparación o picking para una orden planificada, las casillas de verificación de los insumos y materias primas que tienen cantidades pendientes de recolectar se marcan automáticamente por defecto, facilitando su registro rápido.
 *   **Cálculo de Insumos y Materias Primas Requeridas**: Para una orden de producción por una cantidad planificada $Q$, los insumos requeridos se determinan usando la receta maestra:
     $$\text{Cantidad Insumo Requerida} = \text{Cantidad Requerida por Unidad (en Receta)} \times Q$$
     *Nota: El rendimiento esperado (Rendimiento Esperado o cantidadEsperada) de la receta define el tamaño estándar del lote/batch para el cual está formulada la receta (por ejemplo, lote estándar de 50 quesos o 100 yogures), y sirve de referencia operativa.*
@@ -193,12 +194,13 @@ Este módulo asegura que la materia prima recibida y los lotes producidos cumpla
 
 ### Pestaña 1: Recepción e Insumos Lácteos
 *   **Propósito**: Auditar la calidad de la leche cruda y demás insumos críticos al ingresar a la planta.
+*   **Lote Aprobado por Defecto**: Todos los lotes recibidos (incluyendo leche cruda) ingresan con el estado **APROBADO** de forma predeterminada para estar disponibles de inmediato para producción y evitar bloqueos en el picking de materia prima.
 *   **Parámetros Analizados**:
     *   **Temperatura (°C)**: Control esencial para evitar la proliferación de bacterias en la recepción.
     *   **Grasa (%) y Proteína (%)**: Parámetros de calidad láctea estructural.
     *   **Acidez (pH)**: Nivel físico-químico del insumo.
     *   **Presencia de Antibióticos (Sí/No)**: Control de seguridad alimentaria crítico; la leche con trazas de antibióticos es rechazada de inmediato.
-*   **Firma Digital**: Exige al inspector realizar una firma manual digitalizada en pantalla (canvas de firma) antes de aprobar o rechazar el lote de insumo, asegurando la responsabilidad y el no repudio.
+*   **Firma Digital e Impacto**: Exige al inspector realizar una firma manual digitalizada en pantalla (canvas de firma) antes de guardar el control. Si el resultado del control es `RECHAZADO` o `CUARENTENA`, el estado del lote en el inventario se actualizará correspondientemente, bloqueándolo para producción o venta.
 
 ### Pestaña 2: Auditorías en Proceso y Lotes
 *   **Propósito**: Control de calidad físico-químico a mitad del proceso de producción o en el producto ya terminado antes de despacharse al POS.
