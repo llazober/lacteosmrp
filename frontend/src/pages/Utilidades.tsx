@@ -1024,7 +1024,7 @@ export default function Utilidades() {
                       >
                         <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{uni.id}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>
-                          <Chip label={uni.nombre?.toLowerCase()} color="secondary" variant="outlined" size="small" />
+                          <Chip label={uni.nombre ? (uni.nombre.charAt(0).toUpperCase() + uni.nombre.slice(1).toLowerCase()) : ''} color="secondary" variant="outlined" size="small" />
                         </TableCell>
                         <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{uni.abreviacion}</TableCell>
                         <TableCell>{new Date(uni.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>
@@ -1818,6 +1818,33 @@ export default function Utilidades() {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Audita insumos y lotes finales con parámetros físico-químicos (antibióticos, pH, grasa, etc.), captura de firma de aprobación/rechazo y control de no conformidades.
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2.5, height: '100%', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'secondary.main', mb: 1 }}>
+                📥 Recepción de Materiales
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Permite la recepción física detallada de insumos y materias primas, controlando facturas/packing slips. Las materias primas ingresan en estado pendiente para análisis obligatorio de calidad.
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2.5, height: '100%', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'secondary.main', mb: 1 }}>
+                📜 Historial de Recepciones
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Bitácora paginada y completa de recepciones, permitiendo realizar búsquedas de ingresos históricos de materias primas e insumos.
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2.5, height: '100%', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'secondary.main', mb: 1 }}>
+                📋 Requerimientos de MP
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Cálculo de necesidades de insumos y materias primas bajo mínimos, permitiendo agrupar faltantes y generar órdenes de compra automáticas.
               </Typography>
             </Paper>
           </Box>

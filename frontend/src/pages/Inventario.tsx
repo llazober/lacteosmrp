@@ -3420,11 +3420,15 @@ export default function Inventario() {
             >
               {unidadesMedida.length === 0 ? (
                 ['LITRO', 'KILO', 'GRAMOS', 'UNIDAD'].map((u) => (
-                  <MenuItem key={u} value={u}>{u}</MenuItem>
+                  <MenuItem key={u} value={u}>
+                    {u.charAt(0).toUpperCase() + u.slice(1).toLowerCase()}
+                  </MenuItem>
                 ))
               ) : (
                 unidadesMedida.map((u) => (
-                  <MenuItem key={u.id} value={u.nombre}>{u.nombre} ({u.abreviacion})</MenuItem>
+                  <MenuItem key={u.id} value={u.nombre}>
+                    {u.nombre ? (u.nombre.charAt(0).toUpperCase() + u.nombre.slice(1).toLowerCase()) : ''} ({u.abreviacion})
+                  </MenuItem>
                 ))
               )}
             </Select>
@@ -3630,11 +3634,15 @@ export default function Inventario() {
             >
               {unidadesMedida.length === 0 ? (
                 ['LITRO', 'KILO', 'GRAMOS', 'UNIDAD'].map((u) => (
-                  <MenuItem key={u} value={u}>{u}</MenuItem>
+                  <MenuItem key={u} value={u}>
+                    {u.charAt(0).toUpperCase() + u.slice(1).toLowerCase()}
+                  </MenuItem>
                 ))
               ) : (
                 unidadesMedida.map((u) => (
-                  <MenuItem key={u.id} value={u.nombre}>{u.nombre} ({u.abreviacion})</MenuItem>
+                  <MenuItem key={u.id} value={u.nombre}>
+                    {u.nombre ? (u.nombre.charAt(0).toUpperCase() + u.nombre.slice(1).toLowerCase()) : ''} ({u.abreviacion})
+                  </MenuItem>
                 ))
               )}
             </Select>

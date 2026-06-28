@@ -79,15 +79,28 @@ Monitorea la temperatura en tiempo real para asegurar la calidad microbiológica
 
 ---
 
-## 5. Gestión de Compras (Órdenes de Compra)
+## 5. Gestión de Compras y Flujo de Recepción de Materiales
 
-Centraliza el requerimiento de insumos y mercadería a los proveedores externos:
+Centraliza el requerimiento de insumos y mercadería a los proveedores externos, así como la posterior recepción física y control de calidad inicial:
 
 *   **Creación de Orden de Compra (OC)**: El área de almacén o supervisión crea una OC seleccionando el proveedor, sucursal de destino, la **Fecha Estimada de Entrega** (para registrar la fecha solicitada o acordada de entrega) y la lista de productos con costos unitarios.
 *   **Fecha de Entrega y Alertas**: El sistema muestra la fecha estimada de arribo y resalta en rojo las órdenes pendientes que ya superaron dicho plazo sin ser recibidas por completo.
 *   **Recepción de Mercadería**:
     *   **Recepción Total**: Marca todos los productos como recibidos e incrementa el stock.
     *   **Recepción Parcial**: Permite registrar cantidades menores a las solicitadas. La OC cambia a estado `PARCIAL` hasta que llegue el resto del pedido, controlando el saldo pendiente.
+
+### Módulos Adicionales de Logística y Abastecimiento:
+
+*   **Recepción de Materiales**:
+    *   Permite a los encargados de bodega recibir físicamente los insumos y materias primas detallados de una compra, ingresando número de factura, packing slip o recibo.
+    *   **Búsqueda Integrada:** Se puede realizar la búsqueda y filtrado de recepciones por número de factura, packing slip o recibo en la primera pantalla.
+    *   **Ruteo a Calidad (Mandatorio):** Por motivos de inocuidad y control sanitario, toda **Materia Prima (MP)** recibida se crea en el inventario con el lote correspondiente en estado **PENDIENTE** por defecto. Esto obliga a que el lote sea procesado y liberado en el módulo de **Control de Calidad** antes de poder ser utilizado en producción o picking. Los **Insumos** generales se aprueban automáticamente.
+*   **Historial de Recepciones**:
+    *   Un registro inmutable y paginado (50 por página) con todas las recepciones físicas procesadas, detallando el producto, lote, cantidad, costo, fecha y la factura/packing slip relacionada.
+*   **Requerimientos de Materia Prima (Requerimientos MP)**:
+    *   Analiza las existencias actuales de insumos y materias primas contra sus mínimos de seguridad configurados.
+    *   **Filtro de Categorías:** Se puede filtrar por familias de productos. Para optimizar el flujo inicial, la categoría **Leche y Derivados** viene desmarcada (False) por defecto al abrir el módulo.
+    *   **Abastecimiento Rápido:** Sugiere la cantidad exacta a pedir para alcanzar los niveles óptimos y permite generar las órdenes de compra consolidadas de forma automática.
 
 ---
 
@@ -401,7 +414,7 @@ Registro de proveedores externos. Campos: nombre, RUT/NIT, contacto, correo, tel
 Términos de crédito disponibles: Contado (0 días), Crédito 15 días, 30 días, 60 días. Determinan la fecha de vencimiento de las facturas en Finanzas.
 
 ### Pestaña: Roles y Permisos
-Matriz dinámica de seguridad. Crear roles personalizados y activar/desactivar permisos con checkboxes. Permisos incluyen: VER_DASHBOARD, VER_POS, VER_INVENTARIO, VER_FRIO, VER_COMPRAS, VER_FINANZAS, VER_PRODUCCION, VER_CALIDAD, VER_LOGISTICA, VER_AUDITORIA, VER_UTILIDADES, VER_CHAT, USAR_ASISTENTE. Los roles de fábrica no pueden eliminarse.
+Matriz dinámica de seguridad. Crear roles personalizados y activar/desactivar permisos con checkboxes. Permisos incluyen: VER_DASHBOARD, VER_POS, VER_INVENTARIO, VER_FRIO, VER_COMPRAS, VER_REQUERIMIENTOS_MP, VER_FINANZAS, VER_PRODUCCION, VER_CALIDAD, VER_LOGISTICA, VER_AUDITORIA, VER_UTILIDADES, VER_CHAT, USAR_ASISTENTE. Los roles de fábrica no pueden eliminarse.
 
 ### Pestaña: Manual del Sistema
 Muestra el contenido completo de este manual operativo dentro del ERP para consulta directa.
