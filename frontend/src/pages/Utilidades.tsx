@@ -1024,7 +1024,7 @@ export default function Utilidades() {
                       >
                         <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{uni.id}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>
-                          <Chip label={uni.nombre} color="secondary" variant="outlined" size="small" />
+                          <Chip label={uni.nombre?.toLowerCase()} color="secondary" variant="outlined" size="small" />
                         </TableCell>
                         <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{uni.abreviacion}</TableCell>
                         <TableCell>{new Date(uni.createdAt).toLocaleDateString('es-CL', { hour: '2-digit', minute: '2-digit' })}</TableCell>

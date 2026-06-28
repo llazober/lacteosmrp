@@ -240,7 +240,7 @@ export class RecepcionController {
               temperaturaRequeridaMax: parseFloat(item.tempMax || 6.0),
               cantidadInicial: cantidad,
               cantidadActual: cantidad,
-              estado: 'APROBADO',
+              estado: (prodDb.tipoProducto === 'MATERIA_PRIMA' || prodDb.tipoProducto === 'MP') ? 'PENDIENTE' : 'APROBADO',
             },
           });
           loteId = nuevoLote.id;
