@@ -558,7 +558,6 @@ export default function Produccion() {
       const data = await apiFetch(`/produccion/ordenes/${order.id}/picking`);
       const ingredientes = data.ingredientes.map((i: any) => ({
         ...i,
-        lineId: `${i.productoId}-default`,
         picked: false,
         selectedProductoId: i.productoId,
       }));
@@ -567,45 +566,6 @@ export default function Produccion() {
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al obtener datos de picking.');
     }
-  };
-
-  const handleAddPickingRow = (reqProductoId: string) => {
-    if (!pickingData || !pickingData.ingredientes) return;
-    const baseIng = pickingData.ingredientes.find(
-      (i: any) => i.productoId === reqProductoId && !i.esExtra
-    );
-    if (!baseIng) return;
-
-    // Create a new extra row for this ingredient requirement
-    const newRow = {
-      ...baseIng,
-      lineId: `${reqProductoId}-extra-${Date.now()}`,
-      esExtra: true,
-      selectedProductoId: baseIng.selectedProductoId,
-      loteNumero: '',
-      cantidadPicked: '',
-      picked: true, // auto-check picked for additional lot rows when added
-    };
-
-    const newIngredientes = [...pickingData.ingredientes];
-    const lastIndex = newIngredientes.map((i: any) => i.productoId).lastIndexOf(reqProductoId);
-    newIngredientes.splice(lastIndex + 1, 0, newRow);
-
-    setPickingData({
-      ...pickingData,
-      ingredientes: newIngredientes,
-    });
-  };
-
-  const handleRemovePickingRow = (lineId: string) => {
-    if (!pickingData || !pickingData.ingredientes) return;
-    const newIngredientes = pickingData.ingredientes.filter(
-      (i: any) => i.lineId !== lineId
-    );
-    setPickingData({
-      ...pickingData,
-      ingredientes: newIngredientes,
-    });
   };
 
   const handleConfirmarPicking = async () => {
@@ -1767,111 +1727,68 @@ export default function Produccion() {
                     const qtyReq = parseFloat(ing.cantidadRequerida || 0);
                     const qtyYaEntregado = parseFloat(ing.yaEntregado || 0);
                     const qtyPicked = parseFloat(ing.cantidadPicked || 0) || 0;
-
-                    const totalQtyPickedForThisReq = pickingData.ingredientes
-                      .filter((i: any) => i.productoId === ing.productoId && i.picked)
-                      .reduce((sum: number, i: any) => sum + (parseFloat(i.cantidadPicked) || 0), 0);
-
-                    const balRequired = Math.max(0, qtyReq - qtyYaEntregado - totalQtyPickedForThisReq);
+                    const balRequired = Math.max(0, qtyReq - qtyYaEntregado - qtyPicked);
                     const isShortage = currentStock < qtyPicked;
 
                     return (
-                      <TableRow key={ing.lineId || ing.productoId} hover sx={{
-                        backgroundColor: ing.esExtra ? 'rgba(255,255,255,0.015)' : 'inherit',
-                      }}>
+                      <TableRow key={ing.productoId} hover>
                         <TableCell>
-                          {!ing.esExtra ? (
-                            <>
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{ing.sku}</Typography>
-                              {currentBodega && (
-                                <Chip
-                                  label={`Ubicación: ${currentBodega.nombre}`}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{
-                                    mt: 0.5,
-                                    fontSize: '0.68rem',
-                                    color: 'primary.light',
-                                    borderColor: 'rgba(144, 202, 249, 0.3)',
-                                    backgroundColor: 'rgba(144, 202, 249, 0.05)',
-                                    height: 20
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{ing.descripcion}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{ing.sku}</Typography>
+                          {currentBodega && (
+                            <Chip
+                              label={`Ubicación: ${currentBodega.nombre}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                mt: 0.5,
+                                fontSize: '0.68rem',
+                                color: 'primary.light',
+                                borderColor: 'rgba(144, 202, 249, 0.3)',
+                                backgroundColor: 'rgba(144, 202, 249, 0.05)',
+                                height: 20
+                              }}
+                            />
+                          )}
+                          {ing.sustitutos && ing.sustitutos.length > 0 && (
+                            <Box sx={{ mt: 1, maxWidth: 220 }}>
+                              <FormControl size="small" fullWidth>
+                                <Select
+                                  value={selectedId}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const newIng = [...pickingData.ingredientes];
+                                    newIng[idx].selectedProductoId = val;
+                                    newIng[idx].loteNumero = ''; // reset selected lot
+                                    setPickingData({ ...pickingData, ingredientes: newIng });
                                   }}
-                                />
-                              )}
-                              {ing.sustitutos && ing.sustitutos.length > 0 && (
-                                <Box sx={{ mt: 1, maxWidth: 220 }}>
-                                  <FormControl size="small" fullWidth>
-                                    <Select
-                                      value={selectedId}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        const newIng = [...pickingData.ingredientes];
-                                        newIng[idx].selectedProductoId = val;
-                                        newIng[idx].loteNumero = ''; // reset selected lot
-                                        newIng.forEach((item: any) => {
-                                          if (item.productoId === ing.productoId) {
-                                            item.selectedProductoId = val;
-                                            item.loteNumero = '';
-                                          }
-                                        });
-                                        setPickingData({ ...pickingData, ingredientes: newIng });
-                                      }}
-                                      sx={{ fontSize: '0.75rem', height: '28px' }}
-                                    >
-                                      <MenuItem value={ing.productoId} sx={{ fontSize: '0.75rem' }}>
-                                        {ing.descripcion} (Original)
-                                      </MenuItem>
-                                      {ing.sustitutos.map((s: any) => (
-                                        <MenuItem key={s.productoId} value={s.productoId} sx={{ fontSize: '0.75rem' }}>
-                                          {s.descripcion} (Sustituto)
-                                        </MenuItem>
-                                      ))}
-                                    </Select>
-                                  </FormControl>
-                                </Box>
-                              )}
-                              
-                              <Button
-                                size="small"
-                                startIcon={<Add />}
-                                onClick={() => handleAddPickingRow(ing.productoId)}
-                                sx={{ mt: 1, display: 'block', textTransform: 'none', py: 0.25, px: 1, fontSize: '0.72rem' }}
-                              >
-                                Otro lote
-                              </Button>
-                            </>
-                          ) : (
-                            <Box sx={{ pl: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                                ↳ Otro lote
-                              </Typography>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleRemovePickingRow(ing.lineId)}
-                              >
-                                <Delete fontSize="small" />
-                              </IconButton>
+                                  sx={{ fontSize: '0.75rem', height: '28px' }}
+                                >
+                                  <MenuItem value={ing.productoId} sx={{ fontSize: '0.75rem' }}>
+                                    {ing.descripcion} (Original)
+                                  </MenuItem>
+                                  {ing.sustitutos.map((s: any) => (
+                                    <MenuItem key={s.productoId} value={s.productoId} sx={{ fontSize: '0.75rem' }}>
+                                      {s.descripcion} (Sustituto)
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
                             </Box>
                           )}
                         </TableCell>
                         <TableCell align="right">
-                          {!ing.esExtra ? (
-                            <>
-                              <Box>
-                                {ing.cantidadRequerida} {ing.unidadMedida}
-                              </Box>
-                              {ing.unidadMedida?.toUpperCase() === 'KG' && (
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                  ({parseFloat(ing.cantidadRequerida || 0) * 1000} g)
-                                </Typography>
-                              )}
-                            </>
-                          ) : '-'}
+                          <Box>
+                            {ing.cantidadRequerida} {ing.unidadMedida}
+                          </Box>
+                          {ing.unidadMedida?.toUpperCase() === 'KG' && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              ({parseFloat(ing.cantidadRequerida || 0) * 1000} g)
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold', color: qtyYaEntregado > 0 ? '#10b981' : 'inherit' }}>
-                          {!ing.esExtra ? `${qtyYaEntregado} ${currentUnit}` : '-'}
+                          {qtyYaEntregado} {currentUnit}
                         </TableCell>
                         <TableCell
                           align="right"
@@ -1926,15 +1843,13 @@ export default function Produccion() {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          {!ing.esExtra ? (
-                            balRequired > 0 ? (
-                              <Box sx={{ display: 'inline-flex', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', px: 1, py: 0.5, borderRadius: 1, fontWeight: 700 }}>
-                                {parseFloat(balRequired.toFixed(8))} {ing.unidadMedida}
-                              </Box>
-                            ) : (
-                              <span style={{ color: 'rgba(16, 185, 129, 0.2)', fontWeight: 'bold' }}>0 {ing.unidadMedida}</span>
-                            )
-                          ) : '-'}
+                          {balRequired > 0 ? (
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', px: 1, py: 0.5, borderRadius: 1, fontWeight: 700 }}>
+                              {parseFloat(balRequired.toFixed(8))} {ing.unidadMedida}
+                            </Box>
+                          ) : (
+                            <span style={{ color: 'rgba(16, 185, 129, 0.2)', fontWeight: 'bold' }}>0 {ing.unidadMedida}</span>
+                          )}
                         </TableCell>
                         <TableCell align="center">
                           <Checkbox
