@@ -21,6 +21,7 @@ import {
   Card,
   CardContent,
   Divider,
+  Checkbox,
 } from '@mui/material';
 import {
   LocalShipping,
@@ -50,6 +51,7 @@ interface ItemRecepcion {
   fechaVencimiento?: string;
   tempMin?: number;
   tempMax?: number;
+  checked?: boolean;
 }
 
 export default function RecepcionMateriales() {
@@ -112,51 +114,49 @@ export default function RecepcionMateriales() {
     }
   };
 
-  // Handler para cuando se selecciona una línea de OC
-  const handleSelectLine = (line: any) => {
-    setSelectedOC({
-      id: line.ordenId,
-      numeroOrden: line.numeroOrden,
-      proveedorId: line.proveedor.id,
-      proveedor: line.proveedor,
-      sucursalId: line.sucursal.id,
-    });
+  // Handler para cuando se selecciona una OC
+  const handleSelectOrder = (oc: any) => {
+    setSelectedOC(oc);
     setModoAdHoc(false);
-    setSucursalId(line.sucursal.id);
-    setProveedorId(line.proveedor.id);
+    setSucursalId(oc.sucursalId);
+    setProveedorId(oc.proveedorId);
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const esMP =
-      line.producto.tipoProducto === 'MATERIA_PRIMA' ||
-      line.producto.tipoProducto === 'INSUMO' ||
-      line.producto.tipoProducto === 'MP';
+    const items = (oc.detalles || [])
+      .filter((det: any) => det.cantidad - det.cantidadRecibida > 0)
+      .map((det: any) => {
+        const pendiente = Math.max(0, det.cantidad - det.cantidadRecibida);
+        const esMP =
+          det.producto.tipoProducto === 'MATERIA_PRIMA' ||
+          det.producto.tipoProducto === 'INSUMO' ||
+          det.producto.tipoProducto === 'MP';
 
-    // Generar lote sugerido único
-    const loteSugerido = esMP
-      ? `${line.producto.sku}-${dayjs().format('YYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
-      : undefined;
+        // Generar lote sugerido único
+        const loteSugerido = esMP
+          ? `${det.producto.sku}-${dayjs().format('YYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
+          : undefined;
 
-    const items = [
-      {
-        ordenCompraDetalleId: line.id,
-        lineaNum: line.lineaNum,
-        productoId: line.productoId,
-        sku: line.producto.sku,
-        descripcion: line.producto.descripcion,
-        cantidadMax: line.pendiente,
-        cantidad: line.pendiente,
-        costoUnitario: line.costoUnitario,
-        esMateriaPrima: esMP,
-        numeroLote: loteSugerido,
-        fechaProduccion: esMP ? dayjs().format('YYYY-MM-DD') : undefined,
-        fechaVencimiento: esMP
-          ? dayjs().add(line.producto.vidaUtilDias || 30, 'day').format('YYYY-MM-DD')
-          : undefined,
-        tempMin: esMP ? line.producto.temperaturaMin || 2.0 : undefined,
-        tempMax: esMP ? line.producto.temperaturaMax || 6.0 : undefined,
-      }
-    ];
+        return {
+          ordenCompraDetalleId: det.id,
+          lineaNum: det.lineaNum,
+          productoId: det.productoId,
+          sku: det.producto.sku,
+          descripcion: det.producto.descripcion,
+          cantidadMax: pendiente,
+          cantidad: pendiente,
+          costoUnitario: det.costoUnitario,
+          esMateriaPrima: esMP,
+          numeroLote: loteSugerido,
+          fechaProduccion: esMP ? dayjs().format('YYYY-MM-DD') : undefined,
+          fechaVencimiento: esMP
+            ? dayjs().add(det.producto.vidaUtilDias || 30, 'day').format('YYYY-MM-DD')
+            : undefined,
+          tempMin: esMP ? det.producto.temperaturaMin || 2.0 : undefined,
+          tempMax: esMP ? det.producto.temperaturaMax || 6.0 : undefined,
+          checked: true,
+        };
+      });
 
     setItemsRecibir(items);
   };
@@ -250,13 +250,15 @@ export default function RecepcionMateriales() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (itemsRecibir.length === 0) {
-      setErrorMsg('Debe registrar al menos un producto en el recibo.');
+    const itemsAEnviar = itemsRecibir.filter((it) => it.checked !== false);
+
+    if (itemsAEnviar.length === 0) {
+      setErrorMsg('Debe registrar al menos un producto seleccionado en el recibo.');
       return;
     }
 
     // Validar datos por cada item
-    for (const item of itemsRecibir) {
+    for (const item of itemsAEnviar) {
       if (item.cantidad <= 0) {
         setErrorMsg(`La cantidad para el producto ${item.sku} debe ser mayor que 0.`);
         return;
@@ -280,7 +282,7 @@ export default function RecepcionMateriales() {
       facturaNumero: facturaNumero || undefined,
       packingSlip: packingSlip || undefined,
       observaciones: observaciones || undefined,
-      items: itemsRecibir.map((it) => ({
+      items: itemsAEnviar.map((it) => ({
         ordenCompraDetalleId: it.ordenCompraDetalleId,
         productoId: it.productoId,
         cantidad: it.cantidad,
@@ -317,36 +319,17 @@ export default function RecepcionMateriales() {
     }
   };
 
-  // Aplanar todas las líneas de orden de compra pendientes
-  const lineasPendientes = ordenesPendientes.reduce((acc: any[], oc: any) => {
-    if (oc.detalles) {
-      oc.detalles.forEach((det: any) => {
-        const pendiente = Math.max(0, det.cantidad - det.cantidadRecibida);
-        if (pendiente > 0) {
-          acc.push({
-            ...det,
-            ordenId: oc.id,
-            numeroOrden: oc.numeroOrden,
-            proveedor: oc.proveedor,
-            sucursal: oc.sucursal,
-            ocCreatedAt: oc.createdAt,
-            pendiente,
-          });
-        }
-      });
-    }
-    return acc;
-  }, []);
-
-  // Filtrar líneas basadas en el buscador
-  const lineasFiltradas = lineasPendientes.filter((line) => {
+  // Filtrar órdenes basadas en el buscador
+  const ordenesFiltradas = ordenesPendientes.filter((oc) => {
     const term = searchQuery.toLowerCase();
-    return (
-      line.numeroOrden.toLowerCase().includes(term) ||
-      line.proveedor.nombre.toLowerCase().includes(term) ||
-      line.producto.sku.toLowerCase().includes(term) ||
-      line.producto.descripcion.toLowerCase().includes(term)
+    const matchesOC =
+      oc.numeroOrden.toLowerCase().includes(term) ||
+      oc.proveedor.nombre.toLowerCase().includes(term);
+    const matchesProduct = oc.detalles?.some((det: any) =>
+      det.producto.sku.toLowerCase().includes(term) ||
+      det.producto.descripcion.toLowerCase().includes(term)
     );
+    return matchesOC || matchesProduct;
   });
 
 
@@ -448,52 +431,53 @@ export default function RecepcionMateriales() {
                   }}
                 />
 
-                {lineasFiltradas.length === 0 ? (
+                {ordenesFiltradas.length === 0 ? (
                   <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
                     <Assignment sx={{ fontSize: 48, mb: 1, opacity: 0.5 }} />
-                    <Typography>No hay líneas de orden de compra aprobadas pendientes de recibir.</Typography>
+                    <Typography>No hay órdenes de compra aprobadas pendientes de recibir.</Typography>
                   </Box>
                 ) : (
                   <Table sx={{ minWidth: 650 }}>
                     <TableHead sx={{ backgroundColor: 'rgba(15, 23, 42, 0.5)' }}>
                       <TableRow>
                         <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Orden</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Línea</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Producto</TableCell>
                         <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Proveedor</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Sucursal</TableCell>
                         <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Fecha Solicitud</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Cant. Pendiente</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Líneas Pendientes</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>Acción</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {lineasFiltradas.map((line) => (
-                        <TableRow
-                          key={line.id}
-                          sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.02)' } }}
-                        >
-                          <TableCell sx={{ fontWeight: 700, color: '#93c5fd' }}>{line.numeroOrden}</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>Línea {line.lineaNum}</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>
-                            {line.producto.descripcion} ({line.producto.sku})
-                          </TableCell>
-                          <TableCell>{line.proveedor.nombre}</TableCell>
-                          <TableCell>{new Date(line.ocCreatedAt).toLocaleDateString('es-CO')}</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>
-                            {line.pendiente} / {line.cantidad} {line.producto.unidadMedida}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => handleSelectLine(line)}
-                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-                            >
-                              Seleccionar
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {ordenesFiltradas.map((oc) => {
+                        const lineasPendientesCount = (oc.detalles || []).filter(
+                          (d: any) => d.cantidad - d.cantidadRecibida > 0
+                        ).length;
+                        return (
+                          <TableRow
+                            key={oc.id}
+                            sx={{ '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.02)' } }}
+                          >
+                            <TableCell sx={{ fontWeight: 700, color: '#93c5fd' }}>{oc.numeroOrden}</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>{oc.proveedor?.nombre}</TableCell>
+                            <TableCell>{oc.sucursal?.nombre}</TableCell>
+                            <TableCell>{new Date(oc.createdAt).toLocaleDateString('es-CO')}</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>
+                              {lineasPendientesCount} {lineasPendientesCount === 1 ? 'línea' : 'líneas'}
+                            </TableCell>
+                            <TableCell align="right">
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleSelectOrder(oc)}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                              >
+                                Recibir
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 )}
@@ -713,6 +697,8 @@ export default function RecepcionMateriales() {
                             borderRadius: 3,
                             backgroundColor: 'rgba(15, 23, 42, 0.3)',
                             border: '1px solid rgba(255, 255, 255, 0.05)',
+                            opacity: item.checked === false ? 0.55 : 1,
+                            transition: 'opacity 0.2s',
                           }}
                         >
                           {/* Fila del Producto y Cantidad */}
@@ -726,7 +712,23 @@ export default function RecepcionMateriales() {
                               mb: 2,
                             }}
                           >
-                            <Box sx={{ flexGrow: 1 }}>
+                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              {!modoAdHoc && (
+                                <Checkbox
+                                  checked={item.checked !== false}
+                                  onChange={(e) =>
+                                    handleChangeItem(idx, 'checked', e.target.checked)
+                                  }
+                                  sx={{
+                                    color: '#93c5fd',
+                                    '&.Mui-checked': {
+                                      color: '#3b82f6',
+                                    },
+                                    p: 0,
+                                    mr: 1,
+                                  }}
+                                />
+                              )}
                               {item.lineaNum !== undefined && (
                                 <Chip
                                   label={`Línea ${item.lineaNum}`}
@@ -738,7 +740,7 @@ export default function RecepcionMateriales() {
                               <Typography variant="body1" sx={{ fontWeight: 800, color: '#93c5fd', display: 'inline-block', verticalAlign: 'middle' }}>
                                 {item.descripcion}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', width: '100%' }}>
                                 SKU: <strong>{item.sku}</strong> | Tipo:{' '}
                                 <Chip
                                   label={item.esMateriaPrima ? 'Materia Prima' : 'MNA'}
@@ -754,6 +756,7 @@ export default function RecepcionMateriales() {
                                 label="Cantidad"
                                 type="number"
                                 size="small"
+                                disabled={item.checked === false}
                                 value={item.cantidad}
                                 onChange={(e) =>
                                   handleChangeItem(idx, 'cantidad', parseFloat(e.target.value) || 0)
@@ -795,6 +798,7 @@ export default function RecepcionMateriales() {
                                     fullWidth
                                     size="small"
                                     label="Número de Lote"
+                                    disabled={item.checked === false}
                                     value={item.numeroLote || ''}
                                     onChange={(e) =>
                                       handleChangeItem(idx, 'numeroLote', e.target.value)
@@ -807,6 +811,7 @@ export default function RecepcionMateriales() {
                                     size="small"
                                     label="Fecha Producción"
                                     type="date"
+                                    disabled={item.checked === false}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                     value={item.fechaProduccion || ''}
                                     onChange={(e) =>
@@ -820,6 +825,7 @@ export default function RecepcionMateriales() {
                                     size="small"
                                     label="Fecha Vencimiento"
                                     type="date"
+                                    disabled={item.checked === false}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                     value={item.fechaVencimiento || ''}
                                     onChange={(e) =>
@@ -833,6 +839,7 @@ export default function RecepcionMateriales() {
                                     size="small"
                                     label="Temperatura Mín (°C)"
                                     type="number"
+                                    disabled={item.checked === false}
                                     value={item.tempMin || ''}
                                     onChange={(e) =>
                                       handleChangeItem(idx, 'tempMin', parseFloat(e.target.value) || 0)
@@ -845,6 +852,7 @@ export default function RecepcionMateriales() {
                                     size="small"
                                     label="Temperatura Máx (°C)"
                                     type="number"
+                                    disabled={item.checked === false}
                                     value={item.tempMax || ''}
                                     onChange={(e) =>
                                       handleChangeItem(idx, 'tempMax', parseFloat(e.target.value) || 0)
