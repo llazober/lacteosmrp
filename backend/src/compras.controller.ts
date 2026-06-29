@@ -846,6 +846,15 @@ export class ComprasController {
       throw new BadRequestException('La orden de compra no existe.');
     }
 
+    const empresa = (await (this.prisma as any).empresa.findFirst()) || {
+      nombre: 'Lácteos MRP',
+      direccion: 'Km 5 Vía Zipaquirá',
+      telefono: '+57 (601) 823-4567',
+      email: 'info@lacteosmrp.com',
+      nit: '901.123.456-7',
+      web: 'www.lacteosmrp.com',
+    };
+
     const formatCurrency = (val: number) => {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -899,8 +908,9 @@ export class ComprasController {
             <table style="width: 100%; border-collapse: collapse; border: none;">
               <tr style="border: none;">
                 <td style="vertical-align: middle; border: none;">
-                  <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">Lácteos MRP</h1>
+                  <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">${empresa.nombre}</h1>
                   <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.85; text-transform: uppercase; letter-spacing: 1.5px;">Orden de Compra Oficial</p>
+                  <p style="margin: 4px 0 0 0; font-size: 11px; opacity: 0.85;">${empresa.direccion} | Tel: ${empresa.telefono} | Email: ${empresa.email}</p>
                 </td>
                 <td style="text-align: right; vertical-align: middle; border: none;">
                   <div style="background-color: rgba(255, 255, 255, 0.15); padding: 8px 16px; border-radius: 6px; display: inline-block;">
@@ -1014,8 +1024,8 @@ export class ComprasController {
 
           <!-- Footer/Disclaimer -->
           <div style="padding: 24px; text-align: center; font-size: 11px; color: #9ca3af; background-color: #f9fafb; border-top: 1px solid #f3f4f6;">
-            <p style="margin: 0 0 6px 0;">Esta orden de compra es emitida por Lácteos MRP de manera oficial. Por favor, confirme el recibo de este correo y procese el despacho según la fecha acordada.</p>
-            <p style="margin: 0; font-weight: 600;">Lácteos MRP © 2026. Todos los derechos reservados.</p>
+            <p style="margin: 0 0 6px 0;">Esta orden de compra es emitida por ${empresa.nombre} de manera oficial. Por favor, confirme el recibo de este correo y procese el despacho según la fecha acordada.</p>
+            <p style="margin: 0; font-weight: 600;">${empresa.nombre} © 2026. Todos los derechos reservados.</p>
           </div>
 
         </div>

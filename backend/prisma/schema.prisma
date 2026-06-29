@@ -466,6 +466,19 @@ model Configuracion {
   updatedAt DateTime @updatedAt
 }
 
+model Empresa {
+  id        String   @id @default(uuid())
+  nombre    String
+  direccion String
+  telefono  String
+  email     String
+  nit       String?  // tax ID / RUT / NIT
+  web       String?  // website
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
 model TerminoPago {
   id           String      @id @default(uuid())
   nombre       String      @unique // e.g., "Contado", "Crédito 30 días"

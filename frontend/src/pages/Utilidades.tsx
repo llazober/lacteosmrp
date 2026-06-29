@@ -231,6 +231,16 @@ export default function Utilidades() {
   const [probarEmailLoading, setProbarEmailLoading] = useState(false);
   const [testDestinatario, setTestDestinatario] = useState('luislazo@datalazo.net');
 
+  // Empresa Info State
+  const [empresaForm, setEmpresaForm] = useState({
+    nombre: '',
+    direccion: '',
+    telefono: '',
+    email: '',
+    nit: '',
+    web: '',
+  });
+
   // Notifications
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -273,6 +283,7 @@ export default function Utilidades() {
       } else if (activeTab === 8) {
         await cargarConfiguracionIA();
         await cargarConfiguracionEmail();
+        await cargarConfiguracionEmpresa();
       }
     } catch (e) {
       console.error(e);
@@ -652,6 +663,39 @@ export default function Utilidades() {
       });
       setSuccessMsg('Configuración de correo guardada con éxito.');
       await cargarConfiguracionEmail();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const cargarConfiguracionEmpresa = async () => {
+    try {
+      const res = await apiFetch('/configuracion/empresa');
+      if (res) {
+        setEmpresaForm({
+          nombre: res.nombre || '',
+          direccion: res.direccion || '',
+          telefono: res.telefono || '',
+          email: res.email || '',
+          nit: res.nit || '',
+          web: res.web || '',
+        });
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleGuardarEmpresa = async () => {
+    try {
+      setErrorMsg(null);
+      await apiFetch('/configuracion/empresa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(empresaForm),
+      });
+      setSuccessMsg('Información de la empresa guardada con éxito.');
+      await cargarConfiguracionEmpresa();
     } catch (e: any) {
       setErrorMsg(e.message);
     }
@@ -2543,6 +2587,142 @@ export default function Utilidades() {
                 </Typography>
                 <Typography variant="body2" sx={{ lineHeight: 1.6 }} color="text.secondary">
                   • <strong>Materia Prima e Inventario:</strong> Los avisos de stock crítico o de vencimiento se enrutan según las reglas correspondientes al Almacén o Compras.
+                </Typography>
+              </Paper>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 5 }} />
+
+          <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ 
+              p: 1, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)',
+              border: '1px solid rgba(2, 132, 199, 0.3)'
+            }}>
+              <span style={{ fontSize: '1.8rem' }}>🏢</span>
+            </Box>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
+                Información de la Empresa
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Establezca los datos de contacto y facturación oficiales de la empresa para los encabezados de documentos y órdenes de compra.
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 2fr' }, gap: 4, mb: 4 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Nombre de la Empresa
+                </Typography>
+                <TextField
+                  fullWidth
+                  placeholder="Lácteos MRP"
+                  value={empresaForm.nombre}
+                  onChange={(e) => setEmpresaForm({ ...empresaForm, nombre: e.target.value })}
+                  size="small"
+                />
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Dirección
+                </Typography>
+                <TextField
+                  fullWidth
+                  placeholder="Km 5 Vía Zipaquirá"
+                  value={empresaForm.direccion}
+                  onChange={(e) => setEmpresaForm({ ...empresaForm, direccion: e.target.value })}
+                  size="small"
+                />
+              </Box>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Teléfono
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="+57 (601) 823-4567"
+                    value={empresaForm.telefono}
+                    onChange={(e) => setEmpresaForm({ ...empresaForm, telefono: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Correo Electrónico
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="contacto@lacteosmrp.com"
+                    value={empresaForm.email}
+                    onChange={(e) => setEmpresaForm({ ...empresaForm, email: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Identificación Tributaria (NIT / RUT)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="901.123.456-7"
+                    value={empresaForm.nit}
+                    onChange={(e) => setEmpresaForm({ ...empresaForm, nit: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Sitio Web
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="www.lacteosmrp.com"
+                    value={empresaForm.web}
+                    onChange={(e) => setEmpresaForm({ ...empresaForm, web: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleGuardarEmpresa}
+                  sx={{ borderRadius: 2, px: 3, py: 1, fontWeight: 700 }}
+                >
+                  Guardar Información de Empresa
+                </Button>
+              </Box>
+            </Box>
+
+            <Box>
+              <Paper sx={{ 
+                p: 3, 
+                backgroundColor: 'rgba(255,255,255,0.02)', 
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px',
+                height: '100%'
+              }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.5, color: 'primary.light' }}>
+                  🏢 Uso Corporativo de Información
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.6 }} color="text.secondary">
+                  Esta información se utiliza automáticamente como el encabezado de todas las <strong>Órdenes de Compra</strong> emitidas por el sistema.
+                </Typography>
+                <Typography variant="body2" sx={{ lineHeight: 1.6 }} color="text.secondary">
+                  Asegúrese de ingresar un NIT/RUT y una dirección postal válidos, ya que estos datos son obligatorios y auditables por los proveedores en el momento de la facturación y la logística de entrega.
                 </Typography>
               </Paper>
             </Box>

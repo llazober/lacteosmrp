@@ -145,4 +145,56 @@ export class ConfiguracionController {
       throw new BadRequestException(`Fallo al enviar correo de prueba: ${e.message}`);
     }
   }
+
+  @Get('empresa')
+  async getEmpresaInfo() {
+    let emp = await (this.prisma as any).empresa.findFirst();
+    if (!emp) {
+      emp = await (this.prisma as any).empresa.create({
+        data: {
+          nombre: 'Lácteos MRP',
+          direccion: 'Km 5 Vía Zipaquirá',
+          telefono: '+57 (601) 823-4567',
+          email: 'info@lacteosmrp.com',
+          nit: '901.123.456-7',
+          web: 'www.lacteosmrp.com',
+        },
+      });
+    }
+    return emp;
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Post('empresa')
+  async saveEmpresaInfo(@Request() req: any, @Body() body: any) {
+    const { nombre, direccion, telefono, email, nit, web } = body;
+    if (!nombre || !direccion || !telefono || !email) {
+      throw new BadRequestException('El nombre, dirección, teléfono y correo electrónico son obligatorios.');
+    }
+
+    let emp = await (this.prisma as any).empresa.findFirst();
+    if (emp) {
+      emp = await (this.prisma as any).empresa.update({
+        where: { id: emp.id },
+        data: { nombre, direccion, telefono, email, nit, web },
+      });
+    } else {
+      emp = await (this.prisma as any).empresa.create({
+        data: { nombre, direccion, telefono, email, nit, web },
+      });
+    }
+
+    // Registrar auditoría
+    await (this.prisma as any).auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'GUARDAR_CONFIG_EMPRESA',
+        modulo: 'TELEMETRIA',
+        detalles: JSON.stringify({ nombre }),
+      },
+    });
+
+    return emp;
+  }
 }

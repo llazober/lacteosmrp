@@ -122,6 +122,22 @@ async function runAutoMigrations(prisma: PrismaService) {
       });
       console.log('Lotes auto-aprobados con éxito.');
     }
+
+    // 5. Seed default company info if not exists
+    const empresaCount = await (prisma as any).empresa.count();
+    if (empresaCount === 0) {
+      await (prisma as any).empresa.create({
+        data: {
+          nombre: 'Lácteos MRP',
+          direccion: 'Km 5 Vía Zipaquirá',
+          telefono: '+57 (601) 823-4567',
+          email: 'info@lacteosmrp.com',
+          nit: '901.123.456-7',
+          web: 'www.lacteosmrp.com',
+        },
+      });
+      console.log('Sección de información de la empresa inicializada por defecto.');
+    }
   } catch (error) {
     console.error('Error al ejecutar auto-migraciones de bodegas:', error);
   }

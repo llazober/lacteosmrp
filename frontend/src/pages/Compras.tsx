@@ -111,6 +111,15 @@ export default function Compras() {
   });
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  const [empresaInfo, setEmpresaInfo] = useState<any>({
+    nombre: 'Lácteos MRP',
+    direccion: 'Km 5 Vía Zipaquirá',
+    telefono: '+57 (601) 823-4567',
+    email: 'info@lacteosmrp.com',
+    nit: '901.123.456-7',
+    web: 'www.lacteosmrp.com',
+  });
+
   useEffect(() => {
     cargarDatos();
   }, []);
@@ -130,6 +139,15 @@ export default function Compras() {
 
       const prod = await apiFetch('/productos');
       setProductos(prod.filter((p: any) => p.estado === 'ACTIVO'));
+
+      try {
+        const emp = await apiFetch('/configuracion/empresa');
+        if (emp) {
+          setEmpresaInfo(emp);
+        }
+      } catch (err) {
+        console.error('Error fetching company info:', err);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -584,8 +602,8 @@ export default function Compras() {
         <body>
           <div class="header">
             <div class="logo-area">
-              <h1>Lácteos MRP</h1>
-              <p>Km 5 Vía Zipaquirá | Nit: 901.123.456-7</p>
+              <h1>${empresaInfo.nombre}</h1>
+              <p>${empresaInfo.direccion} | Tel: ${empresaInfo.telefono} | Email: ${empresaInfo.email}</p>
             </div>
             <div class="title-area">
               <h2>ORDEN DE COMPRA</h2>
@@ -668,7 +686,7 @@ export default function Compras() {
           </div>
 
           <div class="disclaimer">
-            Este documento representa una orden de compra formal y está sujeta a los términos y condiciones de suministro acordados previamente.
+            Este documento representa una orden de compra formal de ${empresaInfo.nombre} y está sujeta a los términos y condiciones de suministro acordados previamente.
           </div>
 
           <script>
@@ -689,7 +707,7 @@ export default function Compras() {
     if (!selectedPreviewOC) return;
     setEmailForm({
       para: selectedPreviewOC.proveedor.correo || '',
-      asunto: `Orden de Compra ${selectedPreviewOC.numeroOrden} - Lácteos MRP`,
+      asunto: `Orden de Compra ${selectedPreviewOC.numeroOrden} - ${empresaInfo.nombre}`,
       mensajeAdicional: '',
     });
     setOpenEmailDialog(true);
@@ -1808,7 +1826,7 @@ export default function Compras() {
           }}>
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 800, m: 0 }}>Vista Previa de Orden de Compra</Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>Lácteos MRP - Sistema ERP</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>{empresaInfo.nombre} - Sistema ERP</Typography>
             </Box>
             <IconButton onClick={() => { setOpenPreviewOC(false); setSelectedPreviewOC(null); }} sx={{ color: 'white' }}>
               <Close />
@@ -1821,10 +1839,9 @@ export default function Compras() {
               {/* Document Header Area */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, pb: 3, borderBottom: '2px solid rgba(255,255,255,0.05)' }}>
                 <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.light' }}>LÁCTEOS MRP</Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Nit: 901.123.456-7</Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Km 5 Vía Zipaquirá</Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Teléfono: +57 (601) 823-4567</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.light' }}>{empresaInfo.nombre.toUpperCase()}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{empresaInfo.direccion}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Teléfono: {empresaInfo.telefono} | Email: {empresaInfo.email}</Typography>
                 </Box>
                 <Box sx={{ textAlign: 'right' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800 }}>{selectedPreviewOC.numeroOrden}</Typography>
