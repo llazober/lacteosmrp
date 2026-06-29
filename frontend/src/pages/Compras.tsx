@@ -70,6 +70,7 @@ export default function Compras() {
     sucursalId: '',
     fechaEntrega: '',
     productos: [],
+    estado: '',
   });
   const [nuevoItemEdit, setNuevoItemEdit] = useState({
     productoId: '',
@@ -278,6 +279,7 @@ export default function Compras() {
       sucursalId: oc.sucursalId,
       fechaEntrega: oc.fechaEntrega ? oc.fechaEntrega.split('T')[0] : '',
       productos: lineas,
+      estado: oc.estado,
     });
     setNuevoItemEdit({
       productoId: '',
@@ -302,6 +304,7 @@ export default function Compras() {
           proveedorId: editarOcForm.proveedorId,
           sucursalId: editarOcForm.sucursalId,
           fechaEntrega: editarOcForm.fechaEntrega || null,
+          estado: editarOcForm.estado,
           productos: editarOcForm.productos.map((p: any) => ({
             productoId: p.productoId,
             cantidad: p.cantidad,
@@ -1095,6 +1098,21 @@ export default function Compras() {
                   {sucursales.map((s) => (
                     <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
                   ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>Estado</InputLabel>
+                <Select
+                  value={editarOcForm.estado || ''}
+                  label="Estado"
+                  onChange={(e) => setEditarOcForm({ ...editarOcForm, estado: e.target.value })}
+                >
+                  <MenuItem value="PENDIENTE">PENDIENTE</MenuItem>
+                  <MenuItem value="APROBADA">APROBADA</MenuItem>
+                  <MenuItem value="PARCIAL">PARCIAL</MenuItem>
+                  <MenuItem value="RECIBIDA">RECIBIDA</MenuItem>
+                  <MenuItem value="CANCELADA">CANCELADA</MenuItem>
                 </Select>
               </FormControl>
 

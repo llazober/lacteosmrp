@@ -1973,7 +1973,7 @@ export class ProduccionController implements OnModuleInit {
     @Request() req: any,
     @Body() body: any,
   ) {
-    const { cantidadPlanificada, responsableId } = body;
+    const { cantidadPlanificada, responsableId, estado } = body;
 
     const op = await this.prisma.ordenProduccion.findUnique({
       where: { id },
@@ -2016,7 +2016,7 @@ export class ProduccionController implements OnModuleInit {
     }
     const cdId = cd.id;
 
-    if (op.estado !== 'PLANIFICADA' && op.estado !== 'FALTANTES') {
+    if ((op.estado !== 'PLANIFICADA' && op.estado !== 'FALTANTES') && !estado) {
       throw new BadRequestException(
         'Solo se pueden editar órdenes en estado PLANIFICADA o FALTANTES.',
       );
@@ -2113,7 +2113,7 @@ export class ProduccionController implements OnModuleInit {
         }
       }
 
-      const nuevoEstado = tieneShortage ? 'FALTANTES' : 'PLANIFICADA';
+      const nuevoEstado = estado || (tieneShortage ? 'FALTANTES' : 'PLANIFICADA');
 
       const opUpdated = await tx.ordenProduccion.update({
         where: { id },

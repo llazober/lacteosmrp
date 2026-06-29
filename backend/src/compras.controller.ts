@@ -334,7 +334,7 @@ export class ComprasController {
     @Request() req: any,
     @Body() body: any,
   ) {
-    const { proveedorId, sucursalId, productos, fechaEntrega } = body;
+    const { proveedorId, sucursalId, productos, fechaEntrega, estado } = body;
 
     const oc = await this.prisma.ordenCompra.findUnique({
       where: { id },
@@ -349,7 +349,7 @@ export class ComprasController {
       throw new BadRequestException('La orden de compra no existe.');
     }
 
-    if (oc.estado === 'RECIBIDA' || oc.estado === 'PARCIAL') {
+    if ((oc.estado === 'RECIBIDA' || oc.estado === 'PARCIAL') && !estado) {
       throw new BadRequestException(
         'No se puede editar una orden de compra que ya ha sido recibida o se encuentra parcialmente recibida.',
       );
@@ -390,6 +390,7 @@ export class ComprasController {
         data: {
           proveedorId: proveedorId !== undefined ? proveedorId : oc.proveedorId,
           sucursalId: sucursalId !== undefined ? sucursalId : oc.sucursalId,
+          estado: estado !== undefined ? estado : oc.estado,
           fechaEntrega:
             productos && productos.length > 0
               ? maxFechaEntrega

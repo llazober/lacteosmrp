@@ -28,6 +28,7 @@ import {
   Tooltip,
   LinearProgress,
   InputAdornment,
+  Checkbox,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -103,6 +104,7 @@ export default function CuentasPorPagar() {
   const [recepciones, setRecepciones] = useState<any[]>([]);
   const [filtroEstado, setFiltroEstado] = useState<'PENDIENTES' | 'PAGADAS'>('PENDIENTES');
   const [searchRecepcion, setSearchRecepcion] = useState('');
+  const [selectedFacturaIds, setSelectedFacturaIds] = useState<string[]>([]);
 
   // Dialog states
   const [openCrearFactura, setOpenCrearFactura] = useState(false);
@@ -346,7 +348,8 @@ export default function CuentasPorPagar() {
       await apiFetch('/finanzas/pagos', {
         method: 'POST',
         body: JSON.stringify({
-          facturaCompraId: selectedFactura.id,
+          facturaCompraId: selectedFacturaIds[0] || (selectedFactura ? selectedFactura.id : ''),
+          facturaCompraIds: selectedFacturaIds.length > 0 ? selectedFacturaIds : (selectedFactura ? [selectedFactura.id] : []),
           monto: Number(pagoForm.monto),
           fechaPago: pagoForm.fechaPago,
           metodoPago: pagoForm.metodoPago,
@@ -360,6 +363,7 @@ export default function CuentasPorPagar() {
       setSuccessMsg('Pago registrado con éxito.');
       setOpenRegistrarPago(false);
       setSelectedFactura(null);
+      setSelectedFacturaIds([]);
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -376,6 +380,8 @@ export default function CuentasPorPagar() {
   }
 
   // KPIs
+  const selectedProveedorId = facturas.find((f) => selectedFacturaIds.includes(f.id))?.proveedorId;
+
   const totalCuentasPorPagar = facturas
     .filter((f) => f.estado !== 'PAGADA')
     .reduce((sum, f) => {
@@ -393,6 +399,11 @@ export default function CuentasPorPagar() {
   const totalPagadoHistorico = facturas.reduce((sum, f) => {
     return sum + f.pagos.reduce((s: number, p: any) => s + p.monto, 0);
   }, 0);
+  
+  // Find where JSX return starts to make sure we replace the correct place, wait, let's keep the existing UI code unchanged otherwise.
+  // Actually, we can define selectedProveedorId at the top and just do the table rendering change here.
+  // Let's replace the top section of the facturas table first.
+  // We'll view the file around line 500 to ensure we start exactly from the JSX.
 
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
@@ -499,11 +510,52 @@ export default function CuentasPorPagar() {
               <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.light', mb: 0 }}>
                 Facturas Registradas
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                {filtroEstado === 'PENDIENTES' && selectedFacturaIds.length > 0 && (
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    size="small"
+                    startIcon={<Paid />}
+                    onClick={() => {
+                      const sumSaldo = facturas
+                        .filter((f) => selectedFacturaIds.includes(f.id))
+                        .reduce((sum, f) => {
+                          const pagado = f.pagos.reduce((s: number, p: any) => s + p.monto, 0);
+                          return sum + (f.total - pagado);
+                        }, 0);
+                      const firstSelected = facturas.find((f) => selectedFacturaIds.includes(f.id));
+                      setSelectedFactura(firstSelected);
+                      setPagoForm({
+                        monto: String(sumSaldo.toFixed(2)),
+                        fechaPago: new Date().toISOString().split('T')[0],
+                        metodoPago: 'TRANSFERENCIA',
+                        referencia: '',
+                        chequeNumero: '',
+                        chequeBanco: '',
+                        chequeVence: '',
+                      });
+                      setOpenRegistrarPago(true);
+                    }}
+                    sx={{ textTransform: 'none', fontWeight: 800, mr: 2 }}
+                  >
+                    Pagar Seleccionadas ({selectedFacturaIds.length}) - {formatCurrency(
+                      facturas
+                        .filter((f) => selectedFacturaIds.includes(f.id))
+                        .reduce((sum, f) => {
+                          const pagado = f.pagos.reduce((s: number, p: any) => s + p.monto, 0);
+                          return sum + (f.total - pagado);
+                        }, 0)
+                    )}
+                  </Button>
+                )}
                 <Button
                   variant={filtroEstado === 'PENDIENTES' ? 'contained' : 'outlined'}
                   size="small"
-                  onClick={() => setFiltroEstado('PENDIENTES')}
+                  onClick={() => {
+                    setFiltroEstado('PENDIENTES');
+                    setSelectedFacturaIds([]);
+                  }}
                   sx={{ textTransform: 'none', fontWeight: 700 }}
                 >
                   Facturas por Pagar
@@ -511,7 +563,10 @@ export default function CuentasPorPagar() {
                 <Button
                   variant={filtroEstado === 'PAGADAS' ? 'contained' : 'outlined'}
                   size="small"
-                  onClick={() => setFiltroEstado('PAGADAS')}
+                  onClick={() => {
+                    setFiltroEstado('PAGADAS');
+                    setSelectedFacturaIds([]);
+                  }}
                   sx={{ textTransform: 'none', fontWeight: 700 }}
                 >
                   Facturas Pagadas
@@ -522,6 +577,7 @@ export default function CuentasPorPagar() {
               <Table>
                 <TableHead>
                   <TableRow>
+                    {filtroEstado === 'PENDIENTES' && <TableCell sx={{ width: 50 }} />}
                     <TableCell>N° Factura</TableCell>
                     <TableCell>Proveedor</TableCell>
                     <TableCell>Recibo Asociado</TableCell>
@@ -547,7 +603,7 @@ export default function CuentasPorPagar() {
                     if (facturasFiltradas.length === 0) {
                       return (
                         <TableRow>
-                          <TableCell colSpan={10} align="center">
+                          <TableCell colSpan={filtroEstado === 'PENDIENTES' ? 11 : 10} align="center">
                             No se encontraron facturas {filtroEstado === 'PENDIENTES' ? 'pendientes de pago' : 'pagadas'}.
                           </TableCell>
                         </TableRow>
@@ -578,6 +634,23 @@ export default function CuentasPorPagar() {
                           transition: 'background-color 0.2s ease',
                         }}
                       >
+                        {filtroEstado === 'PENDIENTES' && (
+                          <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 0.5 }}>
+                            <Checkbox
+                              checked={selectedFacturaIds.includes(f.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedFacturaIds([...selectedFacturaIds, f.id]);
+                                } else {
+                                  setSelectedFacturaIds(selectedFacturaIds.filter((id) => id !== f.id));
+                                }
+                              }}
+                              disabled={
+                                selectedProveedorId !== undefined && f.proveedorId !== selectedProveedorId
+                              }
+                            />
+                          </TableCell>
+                        )}
                         <TableCell sx={{ fontWeight: 700 }}>{f.numeroFactura}</TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -656,6 +729,7 @@ export default function CuentasPorPagar() {
                                 startIcon={<Paid />}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setSelectedFacturaIds([f.id]);
                                   setSelectedFactura(f);
                                   setPagoForm({
                                     monto: String(saldo),
@@ -1162,8 +1236,31 @@ export default function CuentasPorPagar() {
       <Dialog open={openRegistrarPago} onClose={() => setOpenRegistrarPago(false)} fullWidth maxWidth="sm">
         {selectedFactura && (
           <>
-            <DialogTitle sx={{ fontWeight: 800 }}>Registrar Pago a Proveedor</DialogTitle>
+            <DialogTitle sx={{ fontWeight: 800 }}>
+              {selectedFacturaIds.length > 1
+                ? `Registrar Pago Consolidado - ${selectedFacturaIds.length} Facturas`
+                : 'Registrar Pago a Proveedor'}
+            </DialogTitle>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
+              {selectedFacturaIds.length > 1 && (
+                <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.02)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: 'primary.light' }}>
+                    Facturas seleccionadas para pago:
+                  </Typography>
+                  {facturas
+                    .filter((f) => selectedFacturaIds.includes(f.id))
+                    .map((f) => {
+                      const pagado = f.pagos.reduce((sum: number, p: any) => sum + p.monto, 0);
+                      const saldo = f.total - pagado;
+                      return (
+                        <Typography key={f.id} variant="body2" color="text.secondary" sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                          <span>Factura <strong>{f.numeroFactura}</strong></span>
+                          <span>Saldo: <strong>{formatCurrency(saldo)}</strong></span>
+                        </Typography>
+                      );
+                    })}
+                </Box>
+              )}
               <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.05)' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: 'secondary.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <AccountBalance sx={{ fontSize: 18 }} /> Datos de Transferencia / Depósito del Proveedor

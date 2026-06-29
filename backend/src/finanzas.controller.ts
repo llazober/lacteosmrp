@@ -276,6 +276,7 @@ export class FinanzasController {
   async registrarPago(@Request() req: any, @Body() body: any) {
     const {
       facturaCompraId,
+      facturaCompraIds,
       monto,
       fechaPago,
       metodoPago,
@@ -286,80 +287,113 @@ export class FinanzasController {
       chequeVence,
     } = body;
 
-    if (!facturaCompraId || monto == null || !metodoPago) {
+    const ids: string[] = [];
+    if (facturaCompraIds && Array.isArray(facturaCompraIds) && facturaCompraIds.length > 0) {
+      ids.push(...facturaCompraIds);
+    } else if (facturaCompraId) {
+      ids.push(facturaCompraId);
+    }
+
+    if (ids.length === 0 || monto == null || !metodoPago) {
       throw new BadRequestException(
-        'Los campos facturaCompraId, monto y metodoPago son obligatorios.',
+        'Debe seleccionar al menos una factura, y el monto y método de pago son obligatorios.',
       );
     }
 
-    const factura = await this.prisma.facturaCompra.findUnique({
-      where: { id: facturaCompraId },
+    const facturas = await this.prisma.facturaCompra.findMany({
+      where: { id: { in: ids } },
       include: { pagos: true, proveedor: true },
     });
 
-    if (!factura) {
-      throw new BadRequestException('La factura de compra no existe.');
+    if (facturas.length === 0) {
+      throw new BadRequestException('Ninguna de las facturas especificadas existe.');
     }
 
-    if (factura.estado === 'PAGADA') {
+    const supplierIds = new Set(facturas.map((f) => f.proveedorId));
+    if (supplierIds.size > 1) {
       throw new BadRequestException(
-        'La factura ya se encuentra totalmente pagada.',
+        'Todas las facturas seleccionadas para un pago consolidado deben pertenecer al mismo proveedor.',
       );
     }
 
-    const pagadoAnterior = factura.pagos.reduce((sum, p) => sum + p.monto, 0);
-    const saldoPendiente = factura.total - pagadoAnterior;
+    if (facturas.every((f) => f.estado === 'PAGADA')) {
+      throw new BadRequestException('Todas las facturas seleccionadas ya están totalmente pagadas.');
+    }
 
-    const montoFloat = parseFloat(monto);
-    if (montoFloat <= 0) {
+    const montoTotalFloat = parseFloat(monto);
+    if (montoTotalFloat <= 0) {
       throw new BadRequestException('El monto del pago debe ser mayor a cero.');
     }
 
-    // Tolerancia decimal pequeña para evitar problemas de float de JS
-    if (montoFloat > saldoPendiente + 0.01) {
+    let totalSaldoPendiente = 0;
+    const facturasConSaldo = facturas.map((f) => {
+      const pagadoAnterior = f.pagos.reduce((sum, p) => sum + p.monto, 0);
+      const saldoPendiente = Math.max(0, f.total - pagadoAnterior);
+      totalSaldoPendiente += saldoPendiente;
+      return { factura: f, saldoPendiente };
+    }).filter((f) => f.saldoPendiente > 0);
+
+    facturasConSaldo.sort((a, b) => new Date(a.factura.createdAt).getTime() - new Date(b.factura.createdAt).getTime());
+
+    if (montoTotalFloat > totalSaldoPendiente + 0.05) {
       throw new BadRequestException(
-        `El monto ingresado ($${montoFloat}) excede el saldo pendiente ($${saldoPendiente}).`,
+        `El monto ingresado ($${montoTotalFloat}) excede el saldo pendiente total ($${totalSaldoPendiente.toFixed(2)}).`,
       );
     }
 
-    // Capturar datos bancarios si es transferencia/depósito para auditoría
+    const proveedor = facturas[0].proveedor;
     let transfeCuenta: string | null = null;
     if (metodoPago === 'TRANSFERENCIA' || metodoPago === 'DEPOSITO') {
-      transfeCuenta = factura.proveedor.bancoNroCuenta
-        ? `${factura.proveedor.bancoNombre} - N° ${factura.proveedor.bancoNroCuenta}`
+      transfeCuenta = proveedor.bancoNroCuenta
+        ? `${proveedor.bancoNombre} - N° ${proveedor.bancoNroCuenta}`
         : 'Sin datos de cuenta';
     }
 
-    const pago = await this.prisma.$transaction(async (tx) => {
-      const p = await tx.pagoCompra.create({
-        data: {
-          facturaCompraId,
-          monto: montoFloat,
-          fechaPago: fechaPago ? new Date(fechaPago) : new Date(),
-          metodoPago,
-          referencia: referencia || null,
-          cajaId: cajaId || null,
-          usuarioId: req.user.id,
-          chequeNumero: metodoPago === 'CHEQUE' ? chequeNumero || null : null,
-          chequeBanco: metodoPago === 'CHEQUE' ? chequeBanco || null : null,
-          chequeVence:
-            metodoPago === 'CHEQUE' && chequeVence
-              ? new Date(chequeVence)
-              : null,
-          transfeCuenta,
-        },
-      });
+    const pagosCreados = await this.prisma.$transaction(async (tx) => {
+      let montoRestante = montoTotalFloat;
+      const creados: any[] = [];
 
-      const nuevoTotalPagado = pagadoAnterior + montoFloat;
-      const nuevoEstado =
-        nuevoTotalPagado >= factura.total - 0.05 ? 'PAGADA' : 'PAGADA_PARCIAL';
+      for (const item of facturasConSaldo) {
+        if (montoRestante <= 0.001) break;
 
-      await tx.facturaCompra.update({
-        where: { id: facturaCompraId },
-        data: { estado: nuevoEstado },
-      });
+        const aPagar = Math.min(item.saldoPendiente, montoRestante);
+        if (aPagar <= 0) continue;
 
-      return p;
+        const p = await tx.pagoCompra.create({
+          data: {
+            facturaCompraId: item.factura.id,
+            monto: aPagar,
+            fechaPago: fechaPago ? new Date(fechaPago) : new Date(),
+            metodoPago,
+            referencia: referencia || null,
+            cajaId: cajaId || null,
+            usuarioId: req.user.id,
+            chequeNumero: metodoPago === 'CHEQUE' ? chequeNumero || null : null,
+            chequeBanco: metodoPago === 'CHEQUE' ? chequeBanco || null : null,
+            chequeVence:
+              metodoPago === 'CHEQUE' && chequeVence
+                ? new Date(chequeVence)
+                : null,
+            transfeCuenta,
+          },
+        });
+
+        creados.push(p);
+
+        const pagadoAnterior = item.factura.pagos.reduce((sum, p) => sum + p.monto, 0);
+        const nuevoTotalPagado = pagadoAnterior + aPagar;
+        const nuevoEstado =
+          nuevoTotalPagado >= item.factura.total - 0.05 ? 'PAGADA' : 'PAGADA_PARCIAL';
+
+        await tx.facturaCompra.update({
+          where: { id: item.factura.id },
+          data: { estado: nuevoEstado },
+        });
+
+        montoRestante -= aPagar;
+      }
+
+      return creados;
     });
 
     // Auditoría
@@ -367,12 +401,12 @@ export class FinanzasController {
       data: {
         usuarioId: req.user.id,
         usuarioNombre: req.user.nombre,
-        accion: 'REGISTRAR_PAGO_COMPRA',
+        accion: 'REGISTRAR_PAGO_COMPRA_CONSOLIDADO',
         modulo: 'FINANZAS',
-        detalles: JSON.stringify(pago),
+        detalles: JSON.stringify(pagosCreados),
       },
     });
 
-    return pago;
+    return pagosCreados;
   }
 }

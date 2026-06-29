@@ -171,6 +171,7 @@ export default function Produccion() {
     recetaNombre: '',
     cantidadPlanificada: '',
     responsableId: '',
+    estado: '',
   });
 
   // Feedback
@@ -627,6 +628,7 @@ export default function Produccion() {
       recetaNombre: op.receta.nombre,
       cantidadPlanificada: op.cantidadPlanificada.toString(),
       responsableId: op.responsableId,
+      estado: op.estado,
     });
     setOpenEditarOrden(true);
   };
@@ -646,6 +648,7 @@ export default function Produccion() {
         body: JSON.stringify({
           cantidadPlanificada: parseFloat(editarOrdenForm.cantidadPlanificada),
           responsableId: editarOrdenForm.responsableId,
+          estado: editarOrdenForm.estado,
         }),
       });
       setSuccessMsg(`Orden ${editarOrdenForm.numeroOrden} actualizada con éxito.`);
@@ -1090,9 +1093,9 @@ export default function Produccion() {
                               <Assignment fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          {(op.estado === 'PLANIFICADA' || op.estado === 'FALTANTES') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                          {op.estado !== 'COMPLETADA' && op.estado !== 'CANCELADA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                             <>
-                              <Tooltip title="Editar Cantidad Planificada">
+                              <Tooltip title="Editar Orden">
                                 <IconButton
                                   color="info"
                                   onClick={(e) => { e.stopPropagation(); handleOpenEditarOrden(op); }}
@@ -1100,15 +1103,6 @@ export default function Produccion() {
                                   <Edit />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Cancelar Orden">
-                                <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
-                                  <Close />
-                                </IconButton>
-                              </Tooltip>
-                            </>
-                          )}
-                          {op.estado === 'EN_PROCESO' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                            <>
                               <Tooltip title="Cancelar Orden">
                                 <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
                                   <Close />
@@ -1911,6 +1905,21 @@ export default function Produccion() {
                     {u.nombre} ({u.rol})
                   </MenuItem>
                 ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>Estado</InputLabel>
+              <Select
+                value={editarOrdenForm.estado || ''}
+                label="Estado"
+                onChange={(e) => setEditarOrdenForm({ ...editarOrdenForm, estado: e.target.value })}
+              >
+                <MenuItem value="PLANIFICADA">PLANIFICADA</MenuItem>
+                <MenuItem value="FALTANTES">FALTANTES</MenuItem>
+                <MenuItem value="EN_PROCESO">EN_PROCESO</MenuItem>
+                <MenuItem value="COMPLETADA">COMPLETADA</MenuItem>
+                <MenuItem value="CANCELADA">CANCELADA</MenuItem>
               </Select>
             </FormControl>
           </Box>
