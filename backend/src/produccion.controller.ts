@@ -1595,11 +1595,11 @@ export class ProduccionController implements OnModuleInit {
           sku: sust.producto.sku,
           descripcion: sust.producto.descripcion,
           unidadMedida: sust.producto.unidadMedida || 'U',
-          stockDisponible: isSustInt ? stockSust : Math.round(stockSust * 100) / 100,
+          stockDisponible: isSustInt ? stockSust : Math.round(stockSust * 100000) / 100000,
           lotesDisponibles: lotesSust.map((l) => ({
             id: l.id,
             numeroLote: l.numeroLote,
-            cantidadActual: isSustInt ? l.cantidadActual : Math.round(l.cantidadActual * 100) / 100,
+            cantidadActual: isSustInt ? l.cantidadActual : Math.round(l.cantidadActual * 100000) / 100000,
           })),
           bodega: sustBodega ? {
             id: sustBodega.id,
@@ -1640,16 +1640,16 @@ export class ProduccionController implements OnModuleInit {
         sku: reqDetalle.producto.sku,
         descripcion: reqDetalle.producto.descripcion,
         unidadMedida: reqDetalle.producto.unidadMedida || 'U',
-        cantidadRequerida: isInteger ? cantidadRequerida : Math.round(cantidadRequerida * 100) / 100,
-        stockDisponible: isInteger ? stockDisponible : Math.round(stockDisponible * 100) / 100,
-        yaEntregado: isInteger ? yaEntregado : Math.round(yaEntregado * 100) / 100,
-        cantidadPicked: isInteger ? cantidadPicked : Math.round(cantidadPicked * 100) / 100,
+        cantidadRequerida: isInteger ? cantidadRequerida : Math.round(cantidadRequerida * 100000) / 100000,
+        stockDisponible: isInteger ? stockDisponible : Math.round(stockDisponible * 100000) / 100000,
+        yaEntregado: isInteger ? yaEntregado : Math.round(yaEntregado * 100000) / 100000,
+        cantidadPicked: isInteger ? cantidadPicked : Math.round(cantidadPicked * 100000) / 100000,
         picked: op.pickingCompletado,
         loteNumero,
         lotesDisponibles: lotes.map((l) => ({
           id: l.id,
           numeroLote: l.numeroLote,
-          cantidadActual: isInteger ? l.cantidadActual : Math.round(l.cantidadActual * 100) / 100,
+          cantidadActual: isInteger ? l.cantidadActual : Math.round(l.cantidadActual * 100000) / 100000,
         })),
         sustitutos: sustitutosInfo,
         bodega: targetBodega ? {
@@ -1940,8 +1940,8 @@ export class ProduccionController implements OnModuleInit {
         });
         const totalPicked = aggregate._sum.cantidadConsumida || 0;
 
-        const totalPickedRounded = Math.round(totalPicked * 100) / 100;
-        const cantidadRequeridaRounded = Math.round(cantidadRequerida * 100) / 100;
+        const totalPickedRounded = Math.round(totalPicked * 100000) / 100000;
+        const cantidadRequeridaRounded = Math.round(cantidadRequerida * 100000) / 100000;
 
         if (totalPickedRounded < cantidadRequeridaRounded) {
           tieneShortage = true;
@@ -2103,9 +2103,9 @@ export class ProduccionController implements OnModuleInit {
 
         // Balance pendiente por recolectar
         const balancePendiente = Math.max(0, totalRequerido - alreadyPicked);
-        const balancePendienteRounded = Math.round(balancePendiente * 100) / 100;
+        const balancePendienteRounded = Math.round(balancePendiente * 100000) / 100000;
 
-        // Si el balance restante es mayor que 0 (redondeado a 2 decimales), verificar stock disponible
+        // Si el balance restante es mayor que 0 (redondeado a 5 decimales), verificar stock disponible
         if (balancePendienteRounded > 0) {
           const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
           const inv = targetBodega ? await tx.inventario.findUnique({
@@ -2117,7 +2117,7 @@ export class ProduccionController implements OnModuleInit {
             },
           }) : null;
           const stockDisponible = inv ? inv.existencia : 0;
-          const stockDisponibleRounded = Math.round(stockDisponible * 100) / 100;
+          const stockDisponibleRounded = Math.round(stockDisponible * 100000) / 100000;
           if (stockDisponibleRounded < balancePendienteRounded) {
             tieneShortage = true;
           }
