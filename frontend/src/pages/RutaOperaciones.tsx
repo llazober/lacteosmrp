@@ -182,13 +182,7 @@ export default function RutaOperaciones() {
     setSelectedOrden(orden);
     setCurrentWcId(wcId);
     
-    // Calcular tiempo transcurrido en segundos
     const operacion = orden.operaciones.find((o: any) => o.workCenter === wcId);
-    let elapsedSeconds = 0;
-    if (operacion && operacion.fechaInicio) {
-      elapsedSeconds = Math.round((new Date().getTime() - new Date(operacion.fechaInicio).getTime()) / 1000);
-    }
-
     setNotasTexto(operacion?.notas || '');
 
     // Obtener campos requeridos dinámicos desde la operación guardada en la orden
@@ -213,27 +207,10 @@ export default function RutaOperaciones() {
     }
     setCurrentFields(fields);
 
-    // Inicializar inputs
+    // Inicializar inputs vacíos
     const initialData: Record<string, string> = {};
     fields.forEach((f: any) => {
-      const nameLower = (f.name || '').toLowerCase();
-      const labelLower = (f.label || '').toLowerCase();
-      const isDurationField = nameLower.startsWith('tiempo_') || 
-                              nameLower.includes('duracion') || 
-                              labelLower.includes('tiempo') || 
-                              labelLower.includes('duración');
-
-      if (isDurationField) {
-        if (f.suffix === 'min') {
-          initialData[f.name] = Math.round(elapsedSeconds / 60).toString();
-        } else if (f.suffix === 'horas') {
-          initialData[f.name] = (elapsedSeconds / 3600).toFixed(1);
-        } else {
-          initialData[f.name] = elapsedSeconds.toString();
-        }
-      } else {
-        initialData[f.name] = '';
-      }
+      initialData[f.name] = '';
     });
     setFormData(initialData);
 
