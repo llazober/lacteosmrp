@@ -19,10 +19,10 @@ export class EmailService {
 
     const configMap = new Map(configs.map((c) => [c.clave, c.valor]));
 
-    const host = configMap.get('smtp_host') || 'mail.privateemail.com';
+    const host = configMap.get('smtp_host') || 'smtp.gmail.com';
     const port = Number(configMap.get('smtp_port')) || 465;
-    const user = configMap.get('smtp_user') || 'luislazo@datalazo.net';
-    const pass = configMap.get('smtp_pass') || 'Rambo20224$';
+    const user = configMap.get('smtp_user') || '';
+    const pass = configMap.get('smtp_pass') || '';
     const secureStr = configMap.get('smtp_secure');
     const secure = secureStr !== undefined ? secureStr === 'true' : port === 465;
 
@@ -43,25 +43,68 @@ export class EmailService {
 
   async enviarCorreo(para: string, asunto: string, html: string) {
     try {
-      const { transporter, from } = await this.getTransporter();
+      const configs = await this.prisma.configuracion.findMany({
+        where: {
+          clave: {
+            in: ['email_provider', 'resend_api_key', 'smtp_from'],
+          },
+        },
+      });
+
+      const configMap = new Map(configs.map((c) => [c.clave, c.valor]));
+      const provider = configMap.get('email_provider') || 'resend';
+      const from = configMap.get('smtp_from') || 'onboarding@resend.dev';
+
+      if (provider === 'resend') {
+        const apiKey = configMap.get('resend_api_key');
+        if (!apiKey) {
+          throw new Error('La API Key de Resend no está configurada en el sistema.');
+        }
+
+        this.logger.log(`Enviando correo vía Resend HTTP API a ${para}...`);
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            from,
+            to: [para],
+            subject: asunto,
+            html,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'Error en la respuesta de la API de Resend.');
+        }
+
+        this.logger.log(`Correo enviado exitosamente vía Resend API. ID: ${data.id}`);
+        return;
+      }
+
+      // Fallback a SMTP tradicional
+      const { transporter, from: smtpFrom } = await this.getTransporter();
       await transporter.sendMail({
-        from,
+        from: smtpFrom,
         to: para,
         subject: asunto,
         html,
       });
-      this.logger.log(`Correo enviado exitosamente a ${para}`);
-    } catch (error) {
+      this.logger.log(`Correo enviado exitosamente vía SMTP a ${para}`);
+    } catch (error: any) {
       this.logger.error(`Error al enviar correo a ${para}:`, error);
       throw error;
     }
   }
 
   async probarSMTP(smtpConfig: any, destinatario: string) {
-    const host = smtpConfig.host || 'mail.privateemail.com';
+    const host = smtpConfig.host || 'smtp.gmail.com';
     const port = Number(smtpConfig.port) || 465;
-    const user = smtpConfig.user || 'luislazo@datalazo.net';
-    const pass = smtpConfig.pass || 'Rambo20224$';
+    const user = smtpConfig.user || '';
+    const pass = smtpConfig.pass || '';
     const secure = smtpConfig.secure !== undefined ? smtpConfig.secure === true : port === 465;
     const from = smtpConfig.from || `"Lácteos ERP" <${user}>`;
 

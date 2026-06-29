@@ -214,16 +214,19 @@ export default function Utilidades() {
 
   // States for Email / SMTP Alert Config
   const [emailConfig, setEmailConfig] = useState({
-    smtp_host: 'mail.privateemail.com',
+    email_provider: 'resend',
+    resend_api_key: '',
+    smtp_host: 'smtp.gmail.com',
     smtp_port: '465',
-    smtp_user: 'luislazo@datalazo.net',
-    smtp_pass: 'Rambo20224$',
-    smtp_from: '"Lácteos ERP" <luislazo@datalazo.net>',
+    smtp_user: '',
+    smtp_pass: '',
+    smtp_from: 'onboarding@resend.dev',
     smtp_secure: 'true',
-    email_departamento_calidad: 'luislazo@datalazo.net',
-    email_departamento_compras: 'luislazo@datalazo.net',
-    email_departamento_produccion: 'luislazo@datalazo.net',
-    email_departamento_almacen: 'luislazo@datalazo.net',
+    email_departamento_calidad: '',
+    email_departamento_compras: '',
+    email_departamento_produccion: '',
+    email_departamento_almacen: '',
+    email_departamento_contabilidad: '',
   });
   const [probarEmailLoading, setProbarEmailLoading] = useState(false);
   const [testDestinatario, setTestDestinatario] = useState('luislazo@datalazo.net');
@@ -663,6 +666,8 @@ export default function Utilidades() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          provider: emailConfig.email_provider,
+          resendApiKey: emailConfig.resend_api_key,
           smtpConfig: {
             host: emailConfig.smtp_host,
             port: parseInt(emailConfig.smtp_port),
@@ -2273,85 +2278,128 @@ export default function Utilidades() {
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '3fr 2fr' }, gap: 4 }}>
             {/* Formulario de Email */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {/* Servidor SMTP y Puerto */}
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ flex: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    Servidor SMTP
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    placeholder="mail.privateemail.com"
-                    value={emailConfig.smtp_host}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
-                    size="small"
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    Puerto
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    placeholder="465"
-                    value={emailConfig.smtp_port}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: e.target.value })}
-                    size="small"
-                  />
-                </Box>
+              {/* Método de Envío */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Método de Envío (Proveedor)
+                </Typography>
+                <select
+                  value={emailConfig.email_provider}
+                  onChange={(e) => setEmailConfig({ ...emailConfig, email_provider: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8.5px 12px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.23)',
+                    color: '#fff',
+                    outline: 'none',
+                    fontSize: '0.9rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="resend">Resend API (Recomendado para la Nube - Sin bloqueo de puertos)</option>
+                  <option value="smtp">SMTP Convencional (Gmail, PrivateEmail, etc. - Requiere puertos libres)</option>
+                </select>
               </Box>
 
-              {/* Autenticación y SSL */}
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ flex: 2 }}>
+              {emailConfig.email_provider === 'resend' ? (
+                <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    Usuario SMTP
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    placeholder="luislazo@datalazo.net"
-                    value={emailConfig.smtp_user}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
-                    size="small"
-                  />
-                </Box>
-                <Box sx={{ flex: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    Contraseña SMTP
+                    API Key de Resend
                   </Typography>
                   <TextField
                     fullWidth
                     type="password"
-                    placeholder="Rambo20224$"
-                    value={emailConfig.smtp_pass}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_pass: e.target.value })}
+                    placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx"
+                    value={emailConfig.resend_api_key}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, resend_api_key: e.target.value })}
                     size="small"
                   />
                 </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    SSL / TLS
-                  </Typography>
-                  <select
-                    value={emailConfig.smtp_secure}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_secure: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8.5px 12px',
-                      borderRadius: '4px',
-                      backgroundColor: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.23)',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.9rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="true">Sí (Recomendado)</option>
-                    <option value="false">No</option>
-                  </select>
-                </Box>
-              </Box>
+              ) : (
+                <>
+                  {/* Servidor SMTP y Puerto */}
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Box sx={{ flex: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                        Servidor SMTP
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        placeholder="smtp.gmail.com"
+                        value={emailConfig.smtp_host}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
+                        size="small"
+                      />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                        Puerto
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        placeholder="465"
+                        value={emailConfig.smtp_port}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: e.target.value })}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* Autenticación y SSL */}
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Box sx={{ flex: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                        Usuario SMTP
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        placeholder="luislazo@datalazo.net"
+                        value={emailConfig.smtp_user}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
+                        size="small"
+                      />
+                    </Box>
+                    <Box sx={{ flex: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                        Contraseña SMTP
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        type="password"
+                        placeholder="Rambo20224$"
+                        value={emailConfig.smtp_pass}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, smtp_pass: e.target.value })}
+                        size="small"
+                      />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                        SSL / TLS
+                      </Typography>
+                      <select
+                        value={emailConfig.smtp_secure}
+                        onChange={(e) => setEmailConfig({ ...emailConfig, smtp_secure: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '8.5px 12px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.23)',
+                          color: '#fff',
+                          outline: 'none',
+                          fontSize: '0.9rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="true">Sí (Recomendado)</option>
+                        <option value="false">No</option>
+                      </select>
+                    </Box>
+                  </Box>
+                </>
+              )}
 
               <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
@@ -2359,7 +2407,7 @@ export default function Utilidades() {
                 </Typography>
                 <TextField
                   fullWidth
-                  placeholder='"Lácteos ERP" <luislazo@datalazo.net>'
+                  placeholder="onboarding@resend.dev"
                   value={emailConfig.smtp_from}
                   onChange={(e) => setEmailConfig({ ...emailConfig, smtp_from: e.target.value })}
                   size="small"
@@ -2418,6 +2466,18 @@ export default function Utilidades() {
                     placeholder="almacen@lavaquita.cl"
                     value={emailConfig.email_departamento_almacen}
                     onChange={(e) => setEmailConfig({ ...emailConfig, email_departamento_almacen: e.target.value })}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    📧 Contabilidad (Recepción Materiales)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="contabilidad@lavaquita.cl"
+                    value={emailConfig.email_departamento_contabilidad}
+                    onChange={(e) => setEmailConfig({ ...emailConfig, email_departamento_contabilidad: e.target.value })}
                     size="small"
                   />
                 </Box>

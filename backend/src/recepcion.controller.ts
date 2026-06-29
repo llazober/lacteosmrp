@@ -6,13 +6,20 @@ import {
   Request,
   BadRequestException,
   Query,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { EmailService } from './email.service';
 import { Roles } from './decorators';
 
 @Controller('recepciones')
 export class RecepcionController {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(RecepcionController.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   @Get('ordenes-pendientes')
   async obtenerOrdenesPendientes(@Request() req: any) {
@@ -338,6 +345,125 @@ export class RecepcionController {
         detalles: JSON.stringify({ id: resultado.id, numeroRecibo: resultado.numeroRecibo }),
       },
     });
+
+    // Enviar notificación por correo a Contabilidad
+    try {
+      const fullRecepcion = await this.prisma.recepcionMaterial.findUnique({
+        where: { id: resultado.id },
+        include: {
+          proveedor: true,
+          sucursal: true,
+          recibidoPor: { select: { nombre: true } },
+          detalles: {
+            include: {
+              producto: true,
+            },
+          },
+        },
+      });
+
+      if (fullRecepcion) {
+        const configContabilidad = await this.prisma.configuracion.findUnique({
+          where: { clave: 'email_departamento_contabilidad' },
+        });
+
+        const destinatario = configContabilidad?.valor;
+        if (destinatario && destinatario.trim() !== '') {
+          let totalRecepcion = 0;
+          const itemsHtml = fullRecepcion.detalles.map((det) => {
+            const subtotal = det.cantidad * Number(det.costoUnitario);
+            totalRecepcion += subtotal;
+            return `
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ddd;">${det.producto.sku}</td>
+                <td style="padding: 8px; border: 1px solid #ddd;">${det.producto.descripcion}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${det.cantidad} ${det.producto.unidadMedida}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">$${Number(det.costoUnitario).toLocaleString('es-CL', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">$${subtotal.toLocaleString('es-CL', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `;
+          }).join('');
+
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+              <h2 style="color: #059669; border-bottom: 2px solid #059669; padding-bottom: 10px; margin-top: 0;">Notificación de Recepción de Materiales</h2>
+              <p>Estimado equipo de Contabilidad,</p>
+              <p>Se ha registrado una nueva recepción de materiales en el sistema Lácteos ERP:</p>
+              
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; width: 140px; border-bottom: 1px solid #f3f4f6;">Número de Recibo:</td>
+                  <td style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">${fullRecepcion.numeroRecibo}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #f3f4f6;">Proveedor:</td>
+                  <td style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">${fullRecepcion.proveedor?.nombre || 'Proveedor Genérico'} (${fullRecepcion.proveedor?.codigo || 'N/A'})</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #f3f4f6;">Factura/Guía:</td>
+                  <td style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">${fullRecepcion.facturaNumero || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #f3f4f6;">Packing Slip:</td>
+                  <td style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">${fullRecepcion.packingSlip || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #f3f4f6;">Sucursal Destino:</td>
+                  <td style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">${fullRecepcion.sucursal?.nombre || 'General'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #f3f4f6;">Recibido Por:</td>
+                  <td style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">${fullRecepcion.recibidoPor?.nombre || 'Usuario ERP'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-weight: bold;">Fecha:</td>
+                  <td style="padding: 6px 0;">${new Date(fullRecepcion.fecha).toLocaleString('es-CL')}</td>
+                </tr>
+              </table>
+
+              <h3 style="color: #059669; margin-top: 25px;">Detalle de Productos Recibidos</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+                <thead>
+                  <tr style="background-color: #f3f4f6; text-align: left;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">SKU</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Producto</th>
+                    <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Cantidad</th>
+                    <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Costo Unit.</th>
+                    <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml}
+                  <tr style="font-weight: bold; background-color: #f9fafb;">
+                    <td colspan="4" style="padding: 10px; border: 1px solid #ddd; text-align: right;">Total Recepción:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd; text-align: right; color: #059669;">$${totalRecepcion.toLocaleString('es-CL', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              ${fullRecepcion.observaciones ? `
+                <div style="margin-top: 20px; padding: 10px; background-color: #fef3c7; border-left: 4px solid #d97706; border-radius: 4px; font-size: 14px;">
+                  <strong>Observaciones:</strong> ${fullRecepcion.observaciones}
+                </div>
+              ` : ''}
+
+              <hr style="border: 0; border-top: 1px solid #eee; margin-top: 30px; margin-bottom: 10px;" />
+              <p style="font-size: 11px; color: #9ca3af; text-align: center;">Este es un mensaje generado automáticamente por Lácteos ERP.</p>
+            </div>
+          `;
+
+          this.emailService.enviarCorreo(
+            destinatario,
+            `[ERP Recepción] Nuevo Recibo de Materiales ${fullRecepcion.numeroRecibo}`,
+            emailHtml
+          ).catch((err) => {
+            this.logger.error(`Error al enviar correo de recepción a Contabilidad: ${err.message}`);
+          });
+        }
+      }
+    } catch (emailErr: any) {
+      this.logger.error(`Error al despachar notificación a Contabilidad: ${emailErr.message}`);
+    }
 
     return {
       success: true,
