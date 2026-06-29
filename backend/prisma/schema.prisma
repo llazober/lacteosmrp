@@ -307,6 +307,7 @@ model OrdenCompraDetalle {
   costoUnitario Float
   fechaEntrega  DateTime?
   lineaNum      Int      @default(1)
+  notas         String?
 
   ordenCompra OrdenCompra @relation(fields: [ordenCompraId], references: [id])
   producto    Producto    @relation(fields: [productoId], references: [id])

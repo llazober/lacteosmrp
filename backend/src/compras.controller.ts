@@ -114,6 +114,7 @@ export class ComprasController {
             costoUnitario: parseFloat(p.costoUnitario),
             fechaEntrega: p.fechaEntrega ? new Date(p.fechaEntrega) : null,
             lineaNum: idx++,
+            notas: p.notas || null,
           },
         });
       }
@@ -422,6 +423,7 @@ export class ComprasController {
               costoUnitario: parseFloat(p.costoUnitario),
               fechaEntrega: p.fechaEntrega ? new Date(p.fechaEntrega) : null,
               lineaNum: idx++,
+              notas: p.notas || null,
             },
           });
         }
@@ -864,6 +866,7 @@ export class ComprasController {
           <td style="padding: 12px 8px; font-size: 14px; color: #374151;">
             <div style="font-weight: 600;">${det.producto.descripcion}</div>
             <div style="font-size: 12px; color: #9ca3af; margin-top: 2px;">SKU: ${det.producto.sku}</div>
+            ${det.notas ? `<div style="font-size: 12px; color: #b45309; font-style: italic; margin-top: 4px; font-weight: 500;">Nota: ${det.notas}</div>` : ''}
           </td>
           <td style="padding: 12px 8px; text-align: center; font-size: 14px; color: #374151;">${det.cantidad}</td>
           <td style="padding: 12px 8px; text-align: center; font-size: 14px; color: #374151; text-transform: uppercase;">${det.producto.unidadMedida}</td>

@@ -65,6 +65,7 @@ export default function Compras() {
     productoId: '',
     cantidad: '',
     costoUnitario: '',
+    notas: '',
   });
 
   const [openRecepcion, setOpenRecepcion] = useState(false);
@@ -83,6 +84,7 @@ export default function Compras() {
     productoId: '',
     cantidad: '',
     costoUnitario: '',
+    notas: '',
   });
   const [openEliminarOC, setOpenEliminarOC] = useState(false);
 
@@ -174,6 +176,7 @@ export default function Compras() {
         cantidad: parseFloat(nuevoItem.cantidad),
         costoUnitario: parseFloat(nuevoItem.costoUnitario),
         fechaEntrega: dayjs().add(prod?.leadTime || 0, 'day').format('YYYY-MM-DD'),
+        notas: nuevoItem.notas || '',
       },
     ];
     setOcForm({
@@ -185,6 +188,7 @@ export default function Compras() {
       productoId: '',
       cantidad: '',
       costoUnitario: '',
+      notas: '',
     });
   };
 
@@ -225,6 +229,7 @@ export default function Compras() {
         cantidad: parseFloat(nuevoItemEdit.cantidad),
         costoUnitario: parseFloat(nuevoItemEdit.costoUnitario),
         fechaEntrega: dayjs().add(prod?.leadTime || 0, 'day').format('YYYY-MM-DD'),
+        notas: nuevoItemEdit.notas || '',
       },
     ];
     setEditarOcForm({
@@ -236,6 +241,7 @@ export default function Compras() {
       productoId: '',
       cantidad: '',
       costoUnitario: '',
+      notas: '',
     });
   };
 
@@ -267,6 +273,7 @@ export default function Compras() {
           cantidad: p.cantidad,
           costoUnitario: p.costoUnitario,
           fechaEntrega: p.fechaEntrega || null,
+          notas: p.notas || null,
         })),
       };
 
@@ -291,6 +298,7 @@ export default function Compras() {
       cantidad: det.cantidad,
       costoUnitario: det.costoUnitario,
       fechaEntrega: det.fechaEntrega ? det.fechaEntrega.split('T')[0] : '',
+      notas: det.notas || '',
     }));
     setEditarOcForm({
       proveedorId: oc.proveedorId,
@@ -303,6 +311,7 @@ export default function Compras() {
       productoId: '',
       cantidad: '',
       costoUnitario: '',
+      notas: '',
     });
     setOpenEditarOC(true);
   };
@@ -328,6 +337,7 @@ export default function Compras() {
             cantidad: p.cantidad,
             costoUnitario: p.costoUnitario,
             fechaEntrega: p.fechaEntrega || null,
+            notas: p.notas || null,
           })),
         }),
       });
@@ -387,6 +397,7 @@ export default function Compras() {
           <td>
             <div style="font-weight: bold; color: #1e293b;">${det.producto.descripcion}</div>
             <div style="font-size: 11px; color: #64748b; margin-top: 2px;">SKU: ${det.producto.sku}</div>
+            ${det.notas ? `<div style="font-size: 11px; color: #b45309; font-style: italic; margin-top: 4px; font-weight: 500;">Nota: ${det.notas}</div>` : ''}
           </td>
           <td style="text-align: center; color: #334155;">${det.cantidad}</td>
           <td style="text-align: center; text-transform: uppercase; font-size: 12px; color: #64748b;">${det.producto.unidadMedida}</td>
@@ -814,6 +825,7 @@ export default function Compras() {
               productoId: '',
               cantidad: '',
               costoUnitario: '',
+              notas: '',
             });
             setOpenOC(true);
           }}
@@ -1185,6 +1197,15 @@ export default function Compras() {
                 />
               </Box>
 
+              <TextField
+                fullWidth
+                label="Notas / Comentarios de esta línea"
+                size="small"
+                value={nuevoItem.notas}
+                onChange={(e) => setNuevoItem({ ...nuevoItem, notas: e.target.value })}
+                placeholder="Ej. Embalaje especial, entrega urgente, lote sugerido..."
+              />
+
               <Button
                 variant="outlined"
                 color="primary"
@@ -1225,7 +1246,24 @@ export default function Compras() {
                   ocForm.productos.map((item: any, idx: number) => (
                     <TableRow key={idx}>
                       <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>
+                        {item.productoNombre}
+                        <TextField
+                          placeholder="Notas de esta línea"
+                          size="small"
+                          fullWidth
+                          value={item.notas || ''}
+                          onChange={(e) => {
+                            const updated = [...ocForm.productos];
+                            updated[idx].notas = e.target.value;
+                            setOcForm({
+                              ...ocForm,
+                              productos: updated,
+                            });
+                          }}
+                          sx={{ mt: 1, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.75rem' } }}
+                        />
+                      </TableCell>
                       <TableCell>{item.productoSku}</TableCell>
                       <TableCell align="right">
                         <TextField
@@ -1567,6 +1605,15 @@ export default function Compras() {
                 />
               </Box>
 
+              <TextField
+                fullWidth
+                label="Notas / Comentarios de esta línea"
+                size="small"
+                value={nuevoItemEdit.notas}
+                onChange={(e) => setNuevoItemEdit({ ...nuevoItemEdit, notas: e.target.value })}
+                placeholder="Ej. Embalaje especial, entrega urgente, lote sugerido..."
+              />
+
               <Button
                 variant="outlined"
                 color="primary"
@@ -1607,7 +1654,24 @@ export default function Compras() {
                   editarOcForm.productos.map((item: any, idx: number) => (
                     <TableRow key={idx}>
                       <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>
+                        {item.productoNombre}
+                        <TextField
+                          placeholder="Notas de esta línea"
+                          size="small"
+                          fullWidth
+                          value={item.notas || ''}
+                          onChange={(e) => {
+                            const updated = [...editarOcForm.productos];
+                            updated[idx].notas = e.target.value;
+                            setEditarOcForm({
+                              ...editarOcForm,
+                              productos: updated,
+                            });
+                          }}
+                          sx={{ mt: 1, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.75rem' } }}
+                        />
+                      </TableCell>
                       <TableCell>{item.productoSku}</TableCell>
                       <TableCell align="right">
                         <TextField
@@ -1853,7 +1917,14 @@ export default function Compras() {
                           <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: 'text.secondary' }}>L{lineNum}</TableCell>
                           <TableCell>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>{det.producto.descripcion}</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>SKU: {det.producto.sku}</Typography>
+                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>SKU: {det.producto.sku}</Typography>
+                              {det.notas && (
+                                <Typography variant="caption" sx={{ color: 'warning.light', fontStyle: 'italic', fontWeight: 500 }}>
+                                  Nota: {det.notas}
+                                </Typography>
+                              )}
+                            </Box>
                           </TableCell>
                           <TableCell align="center">{det.cantidad}</TableCell>
                           <TableCell align="center" sx={{ textTransform: 'uppercase', fontSize: '0.8rem', color: 'text.secondary' }}>{det.producto.unidadMedida}</TableCell>

@@ -1722,11 +1722,7 @@ export class ProduccionController implements OnModuleInit {
 
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Procesar el picking actual de manera incremental
-      for (const reqDetalle of op.receta.detalles) {
-        // Encontrar por reqProductoId (nuevo formato) o productoId (antiguo formato)
-        const itemPicking = detalles.find(
-          (d: any) => (d.reqProductoId || d.productoId) === reqDetalle.productoId,
-        );
+      for (const itemPicking of detalles) {
         if (!itemPicking || !itemPicking.picked) {
           continue;
         }
@@ -1734,6 +1730,14 @@ export class ProduccionController implements OnModuleInit {
         const cantidadAPreparar = parseFloat(itemPicking.cantidadPicked || 0);
         if (cantidadAPreparar <= 0) {
           continue;
+        }
+
+        const targetReqId = itemPicking.reqProductoId || itemPicking.productoId;
+        const reqDetalle = op.receta.detalles.find((r) => r.productoId === targetReqId);
+        if (!reqDetalle) {
+          throw new BadRequestException(
+            `El producto seleccionado no pertenece a la receta de esta orden de producción.`,
+          );
         }
 
         const actualProductoId = itemPicking.productoId || reqDetalle.productoId;
