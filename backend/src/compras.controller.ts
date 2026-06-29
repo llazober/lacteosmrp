@@ -12,10 +12,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
+import { EmailService } from './email.service';
 
 @Controller('compras')
 export class ComprasController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   @Get()
   async obtenerOrdenesCompra(@Request() req: any) {
@@ -807,6 +811,228 @@ export class ComprasController {
     });
 
     return { success: true, ordenesCreadas: creadas.length, detalles: creadas };
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
+  @Post(':id/enviar-correo')
+  async enviarCorreoOrdenCompra(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: { para: string; asunto: string; mensajeAdicional?: string },
+  ) {
+    const { para, asunto, mensajeAdicional } = body;
+    if (!para || !asunto) {
+      throw new BadRequestException('El destinatario y el asunto son obligatorios.');
+    }
+
+    const oc = await this.prisma.ordenCompra.findUnique({
+      where: { id },
+      include: {
+        proveedor: true,
+        sucursal: true,
+        creadoPor: { select: { nombre: true, email: true } },
+        detalles: {
+          include: {
+            producto: true,
+          },
+          orderBy: { lineaNum: 'asc' },
+        },
+      },
+    });
+
+    if (!oc) {
+      throw new BadRequestException('La orden de compra no existe.');
+    }
+
+    const formatCurrency = (val: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(val);
+    };
+
+    // Generar las líneas de la tabla en HTML
+    let tableRows = '';
+    oc.detalles.forEach((det, idx) => {
+      const lineNum = det.lineaNum || (idx + 1);
+      const subtotal = det.cantidad * det.costoUnitario;
+      tableRows += `
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 12px 8px; text-align: center; font-size: 13px; color: #6b7280; font-weight: bold;">L${lineNum}</td>
+          <td style="padding: 12px 8px; font-size: 14px; color: #374151;">
+            <div style="font-weight: 600;">${det.producto.descripcion}</div>
+            <div style="font-size: 12px; color: #9ca3af; margin-top: 2px;">SKU: ${det.producto.sku}</div>
+          </td>
+          <td style="padding: 12px 8px; text-align: center; font-size: 14px; color: #374151;">${det.cantidad}</td>
+          <td style="padding: 12px 8px; text-align: center; font-size: 14px; color: #374151; text-transform: uppercase;">${det.producto.unidadMedida}</td>
+          <td style="padding: 12px 8px; text-align: right; font-size: 14px; color: #374151;">${formatCurrency(det.costoUnitario)}</td>
+          <td style="padding: 12px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #1e3a8a;">${formatCurrency(subtotal)}</td>
+        </tr>
+      `;
+    });
+
+    const fechaCreacion = new Date(oc.createdAt).toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    const fechaEntrega = oc.fechaEntrega 
+      ? new Date(oc.fechaEntrega).toLocaleDateString('es-CO', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
+      : 'No especificada';
+
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f3f4f6; padding: 40px 20px; color: #1f2937; line-height: 1.5;">
+        <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e5e7eb;">
+          
+          <!-- Header corporativo -->
+          <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 32px 24px; color: #ffffff;">
+            <table style="width: 100%; border-collapse: collapse; border: none;">
+              <tr style="border: none;">
+                <td style="vertical-align: middle; border: none;">
+                  <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">Lácteos MRP</h1>
+                  <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.85; text-transform: uppercase; letter-spacing: 1.5px;">Orden de Compra Oficial</p>
+                </td>
+                <td style="text-align: right; vertical-align: middle; border: none;">
+                  <div style="background-color: rgba(255, 255, 255, 0.15); padding: 8px 16px; border-radius: 6px; display: inline-block;">
+                    <span style="font-weight: 800; font-size: 16px; letter-spacing: 0.5px;">${oc.numeroOrden}</span>
+                  </div>
+                  <div style="margin-top: 6px; font-size: 12px; opacity: 0.85;">Estado: <span style="font-weight: 700; text-transform: uppercase;">${oc.estado}</span></div>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Datos de la orden -->
+          <div style="padding: 24px;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: none;">
+              <tr style="border: none;">
+                <td style="width: 50%; vertical-align: top; padding-right: 16px; border: none;">
+                  <div style="border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin-bottom: 12px;">
+                    <h3 style="margin: 0; font-size: 14px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">Proveedor</h3>
+                  </div>
+                  <div style="font-size: 14px; color: #4b5563;">
+                    <strong style="color: #1f2937; font-size: 15px;">${oc.proveedor.nombre}</strong><br />
+                    <span style="font-size: 12px; color: #6b7280; font-weight: 600;">Código: ${oc.proveedor.codigo}</span><br />
+                    <strong>Contacto:</strong> ${oc.proveedor.contacto}<br />
+                    <strong>Teléfono:</strong> ${oc.proveedor.telefono}<br />
+                    <strong>Email:</strong> ${oc.proveedor.correo}
+                  </div>
+                </td>
+                <td style="width: 50%; vertical-align: top; padding-left: 16px; border: none;">
+                  <div style="border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin-bottom: 12px;">
+                    <h3 style="margin: 0; font-size: 14px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">Entregar En</h3>
+                  </div>
+                  <div style="font-size: 14px; color: #4b5563;">
+                    <strong style="color: #1f2937; font-size: 15px;">${oc.sucursal.nombre}</strong><br />
+                    <strong>Dirección:</strong> ${oc.sucursal.direccion}<br />
+                    <strong>Teléfono:</strong> ${oc.sucursal.telefono}<br />
+                    <strong>Email:</strong> ${oc.sucursal.correo}
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Fechas e info general -->
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 24px; border: 1px solid #e2e8f0; font-size: 13px; color: #4b5563;">
+              <table style="width: 100%; border-collapse: collapse; border: none;">
+                <tr style="border: none;">
+                  <td style="padding: 4px 0; border: none;"><strong>Fecha de Emisión:</strong> ${fechaCreacion}</td>
+                  <td style="padding: 4px 0; text-align: right; border: none;"><strong>Fecha Estimada de Entrega:</strong> ${fechaEntrega}</td>
+                </tr>
+                <tr style="border: none;">
+                  <td style="padding: 4px 0; border: none;"><strong>Generado Por:</strong> ${oc.creadoPor.nombre}</td>
+                  <td style="padding: 4px 0; text-align: right; border: none;"><strong>Condiciones:</strong> ${oc.proveedor.bancoNombre ? 'Transferencia Bancaria' : 'Según acuerdo'}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Mensaje adicional del comprador -->
+            ${mensajeAdicional ? `
+              <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 4px; margin-bottom: 24px; font-size: 14px; color: #1e40af;">
+                <strong style="display: block; margin-bottom: 4px;">Instrucciones Adicionales:</strong>
+                ${mensajeAdicional}
+              </div>
+            ` : ''}
+
+            <!-- Tabla de productos -->
+            <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">Detalle de Productos Solicitados</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+              <thead>
+                <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                  <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; width: 50px;">Línea</th>
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase;">Producto / Descripción</th>
+                  <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; width: 60px;">Cant.</th>
+                  <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; width: 60px;">U.M.</th>
+                  <th style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; width: 100px;">Costo Unit.</th>
+                  <th style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; width: 110px;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+
+            <!-- Resumen de total -->
+            <table style="width: 100%; border-collapse: collapse; border: none; margin-top: 12px;">
+              <tr style="border: none;">
+                <td style="width: 60%; border: none;">
+                  ${oc.proveedor.bancoNombre ? `
+                    <div style="font-size: 12px; color: #6b7280; border: 1px dashed #cbd5e1; padding: 10px; border-radius: 6px; max-width: 320px;">
+                      <strong style="color: #4b5563; display: block; margin-bottom: 2px;">Datos de Transferencia del Proveedor:</strong>
+                      Banco: ${oc.proveedor.bancoNombre}<br />
+                      Tipo: ${oc.proveedor.bancoTipoCuenta || 'Corriente'}<br />
+                      Cuenta N°: ${oc.proveedor.bancoNroCuenta}<br />
+                      Titular: ${oc.proveedor.bancoNomTitular || oc.proveedor.nombre}
+                    </div>
+                  ` : ''}
+                </td>
+                <td style="width: 40%; text-align: right; vertical-align: top; border: none;">
+                  <table style="width: 100%; border-collapse: collapse; border: none;">
+                    <tr style="border: none;">
+                      <td style="padding: 4px 0; font-size: 14px; color: #6b7280; border: none;">Subtotal:</td>
+                      <td style="padding: 4px 0; font-size: 14px; color: #1f2937; text-align: right; border: none;">${formatCurrency(oc.total)}</td>
+                    </tr>
+                    <tr style="border-top: 2px solid #1e3a8a; border-bottom: none; border-left: none; border-right: none;">
+                      <td style="padding: 12px 0 0 0; font-size: 16px; font-weight: 700; color: #1e3a8a; border: none;">TOTAL:</td>
+                      <td style="padding: 12px 0 0 0; font-size: 20px; font-weight: 800; color: #1e3a8a; text-align: right; border: none;">${formatCurrency(oc.total)}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Footer/Disclaimer -->
+          <div style="padding: 24px; text-align: center; font-size: 11px; color: #9ca3af; background-color: #f9fafb; border-top: 1px solid #f3f4f6;">
+            <p style="margin: 0 0 6px 0;">Esta orden de compra es emitida por Lácteos MRP de manera oficial. Por favor, confirme el recibo de este correo y procese el despacho según la fecha acordada.</p>
+            <p style="margin: 0; font-weight: 600;">Lácteos MRP © 2026. Todos los derechos reservados.</p>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    await this.emailService.enviarCorreo(para, asunto, emailHtml);
+
+    // Auditoría
+    await this.prisma.auditoria.create({
+      data: {
+        usuarioId: req.user.id,
+        usuarioNombre: req.user.nombre,
+        accion: 'ENVIAR_CORREO_ORDEN_COMPRA',
+        modulo: 'COMPRAS',
+        detalles: JSON.stringify({ id, numeroOrden: oc.numeroOrden, enviadoA: para }),
+      },
+    });
+
+    return { success: true, message: `Orden de compra enviada con éxito a ${para}.` };
   }
 
   private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {

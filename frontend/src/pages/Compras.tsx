@@ -24,6 +24,9 @@ import {
   Tooltip,
   Switch,
   TablePagination,
+  Card,
+  TableContainer,
+  Divider,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -34,6 +37,10 @@ import {
   FactCheck,
   Edit,
   Delete,
+  Visibility,
+  Print,
+  Email,
+  Close,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
@@ -90,6 +97,17 @@ export default function Compras() {
   // Buscador de órdenes de compra
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+
+  const [openPreviewOC, setOpenPreviewOC] = useState(false);
+  const [selectedPreviewOC, setSelectedPreviewOC] = useState<any>(null);
+
+  const [openEmailDialog, setOpenEmailDialog] = useState(false);
+  const [emailForm, setEmailForm] = useState({
+    para: '',
+    asunto: '',
+    mensajeAdicional: '',
+  });
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -339,6 +357,353 @@ export default function Compras() {
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message);
+    }
+  };
+
+  const handleOpenPreview = (oc: any) => {
+    setSelectedPreviewOC(oc);
+    setOpenPreviewOC(true);
+  };
+
+  const handlePrintOC = () => {
+    if (!selectedPreviewOC) return;
+    const oc = selectedPreviewOC;
+    const printWindow = window.open('', '_blank', 'width=850,height=700');
+    if (!printWindow) {
+      setErrorMsg('No se pudo abrir la ventana de impresión. Por favor, habilite los popups en su navegador.');
+      return;
+    }
+
+    const fechaCreacion = new Date(oc.createdAt).toLocaleDateString('es-CO');
+    const fechaEntrega = oc.fechaEntrega ? new Date(oc.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada';
+
+    let rowsHtml = '';
+    oc.detalles.forEach((det: any, idx: number) => {
+      const lineNum = det.lineaNum || (idx + 1);
+      const subtotal = det.cantidad * det.costoUnitario;
+      rowsHtml += `
+        <tr>
+          <td style="text-align: center; font-weight: bold; color: #4b5563;">L${lineNum}</td>
+          <td>
+            <div style="font-weight: bold; color: #1e293b;">${det.producto.descripcion}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">SKU: ${det.producto.sku}</div>
+          </td>
+          <td style="text-align: center; color: #334155;">${det.cantidad}</td>
+          <td style="text-align: center; text-transform: uppercase; font-size: 12px; color: #64748b;">${det.producto.unidadMedida}</td>
+          <td style="text-align: right; color: #334155;">${formatCurrency(det.costoUnitario)}</td>
+          <td style="text-align: right; font-weight: bold; color: #1e3a8a;">${formatCurrency(subtotal)}</td>
+        </tr>
+      `;
+    });
+
+    const bankHtml = oc.proveedor.bancoNombre ? `
+      <div style="font-size: 11px; color: #475569; border: 1px dashed #cbd5e1; padding: 10px; border-radius: 6px; background-color: #f8fafc; line-height: 1.5; margin-top: 10px; max-width: 360px;">
+        <strong style="color: #334155; display: block; margin-bottom: 2px;">Datos de Transferencia Bancaria del Proveedor:</strong>
+        Banco: ${oc.proveedor.bancoNombre}<br />
+        Tipo Cuenta: ${oc.proveedor.bancoTipoCuenta || 'Corriente'}<br />
+        Cuenta N°: ${oc.proveedor.bancoNroCuenta}<br />
+        Titular: ${oc.proveedor.bancoNomTitular || oc.proveedor.nombre}
+      </div>
+    ` : '';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Orden de Compra - ${oc.numeroOrden}</title>
+          <style>
+            body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              color: #1e293b;
+              margin: 40px;
+              font-size: 13px;
+              line-height: 1.5;
+            }
+            .header {
+              border-bottom: 3px solid #1e3a8a;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .logo-area h1 {
+              margin: 0;
+              font-size: 26px;
+              font-weight: 800;
+              color: #1e3a8a;
+              letter-spacing: 0.5px;
+            }
+            .logo-area p {
+              margin: 2px 0 0 0;
+              font-size: 11px;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .title-area {
+              text-align: right;
+            }
+            .title-area h2 {
+              margin: 0;
+              font-size: 20px;
+              color: #1e3a8a;
+              font-weight: 800;
+            }
+            .badge {
+              display: inline-block;
+              background-color: #1e3a8a;
+              color: white;
+              padding: 4px 10px;
+              border-radius: 4px;
+              font-weight: bold;
+              font-size: 14px;
+              margin-top: 5px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 40px;
+              margin-bottom: 25px;
+            }
+            .info-col h3 {
+              margin-top: 0;
+              margin-bottom: 8px;
+              font-size: 12px;
+              color: #1e3a8a;
+              text-transform: uppercase;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 4px;
+              letter-spacing: 0.5px;
+            }
+            .info-col p {
+              margin: 0;
+              font-size: 13px;
+              color: #334155;
+              line-height: 1.4;
+            }
+            .meta-box {
+              background-color: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 12px 16px;
+              margin-bottom: 25px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+            .meta-box div {
+              font-size: 13px;
+              color: #475569;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 25px;
+            }
+            th {
+              background-color: #f1f5f9;
+              color: #475569;
+              font-weight: bold;
+              text-transform: uppercase;
+              font-size: 11px;
+              letter-spacing: 0.5px;
+              padding: 10px 8px;
+              border-bottom: 2px solid #cbd5e1;
+            }
+            td {
+              padding: 10px 8px;
+              border-bottom: 1px solid #e2e8f0;
+              vertical-align: middle;
+            }
+            .bottom-area {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-top: 15px;
+            }
+            .totals-box {
+              width: 250px;
+            }
+            .totals-box table {
+              width: 100%;
+              margin: 0;
+            }
+            .totals-box td {
+              padding: 5px 0;
+              border: none;
+            }
+            .grand-total-row td {
+              border-top: 2px solid #1e3a8a !important;
+              font-size: 16px;
+              font-weight: 800;
+              color: #1e3a8a;
+              padding-top: 10px !important;
+            }
+            .signatures-box {
+              margin-top: 60px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 50px;
+              text-align: center;
+            }
+            .sig-line {
+              border-top: 1px solid #475569;
+              padding-top: 8px;
+              margin: 0 30px;
+              font-weight: 600;
+              color: #334155;
+            }
+            .disclaimer {
+              margin-top: 50px;
+              text-align: center;
+              font-size: 11px;
+              color: #94a3b8;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 15px;
+            }
+            @media print {
+              body {
+                margin: 20px;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-area">
+              <h1>Lácteos MRP</h1>
+              <p>Km 5 Vía Zipaquirá | Nit: 901.123.456-7</p>
+            </div>
+            <div class="title-area">
+              <h2>ORDEN DE COMPRA</h2>
+              <div class="badge">${oc.numeroOrden}</div>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-col">
+              <h3>Proveedor</h3>
+              <p>
+                <strong>${oc.proveedor.nombre}</strong><br />
+                Código: ${oc.proveedor.codigo}<br />
+                Contacto: ${oc.proveedor.contacto}<br />
+                Teléfono: ${oc.proveedor.telefono}<br />
+                Email: ${oc.proveedor.correo}
+              </p>
+            </div>
+            <div class="info-col">
+              <h3>Entregar En</h3>
+              <p>
+                <strong>${oc.sucursal.nombre}</strong><br />
+                Dirección: ${oc.sucursal.direccion}<br />
+                Teléfono: ${oc.sucursal.telefono}<br />
+                Email: ${oc.sucursal.correo}
+              </p>
+            </div>
+          </div>
+
+          <div class="meta-box">
+            <div><strong>Fecha Emisión:</strong> ${fechaCreacion}</div>
+            <div style="text-align: right;"><strong>Fecha Entrega:</strong> ${fechaEntrega}</div>
+            <div><strong>Generado Por:</strong> ${oc.creadoPor.nombre}</div>
+            <div style="text-align: right;"><strong>Estado:</strong> ${oc.estado}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">Línea</th>
+                <th style="text-align: left;">Descripción de Producto</th>
+                <th style="width: 70px; text-align: center;">Cant.</th>
+                <th style="width: 70px; text-align: center;">U.M.</th>
+                <th style="width: 100px; text-align: right;">Costo Unit.</th>
+                <th style="width: 120px; text-align: right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="bottom-area">
+            <div>
+              ${bankHtml}
+            </div>
+            <div class="totals-box">
+              <table>
+                <tr>
+                  <td>Subtotal:</td>
+                  <td style="text-align: right; font-weight: 500;">${formatCurrency(oc.total)}</td>
+                </tr>
+                <tr class="grand-total-row">
+                  <td>TOTAL:</td>
+                  <td style="text-align: right;">${formatCurrency(oc.total)}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="signatures-box">
+            <div>
+              <div style="height: 50px;"></div>
+              <div class="sig-line">Solicitado Por: ${oc.creadoPor.nombre}</div>
+            </div>
+            <div>
+              <div style="height: 50px;"></div>
+              <div class="sig-line">Autorizado Por: Finanzas / Gerencia</div>
+            </div>
+          </div>
+
+          <div class="disclaimer">
+            Este documento representa una orden de compra formal y está sujeta a los términos y condiciones de suministro acordados previamente.
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleOpenEmailModal = () => {
+    if (!selectedPreviewOC) return;
+    setEmailForm({
+      para: selectedPreviewOC.proveedor.correo || '',
+      asunto: `Orden de Compra ${selectedPreviewOC.numeroOrden} - Lácteos MRP`,
+      mensajeAdicional: '',
+    });
+    setOpenEmailDialog(true);
+  };
+
+  const handleSendEmailSubmit = async () => {
+    try {
+      setIsSendingEmail(true);
+      setErrorMsg(null);
+      if (!emailForm.para || !emailForm.asunto) {
+        throw new Error('El destinatario y el asunto son obligatorios.');
+      }
+
+      const res = await apiFetch(`/compras/${selectedPreviewOC.id}/enviar-correo`, {
+        method: 'POST',
+        body: JSON.stringify(emailForm),
+      });
+
+      setSuccessMsg(res.message || `Orden de compra enviada exitosamente por correo a ${emailForm.para}`);
+      setOpenEmailDialog(false);
+      setOpenPreviewOC(false);
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -603,6 +968,15 @@ export default function Compras() {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                          <Tooltip title="Vista Previa (Imprimir / Enviar)">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={(e) => { e.stopPropagation(); handleOpenPreview(oc); }}
+                            >
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           {oc.estado === 'PENDIENTE' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
                             <Button
                               variant="outlined"
@@ -1340,6 +1714,277 @@ export default function Compras() {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEliminarOC(false); setSelectedOC(null); }}>Cancelar</Button>
           <Button variant="contained" color="error" onClick={handleEliminarOCSubmit}>Eliminar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: VISTA PREVIA DE ORDEN COMPRA */}
+      <Dialog
+        open={openPreviewOC}
+        onClose={() => { setOpenPreviewOC(false); setSelectedPreviewOC(null); }}
+        fullWidth
+        maxWidth="md"
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+            }
+          }
+        }}
+      >
+        <DialogTitle sx={{ p: 0 }}>
+          <Box sx={{
+            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+            color: 'white',
+            px: 3,
+            py: 2.5,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 800, m: 0 }}>Vista Previa de Orden de Compra</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>Lácteos MRP - Sistema ERP</Typography>
+            </Box>
+            <IconButton onClick={() => { setOpenPreviewOC(false); setSelectedPreviewOC(null); }} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 4 }}>
+          {selectedPreviewOC && (
+            <Box>
+              {/* Document Header Area */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, pb: 3, borderBottom: '2px solid rgba(255,255,255,0.05)' }}>
+                <Box>
+                  <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.light' }}>LÁCTEOS MRP</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Nit: 901.123.456-7</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Km 5 Vía Zipaquirá</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Teléfono: +57 (601) 823-4567</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{selectedPreviewOC.numeroOrden}</Typography>
+                  <Chip
+                    label={selectedPreviewOC.estado}
+                    color={
+                      selectedPreviewOC.estado === 'RECIBIDA'
+                        ? 'success'
+                        : selectedPreviewOC.estado === 'APROBADA'
+                        ? 'warning'
+                        : selectedPreviewOC.estado === 'PENDIENTE'
+                        ? 'primary'
+                        : 'default'
+                    }
+                    size="small"
+                    sx={{ fontWeight: 700, mt: 0.5 }}
+                  />
+                </Box>
+              </Box>
+
+              {/* Flex container with Supplier and Sucursal */}
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mb: 4 }}>
+                <Card variant="outlined" sx={{ p: 2, flex: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.light', borderBottom: '1px solid rgba(255,255,255,0.08)', pb: 0.5, mb: 1, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Proveedor
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>{selectedPreviewOC.proveedor.nombre}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}><strong>Código:</strong> {selectedPreviewOC.proveedor.codigo}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}><strong>Contacto:</strong> {selectedPreviewOC.proveedor.contacto}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}><strong>Teléfono:</strong> {selectedPreviewOC.proveedor.telefono}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Email:</strong> {selectedPreviewOC.proveedor.correo}</Typography>
+                </Card>
+                <Card variant="outlined" sx={{ p: 2, flex: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.light', borderBottom: '1px solid rgba(255,255,255,0.08)', pb: 0.5, mb: 1, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Entregar En (Sucursal)
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>{selectedPreviewOC.sucursal.nombre}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}><strong>Dirección:</strong> {selectedPreviewOC.sucursal.direccion}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}><strong>Teléfono:</strong> {selectedPreviewOC.sucursal.telefono}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}><strong>Email:</strong> {selectedPreviewOC.sucursal.correo}</Typography>
+                </Card>
+              </Box>
+
+              {/* General Metadata Box */}
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 1.5,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'action.hover',
+                mb: 4,
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  <strong>Fecha de Emisión:</strong> {new Date(selectedPreviewOC.createdAt).toLocaleDateString('es-CO')}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: { sm: 'right' } }}>
+                  <strong>Fecha Estimada Entrega:</strong> {selectedPreviewOC.fechaEntrega ? new Date(selectedPreviewOC.fechaEntrega).toLocaleDateString('es-CO') : 'No especificada'}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  <strong>Generado Por:</strong> {selectedPreviewOC.creadoPor.nombre}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: { sm: 'right' } }}>
+                  <strong>Condiciones:</strong> {selectedPreviewOC.proveedor.bancoNombre ? 'Transferencia Bancaria' : 'Según acuerdo'}
+                </Typography>
+              </Box>
+
+              {/* Items Table */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.5, borderBottom: '1px solid rgba(255,255,255,0.08)', pb: 1 }}>
+                Detalle de Productos Solicitados
+              </Typography>
+              <TableContainer component={Paper} variant="outlined" sx={{ mb: 4, borderColor: 'rgba(255,255,255,0.08)' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'action.selected' }}>
+                      <TableCell sx={{ fontWeight: 800, width: 60, textAlign: 'center' }}>Línea</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>Producto</TableCell>
+                      <TableCell sx={{ fontWeight: 800, width: 80, align: 'center' }}>Cant.</TableCell>
+                      <TableCell sx={{ fontWeight: 800, width: 80, align: 'center' }}>U.M.</TableCell>
+                      <TableCell sx={{ fontWeight: 800, textAlign: 'right', width: 120 }}>Costo Unit.</TableCell>
+                      <TableCell sx={{ fontWeight: 800, textAlign: 'right', width: 130 }}>Subtotal</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedPreviewOC.detalles.map((det: any, idx: number) => {
+                      const lineNum = det.lineaNum || (idx + 1);
+                      return (
+                        <TableRow key={det.id} hover>
+                          <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: 'text.secondary' }}>L{lineNum}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{det.producto.descripcion}</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>SKU: {det.producto.sku}</Typography>
+                          </TableCell>
+                          <TableCell align="center">{det.cantidad}</TableCell>
+                          <TableCell align="center" sx={{ textTransform: 'uppercase', fontSize: '0.8rem', color: 'text.secondary' }}>{det.producto.unidadMedida}</TableCell>
+                          <TableCell align="right">{formatCurrency(det.costoUnitario)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, color: 'primary.light' }}>{formatCurrency(det.cantidad * det.costoUnitario)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Totals and Bank details */}
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Box sx={{ flex: 1, minWidth: { md: 320 } }}>
+                  {selectedPreviewOC.proveedor.bancoNombre && (
+                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed rgba(255,255,255,0.15)', bgcolor: 'action.hover' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5, color: 'text.secondary', textTransform: 'uppercase' }}>
+                        Datos de Transferencia del Proveedor:
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                        <strong>Banco:</strong> {selectedPreviewOC.proveedor.bancoNombre}<br />
+                        <strong>Tipo:</strong> {selectedPreviewOC.proveedor.bancoTipoCuenta || 'Corriente'}<br />
+                        <strong>Cuenta N°:</strong> {selectedPreviewOC.proveedor.bancoNroCuenta}<br />
+                        <strong>Titular:</strong> {selectedPreviewOC.proveedor.bancoNomTitular || selectedPreviewOC.proveedor.nombre}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-start', minWidth: 280 }}>
+                  <Box sx={{ width: '100%', maxWidth: 280 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, px: 1 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Subtotal:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(selectedPreviewOC.total)}</Typography>
+                    </Box>
+                    <Divider sx={{ my: 1, borderColor: 'primary.main', borderWidth: 1.5 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1, py: 0.5 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'primary.light' }}>TOTAL:</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 900, color: 'primary.light' }}>{formatCurrency(selectedPreviewOC.total)}</Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, bgcolor: 'action.hover', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => { setOpenPreviewOC(false); setSelectedPreviewOC(null); }}
+          >
+            Cerrar
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Print />}
+            onClick={handlePrintOC}
+          >
+            Imprimir
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<Email />}
+            onClick={handleOpenEmailModal}
+          >
+            Enviar por Correo
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: ENVIAR ORDEN COMPRA POR CORREO */}
+      <Dialog
+        open={openEmailDialog}
+        onClose={() => setOpenEmailDialog(false)}
+        fullWidth
+        maxWidth="sm"
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+            }
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Enviar Orden de Compra por Correo</DialogTitle>
+        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Configure los detalles del correo electrónico que se enviará al proveedor con el formato corporativo.
+          </Typography>
+          <TextField
+            label="Destinatario"
+            fullWidth
+            size="small"
+            required
+            placeholder="correo@proveedor.com"
+            value={emailForm.para}
+            onChange={(e) => setEmailForm({ ...emailForm, para: e.target.value })}
+          />
+          <TextField
+            label="Asunto"
+            fullWidth
+            size="small"
+            required
+            value={emailForm.asunto}
+            onChange={(e) => setEmailForm({ ...emailForm, asunto: e.target.value })}
+          />
+          <TextField
+            label="Mensaje Adicional / Comentarios"
+            fullWidth
+            multiline
+            rows={4}
+            size="small"
+            placeholder="Ingrese instrucciones adicionales o un saludo para el proveedor..."
+            value={emailForm.mensajeAdicional}
+            onChange={(e) => setEmailForm({ ...emailForm, mensajeAdicional: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenEmailDialog(false)} disabled={isSendingEmail}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSendEmailSubmit}
+            disabled={isSendingEmail}
+          >
+            {isSendingEmail ? 'Enviando...' : 'Enviar Correo'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
