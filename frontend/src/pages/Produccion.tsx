@@ -443,11 +443,17 @@ export default function Produccion() {
         productoFinalId,
         cantidadEsperada: parseFloat(cantidadEsperada),
         costoEstimado: parseFloat(costoEstimado),
-        detalles: detalles.map(d => ({
-          productoId: d.productoId,
-          cantidadRequerida: parseFloat(d.cantidadRequerida),
-          sustitutoIds: d.sustitutoIds || []
-        }))
+        detalles: detalles.map((d) => {
+          const ingProd = productos.find((p) => p.id === d.productoId);
+          const isKg = ingProd?.unidadMedida?.toUpperCase() === 'KG';
+          return {
+            productoId: d.productoId,
+            cantidadRequerida: isKg
+              ? parseFloat(d.cantidadRequerida) / 1000
+              : parseFloat(d.cantidadRequerida),
+            sustitutoIds: d.sustitutoIds || [],
+          };
+        }),
       };
 
       if (id) {
@@ -491,11 +497,15 @@ export default function Produccion() {
       productoFinalId: r.productoFinalId,
       cantidadEsperada: String(r.cantidadEsperada),
       costoEstimado: String(r.costoEstimado),
-      detalles: r.detalles.map((d: any) => ({
-        productoId: d.productoId,
-        cantidadRequerida: String(d.cantidadRequerida),
-        sustitutoIds: d.sustitutos ? d.sustitutos.map((s: any) => s.productoId) : [],
-      })),
+      detalles: r.detalles.map((d: any) => {
+        const isKg = d.producto?.unidadMedida?.toUpperCase() === 'KG';
+        const qtyValue = isKg ? d.cantidadRequerida * 1000 : d.cantidadRequerida;
+        return {
+          productoId: d.productoId,
+          cantidadRequerida: String(qtyValue),
+          sustitutoIds: d.sustitutos ? d.sustitutos.map((s: any) => s.productoId) : [],
+        };
+      }),
     });
     setOpenReceta(true);
   };
@@ -931,7 +941,9 @@ export default function Produccion() {
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>{d.producto.descripcion}</Typography>
                             <Typography variant="body2" color="primary.main" sx={{ fontWeight: 700 }}>
-                              {d.cantidadRequerida} {d.producto.unidadMedida}
+                              {d.producto.unidadMedida?.toUpperCase() === 'KG'
+                                ? `${d.cantidadRequerida * 1000} g`
+                                : `${d.cantidadRequerida} ${d.producto.unidadMedida}`}
                             </Typography>
                           </Box>
                           {d.sustitutos && d.sustitutos.length > 0 && (
@@ -1475,7 +1487,13 @@ export default function Produccion() {
                   </Box>
                   <Box>
                     <TextField
-                      label={`Cantidad (${productos.find((p) => p.id === d.productoId)?.unidadMedida || ''})`}
+                      label={
+                        (() => {
+                          const prod = productos.find((p) => p.id === d.productoId);
+                          const isKg = prod?.unidadMedida?.toUpperCase() === 'KG';
+                          return isKg ? 'Cantidad (g)' : `Cantidad (${prod?.unidadMedida || ''})`;
+                        })()
+                      }
                       type="number"
                       size="small"
                       fullWidth
@@ -1778,7 +1796,14 @@ export default function Produccion() {
                           )}
                         </TableCell>
                         <TableCell align="right">
-                          {ing.cantidadRequerida} {ing.unidadMedida}
+                          <Box>
+                            {ing.cantidadRequerida} {ing.unidadMedida}
+                          </Box>
+                          {ing.unidadMedida?.toUpperCase() === 'KG' && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              ({parseFloat(ing.cantidadRequerida || 0) * 1000} g)
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold', color: qtyYaEntregado > 0 ? '#10b981' : 'inherit' }}>
                           {qtyYaEntregado} {currentUnit}
@@ -2369,7 +2394,14 @@ export default function Produccion() {
                           )}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>
-                          {ing.cantidadRequerida} {ing.unidadMedida}
+                          <Box>
+                            {ing.cantidadRequerida} {ing.unidadMedida}
+                          </Box>
+                          {ing.unidadMedida?.toUpperCase() === 'KG' && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              ({parseFloat(ing.cantidadRequerida || 0) * 1000} g)
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: isFullyIssued ? 'success.light' : qtyIssued > 0 ? 'warning.light' : 'text.secondary' }}>
                           {qtyIssued} {ing.unidadMedida}
