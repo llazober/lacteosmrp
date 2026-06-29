@@ -1587,16 +1587,19 @@ export class ProduccionController implements OnModuleInit {
           orderBy: { fechaVencimiento: 'asc' },
         });
 
+        const uSust = sust.producto.unidadMedida?.toUpperCase();
+        const isSustInt = uSust === 'UNIDAD' || uSust === 'U';
+
         sustitutosInfo.push({
           productoId: sust.productoId,
           sku: sust.producto.sku,
           descripcion: sust.producto.descripcion,
           unidadMedida: sust.producto.unidadMedida || 'U',
-          stockDisponible: parseFloat(stockSust.toFixed(8)),
+          stockDisponible: isSustInt ? stockSust : Math.round(stockSust * 100) / 100,
           lotesDisponibles: lotesSust.map((l) => ({
             id: l.id,
             numeroLote: l.numeroLote,
-            cantidadActual: l.cantidadActual,
+            cantidadActual: isSustInt ? l.cantidadActual : Math.round(l.cantidadActual * 100) / 100,
           })),
           bodega: sustBodega ? {
             id: sustBodega.id,
@@ -1629,21 +1632,24 @@ export class ProduccionController implements OnModuleInit {
         orderBy: { fechaVencimiento: 'asc' },
       });
 
+      const umedida = reqDetalle.producto.unidadMedida?.toUpperCase();
+      const isInteger = umedida === 'UNIDAD' || umedida === 'U';
+
       ingredientes.push({
         productoId: reqDetalle.productoId,
         sku: reqDetalle.producto.sku,
         descripcion: reqDetalle.producto.descripcion,
         unidadMedida: reqDetalle.producto.unidadMedida || 'U',
-        cantidadRequerida: parseFloat(cantidadRequerida.toFixed(8)),
-        stockDisponible: parseFloat(stockDisponible.toFixed(8)),
-        yaEntregado: parseFloat(yaEntregado.toFixed(8)),
-        cantidadPicked: parseFloat(cantidadPicked.toFixed(8)),
+        cantidadRequerida: isInteger ? cantidadRequerida : Math.round(cantidadRequerida * 100) / 100,
+        stockDisponible: isInteger ? stockDisponible : Math.round(stockDisponible * 100) / 100,
+        yaEntregado: isInteger ? yaEntregado : Math.round(yaEntregado * 100) / 100,
+        cantidadPicked: isInteger ? cantidadPicked : Math.round(cantidadPicked * 100) / 100,
         picked: op.pickingCompletado,
         loteNumero,
         lotesDisponibles: lotes.map((l) => ({
           id: l.id,
           numeroLote: l.numeroLote,
-          cantidadActual: l.cantidadActual,
+          cantidadActual: isInteger ? l.cantidadActual : Math.round(l.cantidadActual * 100) / 100,
         })),
         sustitutos: sustitutosInfo,
         bodega: targetBodega ? {
@@ -1934,7 +1940,10 @@ export class ProduccionController implements OnModuleInit {
         });
         const totalPicked = aggregate._sum.cantidadConsumida || 0;
 
-        if (Math.round(totalPicked * 100000000) < Math.round(cantidadRequerida * 100000000)) {
+        const totalPickedRounded = Math.round(totalPicked * 100) / 100;
+        const cantidadRequeridaRounded = Math.round(cantidadRequerida * 100) / 100;
+
+        if (totalPickedRounded < cantidadRequeridaRounded) {
           tieneShortage = true;
         }
       }
@@ -2094,9 +2103,10 @@ export class ProduccionController implements OnModuleInit {
 
         // Balance pendiente por recolectar
         const balancePendiente = Math.max(0, totalRequerido - alreadyPicked);
+        const balancePendienteRounded = Math.round(balancePendiente * 100) / 100;
 
-        // Si el balance restante es mayor que 0.00000001 (redondeado a 8 decimales), verificar stock disponible
-        if (Math.round(balancePendiente * 100000000) > 0) {
+        // Si el balance restante es mayor que 0 (redondeado a 2 decimales), verificar stock disponible
+        if (balancePendienteRounded > 0) {
           const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
           const inv = targetBodega ? await tx.inventario.findUnique({
             where: {
@@ -2107,7 +2117,8 @@ export class ProduccionController implements OnModuleInit {
             },
           }) : null;
           const stockDisponible = inv ? inv.existencia : 0;
-          if (stockDisponible < balancePendiente) {
+          const stockDisponibleRounded = Math.round(stockDisponible * 100) / 100;
+          if (stockDisponibleRounded < balancePendienteRounded) {
             tieneShortage = true;
           }
         }
