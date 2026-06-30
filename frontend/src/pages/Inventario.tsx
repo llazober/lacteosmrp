@@ -803,8 +803,10 @@ export default function Inventario() {
     if (!data) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+    const isPT = data.tipoProducto === 'PT' || data.tipoProducto === 'PRODUCTO_TERMINADO';
+    const barcodeVal = isPT ? `${data.prodId}#${data.numeroLote}` : data.numeroLote;
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-      `${data.prodId}#${data.numeroLote}`
+      barcodeVal
     )}&code=Code128`;
     
     printWindow.document.write(`
@@ -852,7 +854,7 @@ export default function Inventario() {
           <div class="title">${data.productoNombre}</div>
           <div class="subtitle">SKU: ${data.sku} | Lote: ${data.numeroLote}</div>
           <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
-          <div class="code-text">${data.prodId}#${data.numeroLote}</div>
+          <div class="code-text">${barcodeVal}</div>
           <script>
             window.onload = function() {
               setTimeout(function() {
@@ -2148,6 +2150,7 @@ export default function Inventario() {
                                     prodId: l.producto.prodId,
                                     numeroLote: l.numeroLote,
                                     productoNombre: l.producto.descripcion,
+                                    tipoProducto: l.producto.tipoProducto,
                                   });
                                   setOpenBarcodeDialog(true);
                                 }}
@@ -4179,48 +4182,54 @@ export default function Inventario() {
       <Dialog open={openBarcodeDialog} onClose={() => setOpenBarcodeDialog(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>Código de Barras del Lote</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 2, pb: 3 }}>
-          {barcodeDialogData && (
-            <>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, textAlign: 'center' }}>
-                {barcodeDialogData.productoNombre}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: 1 }}>
-                <Chip label={`SKU: ${barcodeDialogData.sku}`} size="small" />
-                <Chip label={`Lote: ${barcodeDialogData.numeroLote}`} size="small" color="primary" />
-              </Box>
+          {barcodeDialogData && (() => {
+            const isPT = barcodeDialogData.tipoProducto === 'PT' || barcodeDialogData.tipoProducto === 'PRODUCTO_TERMINADO';
+            const barcodeVal = isPT ? `${barcodeDialogData.prodId}#${barcodeDialogData.numeroLote}` : barcodeDialogData.numeroLote;
+            return (
+              <>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, textAlign: 'center' }}>
+                  {barcodeDialogData.productoNombre}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: 1 }}>
+                  <Chip label={`SKU: ${barcodeDialogData.sku}`} size="small" />
+                  <Chip label={`Lote: ${barcodeDialogData.numeroLote}`} size="small" color="primary" />
+                </Box>
 
-              <Box
-                sx={{
-                  backgroundColor: '#ffffff',
-                  p: 3,
-                  borderRadius: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  width: '100%',
-                  maxWidth: '300px',
-                }}
-              >
-                <img
-                  src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-                    `${barcodeDialogData.prodId}#${barcodeDialogData.numeroLote}`
-                  )}&code=Code128`}
-                  alt="Código de Barras"
-                  style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
-                />
-              </Box>
+                <Box
+                  sx={{
+                    backgroundColor: '#ffffff',
+                    p: 3,
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    width: '100%',
+                    maxWidth: '300px',
+                  }}
+                >
+                  <img
+                    src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
+                      barcodeVal
+                    )}&code=Code128`}
+                    alt="Código de Barras"
+                    style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+                  />
+                </Box>
 
-              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 1, color: 'text.secondary' }}>
-                {`${barcodeDialogData.prodId}#${barcodeDialogData.numeroLote}`}
-              </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 1, color: 'text.secondary' }}>
+                  {barcodeVal}
+                </Typography>
 
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
-                Este código contiene el código de barras del producto y el lote. Al ser escaneado en el Punto de Venta, seleccionará automáticamente este lote específico.
-              </Typography>
-            </>
-          )}
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                  {isPT
+                    ? 'Este código contiene el código de barras del producto y el lote. Al ser escaneado en el Punto de Venta, seleccionará automáticamente este lote específico.'
+                    : 'Este código contiene únicamente el número de lote para la identificación y trazabilidad de la materia prima / insumo.'}
+                </Typography>
+              </>
+            );
+          })()}
         </DialogContent>
         <DialogActions sx={{ p: 2, display: 'flex', gap: 1 }}>
           <Button onClick={() => setOpenBarcodeDialog(false)} variant="outlined" sx={{ flex: 1 }}>

@@ -34,6 +34,7 @@ import {
   History,
   Comment,
   ReportProblem,
+  QrCode,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 import dayjs from 'dayjs';
@@ -248,7 +249,8 @@ export default function RutaOperaciones() {
   const printBarcode = (orden: any, loteNum: string) => {
     if (!orden) return;
     const prod = orden.receta.productoFinal;
-    const barcodeData = `${prod.prodId || ''}#${loteNum}`;
+    const isPT = prod.tipoProducto === 'PT' || prod.tipoProducto === 'PRODUCTO_TERMINADO';
+    const barcodeData = isPT ? `${prod.prodId || ''}#${loteNum}` : loteNum;
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
       barcodeData
     )}&code=Code128`;
@@ -785,6 +787,37 @@ export default function RutaOperaciones() {
                               }}
                             >
                               {operacion?.notas ? 'Editar Notas' : 'Notas/Desviación'}
+                            </Button>
+                          )}
+
+                          {targetWc === 'WC-EMPA' && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              startIcon={<QrCode sx={{ fontSize: 16 }} />}
+                              onClick={() => {
+                                const cleanSku = orden.receta.productoFinal.sku.replace('PROD-', '');
+                                const dateStr = dayjs(orden.fechaInicio || new Date()).format('YYYYMMDD');
+                                const loteNum = `L-${cleanSku}-${dateStr}`;
+                                printBarcode(orden, loteNum);
+                              }}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                py: 0.5,
+                                px: 1.5,
+                                borderRadius: 2,
+                                borderColor: 'primary.main',
+                                color: 'primary.light',
+                                '&:hover': {
+                                  borderColor: 'primary.dark',
+                                  backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                                },
+                              }}
+                            >
+                              Imprimir Código
                             </Button>
                           )}
                         </Box>

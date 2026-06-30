@@ -46,8 +46,10 @@ import {
   RestartAlt,
   Settings,
   AccountTree,
+  QrCode,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
+import dayjs from 'dayjs';
 // Work centers are now loaded dynamically from the backend
 
 export default function Produccion() {
@@ -177,6 +179,9 @@ export default function Produccion() {
   // Feedback
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [openBarcodeDialog, setOpenBarcodeDialog] = useState(false);
+  const [barcodeDialogData, setBarcodeDialogData] = useState<any>(null);
 
   // Bill of Operations states
   const [openBoo, setOpenBoo] = useState(false);
@@ -619,6 +624,91 @@ export default function Produccion() {
     } catch (e: any) {
       setErrorMsg(e.message || 'Error al limpiar datos de pruebas.');
     }
+  };
+
+  const handlePrintBarcode = (data: any) => {
+    if (!data) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const isPT = data.tipoProducto === 'PT' || data.tipoProducto === 'PRODUCTO_TERMINADO';
+    const barcodeVal = isPT ? `${data.prodId}#${data.numeroLote}` : data.numeroLote;
+    const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
+      barcodeVal
+    )}&code=Code128`;
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Lote - ${data.numeroLote}</title>
+          <style>
+            @page {
+              size: auto;
+              margin: 0mm;
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              text-align: center;
+              margin: 0;
+              padding: 20px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 2px;
+            }
+            .subtitle {
+              font-size: 11px;
+              margin-bottom: 10px;
+              color: #555;
+            }
+            .barcode-img {
+              max-width: 100%;
+              height: 65px;
+            }
+            .code-text {
+              font-size: 12px;
+              margin-top: 5px;
+              font-weight: bold;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="title">${data.productoNombre}</div>
+          <div class="subtitle">SKU: ${data.sku} | Lote: ${data.numeroLote}</div>
+          <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
+          <div class="code-text">${barcodeVal}</div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 600);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleOpenBarcodePrint = (op: any) => {
+    const cleanSku = op.receta.productoFinal.sku.replace('PROD-', '');
+    const dateStr = dayjs(op.fechaInicio || op.createdAt || new Date()).format('YYYYMMDD');
+    const generatedLote = op.lotesProducidos?.[0]?.numeroLote || `L-${cleanSku}-${dateStr}`;
+    
+    setBarcodeDialogData({
+      productoNombre: op.receta.productoFinal.descripcion || op.receta.productoFinal.nombre,
+      sku: op.receta.productoFinal.sku,
+      numeroLote: generatedLote,
+      tipoProducto: op.receta.productoFinal.tipoProducto,
+      prodId: op.receta.productoFinal.prodId,
+    });
+    setOpenBarcodeDialog(true);
   };
 
   const handleOpenEditarOrden = (op: any) => {
@@ -1086,6 +1176,18 @@ export default function Produccion() {
                               size="small"
                             >
                               <Settings fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Imprimir Código de Barras">
+                            <IconButton
+                              color="success"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenBarcodePrint(op);
+                              }}
+                              size="small"
+                            >
+                              <QrCode fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Ver Pick List (Lectura)">
@@ -2747,6 +2849,74 @@ export default function Produccion() {
         <DialogActions>
           <Button onClick={() => setOpenRutaOrden(false)} variant="contained">
             Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: VER CODIGO BARRAS COMBINADO */}
+      <Dialog open={openBarcodeDialog} onClose={() => setOpenBarcodeDialog(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Código de Barras de Producción</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 2, pb: 3 }}>
+          {barcodeDialogData && (() => {
+            const isPT = barcodeDialogData.tipoProducto === 'PT' || barcodeDialogData.tipoProducto === 'PRODUCTO_TERMINADO';
+            const barcodeVal = isPT ? `${barcodeDialogData.prodId}#${barcodeDialogData.numeroLote}` : barcodeDialogData.numeroLote;
+            return (
+              <>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, textAlign: 'center' }}>
+                  {barcodeDialogData.productoNombre}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: 1 }}>
+                  <Chip label={`SKU: ${barcodeDialogData.sku}`} size="small" />
+                  <Chip label={`Lote: ${barcodeDialogData.numeroLote}`} size="small" color="primary" />
+                </Box>
+
+                <Box
+                  sx={{
+                    backgroundColor: '#ffffff',
+                    p: 3,
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    width: '100%',
+                    maxWidth: '300px',
+                  }}
+                >
+                  <img
+                    src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
+                      barcodeVal
+                    )}&code=Code128`}
+                    alt="Código de Barras"
+                    style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+                  />
+                </Box>
+
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 1, color: 'text.secondary' }}>
+                  {barcodeVal}
+                </Typography>
+
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                  {isPT
+                    ? 'Este código contiene el código de barras del producto y el lote. Al ser escaneado en el Punto de Venta, seleccionará automáticamente este lote específico.'
+                    : 'Este código contiene únicamente el número de lote para la identificación y trazabilidad de la materia prima / insumo.'}
+                </Typography>
+              </>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, display: 'flex', gap: 1 }}>
+          <Button onClick={() => setOpenBarcodeDialog(false)} variant="outlined" sx={{ flex: 1 }}>
+            Cerrar
+          </Button>
+          <Button
+            onClick={() => handlePrintBarcode(barcodeDialogData)}
+            variant="contained"
+            color="primary"
+            sx={{ flex: 1 }}
+          >
+            Imprimir
           </Button>
         </DialogActions>
       </Dialog>

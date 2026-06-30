@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogActions,
   Divider,
+  Checkbox,
 } from '@mui/material';
 import {
   Search,
@@ -25,6 +26,7 @@ import {
   Receipt,
   Store,
   Close,
+  Print,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { apiFetch } from '../store/useAuthStore';
@@ -39,6 +41,7 @@ interface RecepcionDetalle {
     sku: string;
     descripcion: string;
     tipoProducto: string;
+    prodId?: number;
   };
   lote?: {
     numeroLote: string;
@@ -85,6 +88,16 @@ export default function MaterialesRecibidos() {
   // Dialog / Modal details
   const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
 
+  // Barcode printing states
+  const [openBarcodeDialog, setOpenBarcodeDialog] = useState(false);
+  const [barcodeDialogData, setBarcodeDialogData] = useState<any[] | null>(null);
+  const [printQuantity, setPrintQuantity] = useState<number>(1);
+  const [selectedLotsForPrint, setSelectedLotsForPrint] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSelectedLotsForPrint([]);
+  }, [selectedRecepcion]);
+
   useEffect(() => {
     cargarRecepciones();
   }, [searchTerm]);
@@ -119,6 +132,94 @@ export default function MaterialesRecibidos() {
       style: 'currency',
       currency: 'USD',
     }).format(val);
+  };
+
+  const handlePrintBarcode = (itemsToPrint: any[], qty: number) => {
+    if (!itemsToPrint || itemsToPrint.length === 0) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    let labelsHtml = '';
+    for (const item of itemsToPrint) {
+      const barcodeVal = item.numeroLote;
+      const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
+        barcodeVal
+      )}&code=Code128`;
+      
+      for (let i = 0; i < qty; i++) {
+        labelsHtml += `
+          <div class="label-page">
+            <div class="title">${item.productoNombre}</div>
+            <div class="subtitle">SKU: ${item.sku} | Lote: ${item.numeroLote}</div>
+            <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
+            <div class="code-text">${barcodeVal}</div>
+          </div>
+        `;
+      }
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Lotes</title>
+          <style>
+            @page {
+              size: auto;
+              margin: 0mm;
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              text-align: center;
+              margin: 0;
+              padding: 0;
+            }
+            .label-page {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+              page-break-after: always;
+            }
+            .label-page:last-child {
+              page-break-after: avoid;
+            }
+            .title {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 2px;
+            }
+            .subtitle {
+              font-size: 11px;
+              margin-bottom: 10px;
+              color: #555;
+            }
+            .barcode-img {
+              max-width: 100%;
+              height: 65px;
+            }
+            .code-text {
+              font-size: 12px;
+              margin-top: 5px;
+              font-weight: bold;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          ${labelsHtml}
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 600);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   // Paginated and filtered lists
@@ -510,9 +611,51 @@ export default function MaterialesRecibidos() {
                       <>
                         <Divider sx={{ my: 1.5, borderColor: 'rgba(255,255,255,0.05)' }} />
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 800 }}>
-                            📋 INFORMACIÓN DE LOTE GENERADO
-                          </Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Checkbox
+                                size="small"
+                                checked={selectedLotsForPrint.includes(det.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedLotsForPrint([...selectedLotsForPrint, det.id]);
+                                  } else {
+                                    setSelectedLotsForPrint(selectedLotsForPrint.filter(id => id !== det.id));
+                                  }
+                                }}
+                                sx={{ color: '#10b981', '&.Mui-checked': { color: '#10b981' }, p: 0.5 }}
+                              />
+                              <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 800 }}>
+                                📋 SELECCIONAR LOTE PARA IMPRIMIR
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              startIcon={<Print />}
+                              onClick={() => {
+                                setBarcodeDialogData([{
+                                  sku: det.producto.sku,
+                                  prodId: det.producto.prodId,
+                                  numeroLote: det.lote?.numeroLote || '',
+                                  productoNombre: det.producto.descripcion,
+                                  tipoProducto: det.producto.tipoProducto,
+                                }]);
+                                setPrintQuantity(1);
+                                setOpenBarcodeDialog(true);
+                              }}
+                              sx={{
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                borderRadius: 2,
+                                height: 28,
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              Imprimir Barcode
+                            </Button>
+                          </Box>
                           <Box
                             sx={{
                               display: 'grid',
@@ -590,16 +733,218 @@ export default function MaterialesRecibidos() {
                   />
                 )}
               </Box>
-              <Button
-                variant="outlined"
-                onClick={() => setSelectedRecepcion(null)}
-                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-              >
-                Cerrar
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                {selectedLotsForPrint.length > 0 && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Print />}
+                    onClick={() => {
+                      const selectedItems = selectedRecepcion.detalles
+                        .filter((d) => d.lote && selectedLotsForPrint.includes(d.id))
+                        .map((d) => ({
+                          sku: d.producto.sku,
+                          prodId: d.producto.prodId,
+                          numeroLote: d.lote?.numeroLote || '',
+                          productoNombre: d.producto.descripcion,
+                          tipoProducto: d.producto.tipoProducto,
+                        }));
+                      setBarcodeDialogData(selectedItems);
+                      setPrintQuantity(1);
+                      setOpenBarcodeDialog(true);
+                    }}
+                    sx={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      borderRadius: 2,
+                    }}
+                  >
+                    Imprimir Seleccionados ({selectedLotsForPrint.length})
+                  </Button>
+                )}
+                <Button
+                  variant="outlined"
+                  onClick={() => setSelectedRecepcion(null)}
+                  sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                >
+                  Cerrar
+                </Button>
+              </Box>
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* DIALOG: VER CODIGO BARRAS LOTE */}
+      <Dialog
+        open={openBarcodeDialog}
+        onClose={() => setOpenBarcodeDialog(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              backgroundColor: '#1e293b',
+              backgroundImage: 'none',
+              color: '#fff',
+              borderRadius: 4,
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Código de Barras del Lote</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2.5, pt: 2, pb: 3 }}>
+          {barcodeDialogData && barcodeDialogData.length > 0 && (
+            <>
+              {barcodeDialogData.length === 1 ? (
+                <>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, textAlign: 'center' }}>
+                    {barcodeDialogData[0].productoNombre}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', mb: 1 }}>
+                    <Chip label={`SKU: ${barcodeDialogData[0].sku}`} size="small" sx={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                    <Chip label={`Lote: ${barcodeDialogData[0].numeroLote}`} size="small" color="primary" />
+                  </Box>
+
+                  <Box
+                    sx={{
+                      backgroundColor: '#ffffff',
+                      p: 3,
+                      borderRadius: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      width: '100%',
+                      maxWidth: '300px',
+                    }}
+                  >
+                    <img
+                      src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
+                        barcodeDialogData[0].numeroLote
+                      )}&code=Code128`}
+                      alt="Código de Barras"
+                      style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+                    />
+                  </Box>
+
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, mt: 1, color: '#94a3b8' }}>
+                    {barcodeDialogData[0].numeroLote}
+                  </Typography>
+
+                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                    Este código contiene únicamente el número de lote para identificación de Materia Prima / Insumo.
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, textAlign: 'center', color: '#93c5fd' }}>
+                    Se imprimirán {barcodeDialogData.length} lotes
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: '100%',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                      borderRadius: 2,
+                      p: 1.5,
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
+                    }}
+                  >
+                    {barcodeDialogData.map((item, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          borderBottom: index < barcodeDialogData.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                          pb: index < barcodeDialogData.length - 1 ? 0.75 : 0,
+                        }}
+                      >
+                        <Box sx={{ maxWidth: '65%' }}>
+                          <Typography variant="caption" sx={{ fontWeight: 800, display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {item.productoNombre}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                            SKU: {item.sku}
+                          </Typography>
+                        </Box>
+                        <Chip label={item.numeroLote} size="small" color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
+                      </Box>
+                    ))}
+                  </Box>
+
+                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                    Se generarán códigos de barras conteniendo únicamente el número de lote para cada uno de los productos.
+                  </Typography>
+                </>
+              )}
+
+              <Divider sx={{ width: '100%', borderColor: 'rgba(255,255,255,0.08)', my: 1 }} />
+
+              <TextField
+                label="Cantidad de etiquetas a imprimir por lote"
+                type="number"
+                value={printQuantity}
+                onChange={(e) => setPrintQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                slotProps={{
+                  htmlInput: { min: 1 },
+                }}
+                fullWidth
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    backgroundColor: 'rgba(15, 23, 42, 0.3)',
+                    borderRadius: 3,
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#94a3b8',
+                  },
+                }}
+              />
+
+              {barcodeDialogData.length > 1 && (
+                <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600 }}>
+                  Total a imprimir: {barcodeDialogData.length * printQuantity} etiquetas
+                </Typography>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, display: 'flex', gap: 1.5, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <Button
+            onClick={() => setOpenBarcodeDialog(false)}
+            variant="outlined"
+            sx={{ flex: 1, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            Cerrar
+          </Button>
+          <Button
+            onClick={() => {
+              handlePrintBarcode(barcodeDialogData || [], printQuantity);
+              setOpenBarcodeDialog(false);
+            }}
+            variant="contained"
+            color="success"
+            sx={{
+              flex: 1,
+              textTransform: 'none',
+              fontWeight: 700,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            }}
+          >
+            Imprimir Código
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
