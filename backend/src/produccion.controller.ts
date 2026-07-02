@@ -2326,6 +2326,10 @@ export class ProduccionController implements OnModuleInit {
       // 6. Eliminar Movimientos de Inventario (debido a la relación de Lote)
       await tx.movimientoInventario.deleteMany({});
 
+      // 6b. Eliminar Mezclas de Leche (Componentes primero, luego Mezclas) - agregado con BIN/Tanques
+      await tx.mezclaLecheComponente.deleteMany({});
+      await tx.mezclaLeche.deleteMany({});
+
       // 7. Eliminar Lotes (después de eliminar todo lo que le hace referencia)
       await tx.lote.deleteMany({});
 
