@@ -1561,8 +1561,10 @@ export class ProduccionController implements OnModuleInit {
             bodegaId: targetBodega.id,
           },
         },
+        include: { bin: true },
       }) : null;
       const stockDisponible = inv ? inv.existencia : 0;
+      const binInfo = inv?.bin ? { id: inv.bin.id, codigo: inv.bin.codigo, nombre: inv.bin.nombre, capacidad: inv.bin.capacidad } : null;
 
       // Obtener stock y lotes para cada sustituto
       const sustitutosInfo: any[] = [];
@@ -1657,6 +1659,7 @@ export class ProduccionController implements OnModuleInit {
           codigo: targetBodega.codigo,
           nombre: targetBodega.nombre,
         } : null,
+        bin: binInfo,
       });
     }
 

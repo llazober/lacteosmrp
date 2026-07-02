@@ -2500,6 +2500,23 @@ export default function Produccion() {
                               }}
                             />
                           )}
+                          {ing.bin && (
+                            <Chip
+                              label={`🗂 Bin: ${ing.bin.codigo} — ${ing.bin.nombre}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                mt: 0.5,
+                                ml: 0.5,
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#a5b4fc',
+                                borderColor: 'rgba(99,102,241,0.4)',
+                                backgroundColor: 'rgba(99,102,241,0.08)',
+                                height: 20
+                              }}
+                            />
+                          )}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>
                           <Box>

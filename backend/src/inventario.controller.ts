@@ -91,6 +91,7 @@ export class InventarioController {
         producto: true,
         sucursal: true,
         bodega: true,
+        bin: true,
       },
       orderBy: [
         { sucursal: { nombre: 'asc' } },
@@ -102,7 +103,7 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post()
   async crearInventario(@Request() req: any, @Body() body: any) {
-    const { productoId, sucursalId, bodegaId, existencia, existMin, existMax } = body;
+    const { productoId, sucursalId, bodegaId, binId, existencia, existMin, existMax } = body;
     if (!productoId || !sucursalId) {
       throw new BadRequestException('Producto y Sucursal son obligatorios.');
     }
@@ -145,11 +146,12 @@ export class InventarioController {
         productoId,
         sucursalId,
         bodegaId: targetBodegaId,
+        binId: binId || null,
         existencia: existencia != null ? parseFloat(existencia) : 0,
         existMin: existMin != null ? parseFloat(existMin) : 10,
         existMax: existMax != null ? parseFloat(existMax) : 100,
       },
-      include: { producto: true, sucursal: true, bodega: true },
+      include: { producto: true, sucursal: true, bodega: true, bin: true },
     });
 
     await this.prisma.auditoria.create({
@@ -162,6 +164,7 @@ export class InventarioController {
           sku: inv.producto.sku,
           sucursal: inv.sucursal.nombre,
           existencia: inv.existencia,
+          binId: inv.binId,
         }),
       },
     });
@@ -176,7 +179,7 @@ export class InventarioController {
     @Request() req: any,
     @Body() body: any,
   ) {
-    const { existencia, existMin, existMax } = body;
+    const { existencia, existMin, existMax, binId } = body;
 
     const prev = await this.prisma.inventario.findUnique({
       where: { id },
@@ -204,8 +207,9 @@ export class InventarioController {
         existencia: existencia != null ? parseFloat(existencia) : undefined,
         existMin: existMin != null ? parseFloat(existMin) : undefined,
         existMax: existMax != null ? parseFloat(existMax) : undefined,
+        binId: binId !== undefined ? (binId || null) : undefined,
       },
-      include: { producto: true, sucursal: true },
+      include: { producto: true, sucursal: true, bin: true },
     });
 
     await this.prisma.auditoria.create({
@@ -1090,6 +1094,94 @@ export class InventarioController {
     });
 
     return { message: 'Bodega eliminada correctamente.' };
+  }
+
+  // --- BINS (Sub-ubicaciones dentro de Bodegas) ---
+  @Get('bodegas/:bodegaId/bins')
+  async listarBins(@Param('bodegaId') bodegaId: string) {
+    return this.prisma.bin.findMany({
+      where: { bodegaId },
+      orderBy: { codigo: 'asc' },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Post('bodegas/:bodegaId/bins')
+  async crearBin(@Param('bodegaId') bodegaId: string, @Body() body: any) {
+    const { codigo, nombre, capacidad, unidad } = body;
+    if (!codigo || !nombre) {
+      throw new BadRequestException('El código y el nombre del bin son obligatorios.');
+    }
+
+    const bodega = await this.prisma.bodega.findUnique({ where: { id: bodegaId } });
+    if (!bodega) {
+      throw new BadRequestException('La bodega especificada no existe.');
+    }
+
+    const exist = await this.prisma.bin.findUnique({
+      where: { bodegaId_codigo: { bodegaId, codigo } },
+    });
+    if (exist) {
+      throw new BadRequestException(`Ya existe un bin con el código "${codigo}" en esta bodega.`);
+    }
+
+    return this.prisma.bin.create({
+      data: {
+        codigo,
+        nombre,
+        bodegaId,
+        capacidad: capacidad ? parseFloat(capacidad) : null,
+        unidad: unidad || 'Lts',
+        estado: 'ACTIVO',
+      },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Put('bins/:id')
+  async actualizarBin(@Param('id') id: string, @Body() body: any) {
+    const { codigo, nombre, capacidad, unidad, estado } = body;
+
+    const bin = await this.prisma.bin.findUnique({ where: { id } });
+    if (!bin) {
+      throw new BadRequestException('Bin no encontrado.');
+    }
+
+    return this.prisma.bin.update({
+      where: { id },
+      data: {
+        codigo: codigo || undefined,
+        nombre: nombre || undefined,
+        capacidad: capacidad !== undefined ? (capacidad ? parseFloat(capacidad) : null) : undefined,
+        unidad: unidad || undefined,
+        estado: estado || undefined,
+      },
+    });
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @Delete('bins/:id')
+  async eliminarBin(@Param('id') id: string) {
+    const bin = await this.prisma.bin.findUnique({ where: { id } });
+    if (!bin) {
+      throw new BadRequestException('Bin no encontrado.');
+    }
+
+    const invCount = await this.prisma.inventario.count({
+      where: { binId: id, existencia: { gt: 0 } },
+    });
+    if (invCount > 0) {
+      throw new BadRequestException('No se puede eliminar el bin porque tiene productos con stock asignado.');
+    }
+
+    // Desasignar inventarios vinculados (con stock 0) antes de eliminar
+    await this.prisma.inventario.updateMany({
+      where: { binId: id },
+      data: { binId: null },
+    });
+
+    await this.prisma.bin.delete({ where: { id } });
+    return { message: 'Bin eliminado correctamente.' };
   }
 
   private async obtenerBodegaParaProducto(sucursalId: string, productoId: string, tx?: any) {

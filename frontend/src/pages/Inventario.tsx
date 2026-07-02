@@ -181,10 +181,12 @@ export default function Inventario() {
     productoId: '',
     sucursalId: '',
     bodegaId: '',
+    binId: '',
     existencia: '0',
     existMin: '10',
     existMax: '100',
   });
+  const [binsForAsociar, setBinsForAsociar] = useState<any[]>([]);
 
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedInv, setSelectedInv] = useState<any>(null);
@@ -192,7 +194,9 @@ export default function Inventario() {
     existencia: '0',
     existMin: '10',
     existMax: '100',
+    binId: '',
   });
+  const [binsForEdit, setBinsForEdit] = useState<any[]>([]);
 
   const [openDelete, setOpenDelete] = useState(false);
 
@@ -495,6 +499,7 @@ export default function Inventario() {
           productoId: asociarForm.productoId,
           sucursalId: asociarForm.sucursalId,
           bodegaId: asociarForm.bodegaId || undefined,
+          binId: asociarForm.binId || undefined,
           existencia: parseFloat(asociarForm.existencia),
           existMin: parseFloat(asociarForm.existMin),
           existMax: parseFloat(asociarForm.existMax),
@@ -502,6 +507,7 @@ export default function Inventario() {
       });
       setSuccessMsg('Producto asociado al inventario de la sucursal con éxito.');
       setOpenAsociar(false);
+      setBinsForAsociar([]);
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -522,11 +528,13 @@ export default function Inventario() {
           existencia: parseFloat(editForm.existencia),
           existMin: parseFloat(editForm.existMin),
           existMax: parseFloat(editForm.existMax),
+          binId: editForm.binId || null,
         }),
       });
       setSuccessMsg('Registro de inventario actualizado con éxito.');
       setOpenEdit(false);
       setSelectedInv(null);
+      setBinsForEdit([]);
       cargarDatos();
     } catch (e: any) {
       setErrorMsg(e.message);
@@ -1286,10 +1294,12 @@ export default function Inventario() {
                   productoId: '',
                   sucursalId: usuario?.sucursalId || '',
                   bodegaId: '',
+                  binId: '',
                   existencia: '0',
                   existMin: '10',
                   existMax: '100',
                 });
+                setBinsForAsociar([]);
                 setOpenAsociar(true);
               }}
             >
@@ -1512,6 +1522,7 @@ export default function Inventario() {
                 <TableRow>
                   <TableCell>Sucursal</TableCell>
                   <TableCell>Bodega</TableCell>
+                  <TableCell>Bin</TableCell>
                   <TableCell>SKU</TableCell>
                   <TableCell>Producto</TableCell>
                   <TableCell>Categoría</TableCell>
@@ -1547,6 +1558,12 @@ export default function Inventario() {
                       >
                         <TableCell sx={{ fontWeight: 700 }}>{inv.sucursal.nombre}</TableCell>
                         <TableCell>{inv.bodega?.nombre || 'General'}</TableCell>
+                        <TableCell>
+                          {inv.bin ? (
+                            <Chip label={inv.bin.codigo} size="small"
+                              sx={{ fontFamily: 'monospace', fontSize: '0.75rem', bgcolor: 'rgba(99,102,241,0.12)', color: 'primary.main' }} />
+                          ) : <Typography variant="body2" color="text.disabled">—</Typography>}
+                        </TableCell>
                         <TableCell>{inv.producto.sku}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{inv.producto.descripcion}</TableCell>
                         <TableCell>{inv.producto.categoria}</TableCell>
@@ -1575,7 +1592,16 @@ export default function Inventario() {
                                     existencia: String(inv.existencia),
                                     existMin: String(inv.existMin),
                                     existMax: String(inv.existMax),
+                                    binId: inv.binId || '',
                                   });
+                                  // Load bins for the bodega if available
+                                  if (inv.bodegaId) {
+                                    apiFetch(`/inventario/bodegas/${inv.bodegaId}/bins`).then((binsData) => {
+                                      setBinsForEdit(binsData);
+                                    }).catch(() => setBinsForEdit([]));
+                                  } else {
+                                    setBinsForEdit([]);
+                                  }
                                   setOpenEdit(true);
                                 }}
                               >
@@ -3145,7 +3171,10 @@ export default function Inventario() {
             <Select
               value={asociarForm.sucursalId}
               label="Sucursal"
-              onChange={(e) => setAsociarForm({ ...asociarForm, sucursalId: e.target.value, bodegaId: '' })}
+              onChange={(e) => {
+                setAsociarForm({ ...asociarForm, sucursalId: e.target.value, bodegaId: '', binId: '' });
+                setBinsForAsociar([]);
+              }}
             >
               {sucursales.map((s) => (
                 <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
@@ -3158,7 +3187,16 @@ export default function Inventario() {
             <Select
               value={asociarForm.bodegaId}
               label="Bodega"
-              onChange={(e) => setAsociarForm({ ...asociarForm, bodegaId: e.target.value })}
+              onChange={async (e) => {
+                const bodId = e.target.value;
+                setAsociarForm({ ...asociarForm, bodegaId: bodId, binId: '' });
+                if (bodId) {
+                  const binsData = await apiFetch(`/inventario/bodegas/${bodId}/bins`);
+                  setBinsForAsociar(binsData);
+                } else {
+                  setBinsForAsociar([]);
+                }
+              }}
             >
               <MenuItem value=""><em>Determinar automáticamente</em></MenuItem>
               {bodegas
@@ -3168,6 +3206,24 @@ export default function Inventario() {
                 ))}
             </Select>
           </FormControl>
+
+          {binsForAsociar.length > 0 && (
+            <FormControl fullWidth size="small">
+              <InputLabel>Bin / Ubicación (opcional)</InputLabel>
+              <Select
+                value={asociarForm.binId}
+                label="Bin / Ubicación (opcional)"
+                onChange={(e) => setAsociarForm({ ...asociarForm, binId: e.target.value })}
+              >
+                <MenuItem value=""><em>Sin bin específico</em></MenuItem>
+                {binsForAsociar.map((bin: any) => (
+                  <MenuItem key={bin.id} value={bin.id}>
+                    {bin.codigo} — {bin.nombre}{bin.capacidad ? ` (Cap: ${bin.capacidad.toLocaleString()})` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <FormControl fullWidth size="small">
             <InputLabel>Producto</InputLabel>
@@ -3216,7 +3272,7 @@ export default function Inventario() {
       </Dialog>
 
       {/* DIALOG: EDITAR INVENTARIO */}
-      <Dialog open={openEdit} onClose={() => { setOpenEdit(false); setSelectedInv(null); }} fullWidth maxWidth="xs">
+      <Dialog open={openEdit} onClose={() => { setOpenEdit(false); setSelectedInv(null); setBinsForEdit([]); }} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>Editar Registro de Inventario</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {selectedInv && (
@@ -3224,6 +3280,8 @@ export default function Inventario() {
               Producto: <strong>{selectedInv.producto.descripcion}</strong>
               <br />
               Sucursal: <strong>{selectedInv.sucursal.nombre}</strong>
+              {selectedInv.bodega && <><br />Bodega: <strong>{selectedInv.bodega.nombre}</strong></>}
+              {selectedInv.bin && <><br />Bin actual: <strong>{selectedInv.bin.codigo} — {selectedInv.bin.nombre}</strong></>}
             </Typography>
           )}
 
@@ -3253,9 +3311,27 @@ export default function Inventario() {
             value={editForm.existMax}
             onChange={(e) => setEditForm({ ...editForm, existMax: e.target.value })}
           />
+
+          {binsForEdit.length > 0 && (
+            <FormControl fullWidth size="small">
+              <InputLabel>Reasignar Bin (opcional)</InputLabel>
+              <Select
+                value={editForm.binId}
+                label="Reasignar Bin (opcional)"
+                onChange={(e) => setEditForm({ ...editForm, binId: e.target.value })}
+              >
+                <MenuItem value=""><em>Sin bin / quitar asignación</em></MenuItem>
+                {binsForEdit.map((bin: any) => (
+                  <MenuItem key={bin.id} value={bin.id}>
+                    {bin.codigo} — {bin.nombre}{bin.capacidad ? ` (Cap: ${bin.capacidad.toLocaleString()})` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => { setOpenEdit(false); setSelectedInv(null); }}>Cancelar</Button>
+          <Button onClick={() => { setOpenEdit(false); setSelectedInv(null); setBinsForEdit([]); }}>Cancelar</Button>
           <Button variant="contained" color="primary" onClick={handleEditSubmit}>Actualizar</Button>
         </DialogActions>
       </Dialog>

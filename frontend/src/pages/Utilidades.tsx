@@ -89,6 +89,7 @@ export default function Utilidades() {
         roles: 6,
         manual: 7,
         configuracion: 8,
+        bodegas: 9,
       };
       if (tabMap[tabParam] !== undefined) {
         return tabMap[tabParam];
@@ -112,6 +113,7 @@ export default function Utilidades() {
         roles: 6,
         manual: 7,
         configuracion: 8,
+        bodegas: 9,
       };
       if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
         setActiveTab(tabMap[tabParam]);
@@ -123,7 +125,7 @@ export default function Utilidades() {
   const handleTabChange = (val: number) => {
     setActiveTab(val);
     setSelectedRowId(null);
-    const tabNames = ['categorias', 'unidades', 'tipos', 'proveedores', 'condiciones', 'sucursales', 'roles', 'manual', 'configuracion'];
+    const tabNames = ['categorias', 'unidades', 'tipos', 'proveedores', 'condiciones', 'sucursales', 'roles', 'manual', 'configuracion', 'bodegas'];
     setSearchParams({ tab: tabNames[val] });
   };
 
@@ -241,6 +243,18 @@ export default function Utilidades() {
     web: '',
   });
 
+  // Bodegas & Bins State
+  const [bodegasAll, setBodegasAll] = useState<any[]>([]);
+  const [sucursalesForBins, setSucursalesForBins] = useState<any[]>([]);
+  const [selectedSucursalBins, setSelectedSucursalBins] = useState<string>('');
+  const [selectedBodegaBin, setSelectedBodegaBin] = useState<any>(null);
+  const [bins, setBins] = useState<any[]>([]);
+  const [openCrearBin, setOpenCrearBin] = useState(false);
+  const [openEditarBin, setOpenEditarBin] = useState(false);
+  const [selectedBin, setSelectedBin] = useState<any>(null);
+  const [binForm, setBinForm] = useState({ codigo: '', nombre: '', capacidad: '', unidad: 'Lts' });
+  const [loadingBins, setLoadingBins] = useState(false);
+
   // Notifications
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -284,6 +298,8 @@ export default function Utilidades() {
         await cargarConfiguracionIA();
         await cargarConfiguracionEmail();
         await cargarConfiguracionEmpresa();
+      } else if (activeTab === 9) {
+        await cargarSucursalesParaBins();
       }
     } catch (e) {
       console.error(e);
@@ -921,6 +937,109 @@ export default function Utilidades() {
     );
   };
 
+  // --- Bodegas & Bins Functions ---
+  const cargarSucursalesParaBins = async () => {
+    try {
+      const data = await apiFetch('/sucursales');
+      setSucursalesForBins(data);
+      if (data.length > 0 && !selectedSucursalBins) {
+        const firstId = data[0].id;
+        setSelectedSucursalBins(firstId);
+        await cargarBodegasPorSucursal(firstId);
+      } else if (selectedSucursalBins) {
+        await cargarBodegasPorSucursal(selectedSucursalBins);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const cargarBodegasPorSucursal = async (sucursalId: string) => {
+    try {
+      const data = await apiFetch(`/inventario/bodegas?sucursalId=${sucursalId}`);
+      setBodegasAll(data);
+      setSelectedBodegaBin(null);
+      setBins([]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const cargarBinsParaBodega = async (bodegaId: string) => {
+    try {
+      setLoadingBins(true);
+      const data = await apiFetch(`/inventario/bodegas/${bodegaId}/bins`);
+      setBins(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingBins(false);
+    }
+  };
+
+  const handleCrearBin = async () => {
+    try {
+      setErrorMsg(null);
+      if (!binForm.codigo.trim() || !binForm.nombre.trim()) {
+        throw new Error('El código y el nombre del bin son obligatorios.');
+      }
+      if (!selectedBodegaBin) {
+        throw new Error('Seleccione una bodega primero.');
+      }
+      await apiFetch(`/inventario/bodegas/${selectedBodegaBin.id}/bins`, {
+        method: 'POST',
+        body: JSON.stringify({
+          codigo: binForm.codigo.toUpperCase().trim(),
+          nombre: binForm.nombre.trim(),
+          capacidad: binForm.capacidad ? parseFloat(binForm.capacidad) : null,
+          unidad: binForm.unidad || 'Lts',
+        }),
+      });
+      setSuccessMsg('Bin creado con éxito.');
+      setOpenCrearBin(false);
+      setBinForm({ codigo: '', nombre: '', capacidad: '', unidad: 'Lts' });
+      await cargarBinsParaBodega(selectedBodegaBin.id);
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEditarBin = async () => {
+    try {
+      setErrorMsg(null);
+      if (!binForm.codigo.trim() || !binForm.nombre.trim()) {
+        throw new Error('El código y el nombre son obligatorios.');
+      }
+      await apiFetch(`/inventario/bins/${selectedBin.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          codigo: binForm.codigo.toUpperCase().trim(),
+          nombre: binForm.nombre.trim(),
+          capacidad: binForm.capacidad ? parseFloat(binForm.capacidad) : null,
+          unidad: binForm.unidad || 'Lts',
+        }),
+      });
+      setSuccessMsg('Bin actualizado con éxito.');
+      setOpenEditarBin(false);
+      setSelectedBin(null);
+      if (selectedBodegaBin) await cargarBinsParaBodega(selectedBodegaBin.id);
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
+  const handleEliminarBin = (id: string) => {
+    triggerConfirm(
+      'Eliminar Bin',
+      '¿Está seguro de que desea eliminar este bin? Solo se puede eliminar si no tiene stock activo.',
+      async () => {
+        await apiFetch(`/inventario/bins/${id}`, { method: 'DELETE' });
+        setSuccessMsg('Bin eliminado con éxito.');
+        if (selectedBodegaBin) await cargarBinsParaBodega(selectedBodegaBin.id);
+      }
+    );
+  };
+
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
       <Box sx={{ mb: 4 }}>
@@ -961,6 +1080,9 @@ export default function Utilidades() {
         <Tab label="Manual del Sistema" />
         {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
           <Tab label="Configuración del Sistema" />
+        )}
+        {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+          <Tab label="Bodegas & Bins" />
         )}
       </Tabs>
 
@@ -3472,6 +3594,233 @@ export default function Utilidades() {
       </Dialog>
 
       {/* DIALOG: CONFIRMACIÓN GENÉRICA */}
+      {/* TAB 9: BODEGAS & BINS */}
+      {activeTab === 9 && (
+        <Box>
+          {/* Selector de Sucursal */}
+          <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>Bodegas & Bins</Typography>
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel>Sucursal</InputLabel>
+              <Select
+                label="Sucursal"
+                value={selectedSucursalBins}
+                onChange={async (e) => {
+                  const id = e.target.value;
+                  setSelectedSucursalBins(id);
+                  setSelectedBodegaBin(null);
+                  setBins([]);
+                  await cargarBodegasPorSucursal(id);
+                }}
+              >
+                {sucursalesForBins.map((s: any) => (
+                  <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+            {/* Panel izquierdo: lista de Bodegas */}
+            <Paper className="glass-panel" sx={{ flex: 1, p: 2, minWidth: 260 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Bodegas</Typography>
+              {bodegasAll.length === 0 ? (
+                <Typography color="text.secondary" variant="body2">
+                  {selectedSucursalBins ? 'No hay bodegas para esta sucursal.' : 'Selecciona una sucursal.'}
+                </Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Código</TableCell>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell>Tipo</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {bodegasAll.map((bod: any) => {
+                      const isSelected = selectedBodegaBin?.id === bod.id;
+                      return (
+                        <TableRow
+                          key={bod.id}
+                          hover
+                          onClick={async () => {
+                            setSelectedBodegaBin(bod);
+                            await cargarBinsParaBodega(bod.id);
+                          }}
+                          sx={{
+                            cursor: 'pointer',
+                            bgcolor: isSelected ? 'rgba(99,102,241,0.15)' : 'inherit',
+                            '&:hover': { bgcolor: isSelected ? 'rgba(99,102,241,0.25) !important' : undefined },
+                          }}
+                        >
+                          <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{bod.codigo}</TableCell>
+                          <TableCell sx={{ fontWeight: isSelected ? 700 : 400 }}>{bod.nombre}</TableCell>
+                          <TableCell>
+                            <Chip label={bod.tipoBodega} size="small" variant="outlined" />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </Paper>
+
+            {/* Panel derecho: lista de Bins */}
+            <Paper className="glass-panel" sx={{ flex: 2, p: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Bins / Ubicaciones</Typography>
+                  {selectedBodegaBin && (
+                    <Typography variant="body2" color="text.secondary">
+                      Bodega: <strong>{selectedBodegaBin.nombre}</strong>
+                    </Typography>
+                  )}
+                </Box>
+                {selectedBodegaBin && (
+                  <Button variant="contained" size="small" startIcon={<Add />}
+                    onClick={() => { setBinForm({ codigo: '', nombre: '', capacidad: '', unidad: 'Lts' }); setOpenCrearBin(true); }}>
+                    Agregar Bin
+                  </Button>
+                )}
+              </Box>
+              {!selectedBodegaBin ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography color="text.secondary">← Selecciona una bodega para ver sus bins</Typography>
+                </Box>
+              ) : loadingBins ? (
+                <Typography color="text.secondary">Cargando...</Typography>
+              ) : bins.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography color="text.secondary" sx={{ mb: 2 }}>Esta bodega no tiene bins configurados.</Typography>
+                  <Button variant="outlined" startIcon={<Add />}
+                    onClick={() => { setBinForm({ codigo: '', nombre: '', capacidad: '', unidad: 'Lts' }); setOpenCrearBin(true); }}>
+                    Crear primer Bin
+                  </Button>
+                </Box>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Bin Code</TableCell>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell>Capacidad</TableCell>
+                      <TableCell>Estado</TableCell>
+                      <TableCell align="right">Acciones</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {bins.map((bin: any) => (
+                      <TableRow key={bin.id} hover>
+                        <TableCell>
+                          <Chip label={bin.codigo} size="small"
+                            sx={{ fontFamily: 'monospace', fontWeight: 700, bgcolor: 'rgba(99,102,241,0.15)', color: 'primary.main' }} />
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{bin.nombre}</TableCell>
+                        <TableCell>
+                          {bin.capacidad != null
+                            ? <Typography variant="body2" sx={{ fontWeight: 600 }}>{bin.capacidad.toLocaleString()} <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{bin.unidad || 'Lts'}</span></Typography>
+                            : <Typography variant="body2" color="text.secondary">—</Typography>}
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={bin.estado} size="small" color={bin.estado === 'ACTIVO' ? 'success' : 'default'} variant="outlined" />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            <Button size="small" variant="outlined" color="info" startIcon={<Edit />}
+                              onClick={() => {
+                                setSelectedBin(bin);
+                                setBinForm({ codigo: bin.codigo, nombre: bin.nombre, capacidad: bin.capacidad?.toString() || '', unidad: bin.unidad || 'Lts' });
+                                setOpenEditarBin(true);
+                              }}>
+                              Editar
+                            </Button>
+                            <Button size="small" variant="outlined" color="error" startIcon={<Delete />}
+                              onClick={() => handleEliminarBin(bin.id)}>
+                              Eliminar
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Paper>
+          </Box>
+        </Box>
+      )}
+
+      {/* DIALOG: Crear Bin */}
+      <Dialog open={openCrearBin} onClose={() => setOpenCrearBin(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>Agregar Bin — {selectedBodegaBin?.nombre}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField label="Bin Code" placeholder="TANK-01" value={binForm.codigo}
+              onChange={(e) => setBinForm({ ...binForm, codigo: e.target.value })}
+              fullWidth required helperText="Código único dentro de la bodega (ej: TANK-01, SHELF-A1)" />
+            <TextField label="Nombre del Bin" placeholder="Tanque Leche Cruda" value={binForm.nombre}
+              onChange={(e) => setBinForm({ ...binForm, nombre: e.target.value })}
+              fullWidth required />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 2 }}>
+              <TextField label="Capacidad máxima (opcional)" placeholder="5000" type="number" value={binForm.capacidad}
+                onChange={(e) => setBinForm({ ...binForm, capacidad: e.target.value })}
+                fullWidth helperText="Dejar en blanco para sin límite" />
+              <FormControl fullWidth size="small">
+                <InputLabel>Unidad</InputLabel>
+                <Select value={binForm.unidad} label="Unidad"
+                  onChange={(e) => setBinForm({ ...binForm, unidad: e.target.value })}>
+                  <MenuItem value="Lts">Lts (Litros)</MenuItem>
+                  <MenuItem value="kg">kg (Kilogramos)</MenuItem>
+                  <MenuItem value="m²">m² (metros cuadrados)</MenuItem>
+                  <MenuItem value="unidades">unidades</MenuItem>
+                  <MenuItem value="pallets">pallets</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenCrearBin(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleCrearBin}>Guardar Bin</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: Editar Bin */}
+      <Dialog open={openEditarBin} onClose={() => setOpenEditarBin(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>Editar Bin</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField label="Bin Code" value={binForm.codigo}
+              onChange={(e) => setBinForm({ ...binForm, codigo: e.target.value })} fullWidth required />
+            <TextField label="Nombre del Bin" value={binForm.nombre}
+              onChange={(e) => setBinForm({ ...binForm, nombre: e.target.value })} fullWidth required />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 2 }}>
+              <TextField label="Capacidad" type="number" value={binForm.capacidad}
+                onChange={(e) => setBinForm({ ...binForm, capacidad: e.target.value })}
+                fullWidth helperText="Dejar en blanco para sin límite" />
+              <FormControl fullWidth size="small">
+                <InputLabel>Unidad</InputLabel>
+                <Select value={binForm.unidad} label="Unidad"
+                  onChange={(e) => setBinForm({ ...binForm, unidad: e.target.value })}>
+                  <MenuItem value="Lts">Lts (Litros)</MenuItem>
+                  <MenuItem value="kg">kg (Kilogramos)</MenuItem>
+                  <MenuItem value="m²">m² (metros cuadrados)</MenuItem>
+                  <MenuItem value="unidades">unidades</MenuItem>
+                  <MenuItem value="pallets">pallets</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenEditarBin(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleEditarBin}>Actualizar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: CONFIRMACIÓN GENÉRICA */}
       <Dialog open={openConfirm} onClose={() => setOpenConfirm(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>{confirmData?.title || 'Confirmar Acción'}</DialogTitle>
         <DialogContent>
@@ -3498,6 +3847,7 @@ export default function Utilidades() {
           </Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 }

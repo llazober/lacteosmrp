@@ -201,8 +201,26 @@ model Bodega {
 
   sucursal    Sucursal @relation(fields: [sucursalId], references: [id])
   inventarios Inventario[]
+  bins        Bin[]
   movimientosOrigen  MovimientoInventario[] @relation("OrigenBodegaRelationMov")
   movimientosDestino MovimientoInventario[] @relation("DestinoBodegaRelationMov")
+}
+
+model Bin {
+  id         String   @id @default(uuid())
+  codigo     String   // e.g. TANK-01, SHELF-A1
+  nombre     String   // e.g. Tanque Leche Cruda
+  bodegaId   String
+  capacidad  Float?   // max capacity in the bodega's unit (e.g. 5000 litros)
+  unidad     String   @default("Lts")  // unit of capacity: Lts, kg, m², unidades
+  estado     String   @default("ACTIVO") // ACTIVO, INACTIVO
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  bodega     Bodega       @relation(fields: [bodegaId], references: [id])
+  inventarios Inventario[]
+
+  @@unique([bodegaId, codigo])
 }
 
 model Inventario {
@@ -210,6 +228,7 @@ model Inventario {
   productoId   String
   sucursalId   String
   bodegaId     String?
+  binId        String?  // Optional: specific bin/tank within the bodega
   existencia   Float    @default(0)
   existMin     Float    @default(0)
   existMax     Float    @default(0)
@@ -220,6 +239,7 @@ model Inventario {
   producto Producto @relation(fields: [productoId], references: [id])
   sucursal Sucursal @relation(fields: [sucursalId], references: [id])
   bodega   Bodega?  @relation(fields: [bodegaId], references: [id])
+  bin      Bin?     @relation(fields: [binId], references: [id])
 
   @@unique([productoId, bodegaId])
 }
