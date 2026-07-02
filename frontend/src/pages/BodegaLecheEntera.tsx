@@ -67,6 +67,7 @@ interface EstadoTanque {
   totalLitros: number;
   lotes: LoteLeche[];
   mezclas: MezclaLeche[];
+  bins: { id: string; codigo: string; nombre: string; capacidad: number; unidad: string }[];
 }
 
 export default function BodegaLecheEntera() {
@@ -104,9 +105,12 @@ export default function BodegaLecheEntera() {
     );
   }
 
-  const { capacidadMax = 10000, totalLitros = 0, lotes = [], mezclas = [] } = data || {};
-  const porcentajeOcupado = (totalLitros / capacidadMax) * 100;
-  const disponible = capacidadMax - totalLitros;
+  const { capacidadMax = 10000, totalLitros = 0, lotes = [], mezclas = [], bins = [] } = data || {};
+  // Si hay bins, el primer bin define el silo principal
+  const binPrincipal = bins.length > 0 ? bins[0] : null;
+  const capacidadSilo = binPrincipal?.capacidad || capacidadMax;
+  const porcentajeOcupado = (totalLitros / capacidadSilo) * 100;
+  const disponible = capacidadSilo - totalLitros;
 
   // Render SVG Layers for the Tank
   const tankHeight = 340;
@@ -123,7 +127,7 @@ export default function BodegaLecheEntera() {
   const renderedLayers: React.ReactNode[] = [];
 
   lotes.forEach((lote) => {
-    const layerHeight = (lote.cantidadActual / capacidadMax) * tankHeight;
+    const layerHeight = (lote.cantidadActual / capacidadSilo) * tankHeight;
     const yTop = currentY - layerHeight;
     const isHovered = hoveredLoteId === lote.id;
     const isSelected = selectedLote?.id === lote.id;
@@ -183,7 +187,10 @@ export default function BodegaLecheEntera() {
             Bodega de Leche Entera Fluida
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-            Visualización en tiempo real del nivel y mezcla de lotes en el Silo de Recepción (10,000L).
+            Visualización en tiempo real del nivel y mezcla de lotes en el Silo de Recepción.
+            {binPrincipal && (
+              <> Capacidad configurada: <strong>{capacidadSilo.toLocaleString()} {binPrincipal.unidad}</strong></>
+            )}
           </Typography>
         </Box>
         <Button
@@ -221,9 +228,14 @@ export default function BodegaLecheEntera() {
             }}
           >
             <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 750, color: '#f8fafc', mb: 3, width: '100%', textAlign: 'center' }}>
-                Silo de Almacenamiento SVG
+              <Typography variant="h6" sx={{ fontWeight: 750, color: '#f8fafc', mb: 1, width: '100%', textAlign: 'center' }}>
+                {binPrincipal ? `${binPrincipal.codigo} — ${binPrincipal.nombre}` : 'Silo de Almacenamiento'}
               </Typography>
+              {binPrincipal && (
+                <Typography variant="caption" sx={{ color: '#64748b', mb: 2, display: 'block', textAlign: 'center', fontFamily: 'monospace' }}>
+                  Cap. máx: {capacidadSilo.toLocaleString()} {binPrincipal.unidad}
+                </Typography>
+              )}
 
               {/* The Tank SVG */}
               <Box sx={{ position: 'relative', width: 260, height: 480 }}>
@@ -275,9 +287,9 @@ export default function BodegaLecheEntera() {
                     pointerEvents="none"
                   />
 
-                  {/* Scale Markers */}
-                  {[2000, 4000, 6000, 8000, 10000].map((liters) => {
-                    const yVal = tankBottomY - (liters / capacidadMax) * tankHeight;
+                  {/* Scale Markers — dynamic based on bin capacity */}
+                  {Array.from({ length: 5 }, (_, i) => Math.round((capacidadSilo / 5) * (i + 1))).map((liters) => {
+                    const yVal = tankBottomY - (liters / capacidadSilo) * tankHeight;
                     return (
                       <g key={liters} opacity="0.6">
                         <line x1={tankRight + 4} y1={yVal} x2={tankRight + 12} y2={yVal} stroke="#94a3b8" strokeWidth="1.5" />
@@ -295,7 +307,7 @@ export default function BodegaLecheEntera() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 600 }}>Nivel Actual</Typography>
                   <Typography variant="body2" sx={{ color: '#f8fafc', fontWeight: 700 }}>
-                    {totalLitros.toLocaleString()} L / {capacidadMax.toLocaleString()} L
+                    {totalLitros.toLocaleString()} {binPrincipal?.unidad || 'L'} / {capacidadSilo.toLocaleString()} {binPrincipal?.unidad || 'L'}
                   </Typography>
                 </Box>
                 {/* Progress bar */}

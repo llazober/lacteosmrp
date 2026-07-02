@@ -19,24 +19,42 @@ export class InventarioController {
 
   @Get('tanque-leche')
   async obtenerEstadoTanqueLeche() {
-    // 1. Encontrar los lotes de MP-LECHE-CRUDA con stock activo
+    // 1. Encontrar la bodega de Leche Entera Fluida
+    const bodegaLeche = await this.prisma.bodega.findFirst({
+      where: {
+        OR: [
+          { tipoBodega: 'LECHE_ENTERA_FLUIDA' },
+          { nombre: { contains: 'Leche Entera' } },
+          { codigo: { contains: 'LECHE' } },
+        ],
+      },
+      include: {
+        bins: {
+          where: { estado: 'ACTIVO' },
+          orderBy: { codigo: 'asc' },
+        },
+      },
+    });
+
+    const bins = bodegaLeche?.bins || [];
+
+    // 2. Capacidad total del silo: suma de capacidades de bins, o 10000 por defecto
+    const capacidadMax = bins.length > 0
+      ? bins.reduce((sum, b) => sum + (b.capacidad || 0), 0) || 10000
+      : 10000;
+
+    // 3. Encontrar los lotes de MP-LECHE-CRUDA con stock activo
     const lotes = await this.prisma.lote.findMany({
       where: {
         producto: { sku: 'MP-LECHE-CRUDA' },
         cantidadActual: { gt: 0 },
       },
-      orderBy: { createdAt: 'asc' }, // FIFO or insertion order for color consistency
+      orderBy: { createdAt: 'asc' },
     });
 
     const coloresPaleta = [
-      '#10B981', // Emerald Green
-      '#F59E0B', // Amber Yellow
-      '#3B82F6', // Blue
-      '#EC4899', // Pink
-      '#8B5CF6', // Purple
-      '#EF4444', // Red
-      '#06B6D4', // Cyan
-      '#14B8A6', // Teal
+      '#10B981', '#F59E0B', '#3B82F6', '#EC4899',
+      '#8B5CF6', '#EF4444', '#06B6D4', '#14B8A6',
     ];
 
     const lotesConColor = lotes.map((l, index) => ({
@@ -45,9 +63,8 @@ export class InventarioController {
     }));
 
     const totalLitros = lotes.reduce((sum, l) => sum + l.cantidadActual, 0);
-    const capacidadMax = 10000;
 
-    // 2. Obtener historial de mezclas para trazabilidad
+    // 4. Obtener historial de mezclas para trazabilidad
     const mezclas = await this.prisma.mezclaLeche.findMany({
       take: 20,
       orderBy: { createdAt: 'desc' },
@@ -69,6 +86,13 @@ export class InventarioController {
       totalLitros,
       lotes: lotesConColor,
       mezclas,
+      bins: bins.map(b => ({
+        id: b.id,
+        codigo: b.codigo,
+        nombre: b.nombre,
+        capacidad: b.capacidad || 10000,
+        unidad: b.unidad || 'Lts',
+      })),
     };
   }
 
