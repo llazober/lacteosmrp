@@ -1758,164 +1758,297 @@ export class ProduccionController implements OnModuleInit {
           }
         }
 
-        if (actualProducto && actualProducto.unidadMedida.toUpperCase() === 'UNIDAD') {
-          if (cantidadAPreparar % 1 !== 0) {
-            throw new BadRequestException(
-              `Para el ingrediente "${actualProducto.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`,
-            );
-          }
-        }
-
-        let pendientePorDescontar = cantidadAPreparar;
-
-        // A: Si se escaneó/seleccionó un lote específico, descontar primero de ese lote
-        if (itemPicking.loteNumero) {
-          const lote = await tx.lote.findFirst({
-            where: {
-              numeroLote: itemPicking.loteNumero,
-              productoId: actualProductoId,
-            },
-          });
-
-          if (!lote) {
-            throw new BadRequestException(
-              `El lote "${itemPicking.loteNumero}" no existe para el producto seleccionado.`,
-            );
-          }
-
-          if (lote.estado !== 'APROBADO') {
-            throw new BadRequestException(
-              `El lote "${itemPicking.loteNumero}" no está APROBADO (Estado actual: ${lote.estado}).`,
-            );
-          }
-
-          const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
-          if (aDescontar > 0) {
-            await tx.lote.update({
-              where: { id: lote.id },
-              data: { cantidadActual: { decrement: aDescontar } },
-            });
-
-            // Decrementar del inventario general
-            const inv = await tx.inventario.findUnique({
-              where: {
-                productoId_bodegaId: {
-                  productoId: actualProductoId,
-                  bodegaId: bodOrigen.id,
-                },
-              },
-            });
-            if (inv) {
-              await tx.inventario.update({
-                where: { id: inv.id },
-                data: { existencia: { decrement: aDescontar } },
-              });
-            } else {
-              await tx.inventario.create({
-                data: {
-                  productoId: actualProductoId,
-                  sucursalId: cdId,
-                  bodegaId: bodOrigen.id,
-                  existencia: -aDescontar,
-                },
-              });
-            }
-
-            await tx.ordenProduccionDetalle.create({
-              data: {
-                ordenProduccionId: op.id,
-                productoId: actualProductoId,
-                loteId: lote.id,
-                cantidadConsumida: aDescontar,
-              },
-            });
-
-            await tx.movimientoInventario.create({
-              data: {
-                tipo: 'SALIDA',
-                productoId: actualProductoId,
-                loteId: lote.id,
-                sucursalOrigenId: cdId,
-                bodegaOrigenId: bodOrigen.id,
-                cantidad: aDescontar,
-                motivo: `Picking de lote escaneado ${lote.numeroLote} en Orden de Producción ${op.numeroOrden}`,
-                usuarioId: req.user.id,
-              },
-            });
-
-            pendientePorDescontar -= aDescontar;
-          }
-        }
-
-        // B: Si aún queda cantidad pendiente por descontar, aplicar FEFO sobre los demás lotes
-        if (pendientePorDescontar > 0) {
-          const lotesDisponibles = await tx.lote.findMany({
+        if (actualProducto.sku === 'MP-LECHE-CRUDA') {
+          // 1. Obtener todos los lotes activos del tanque de leche entera en la planta
+          const activeLotes = await tx.lote.findMany({
             where: {
               productoId: actualProductoId,
               cantidadActual: { gt: 0 },
-              estado: 'APROBADO',
-              NOT: itemPicking.loteNumero ? { numeroLote: itemPicking.loteNumero } : undefined,
             },
             orderBy: { fechaVencimiento: 'asc' },
           });
 
-          for (const lote of lotesDisponibles) {
-            if (pendientePorDescontar <= 0) break;
+          const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
+          if (totalDisponible < cantidadAPreparar) {
+            throw new BadRequestException(
+              `Stock insuficiente en el tanque de leche entera para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
+            );
+          }
 
-            const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+          // 2. Crear lote mixto (hijo) para la orden de producción
+          const mixLoteNum = `L-MIX-LECHE-${Date.now()}`;
+          const minVencimiento = activeLotes.length > 0 
+            ? new Date(Math.min(...activeLotes.map(l => l.fechaVencimiento.getTime())))
+            : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
+          let proveedorInterno = await tx.proveedor.findFirst({
+            where: { codigo: 'INTERNO' },
+          });
+          if (!proveedorInterno) {
+            proveedorInterno = await tx.proveedor.findFirst();
+            if (!proveedorInterno) {
+              throw new BadRequestException(
+                'Debe existir un proveedor en el sistema.',
+              );
+            }
+          }
+
+          const nuevoLoteMixto = await tx.lote.create({
+            data: {
+              numeroLote: mixLoteNum,
+              productoId: actualProductoId,
+              fechaProduccion: new Date(),
+              fechaVencimiento: minVencimiento,
+              proveedorId: proveedorInterno.id,
+              temperaturaRequeridaMin: actualProducto.temperaturaMin || 2.0,
+              temperaturaRequeridaMax: actualProducto.temperaturaMax || 4.0,
+              cantidadInicial: cantidadAPreparar,
+              cantidadActual: 0, // Consumido inmediatamente en producción
+              estado: 'APROBADO',
+            },
+          });
+
+          // 3. Crear registro de mezcla
+          const mezcla = await tx.mezclaLeche.create({
+            data: {
+              loteMixtoId: nuevoLoteMixto.id,
+              ordenProduccionId: op.id,
+            },
+          });
+
+          // 4. Calcular proporciones y deducir de cada lote origen
+          const fraction = cantidadAPreparar / totalDisponible;
+          for (const lote of activeLotes) {
+            const aDescontar = lote.cantidadActual * fraction;
+            const newCantidadActual = Math.max(0, lote.cantidadActual - aDescontar);
+
+            // Actualizar lote origen
             await tx.lote.update({
               where: { id: lote.id },
-              data: { cantidadActual: { decrement: aDescontar } },
+              data: { cantidadActual: newCantidadActual },
             });
 
-            const inv = await tx.inventario.findUnique({
-              where: {
-                productoId_bodegaId: {
-                  productoId: actualProductoId,
-                  bodegaId: bodOrigen.id,
-                },
+            // Registrar componente de la mezcla para trazabilidad
+            await tx.mezclaLecheComponente.create({
+              data: {
+                mezclaLecheId: mezcla.id,
+                loteOrigenId: lote.id,
+                cantidadUsada: aDescontar,
+                proporcion: lote.cantidadActual / totalDisponible,
               },
             });
-            if (inv) {
-              await tx.inventario.update({
-                where: { id: inv.id },
-                data: { existencia: { decrement: aDescontar } },
-              });
-            } else {
-              await tx.inventario.create({
-                data: {
-                  productoId: actualProductoId,
-                  sucursalId: cdId,
-                  bodegaId: bodOrigen.id,
-                  existencia: -aDescontar,
-                },
-              });
+          }
+
+          // 5. Decrementar existencia del inventario general en la bodega
+          const inv = await tx.inventario.findUnique({
+            where: {
+              productoId_bodegaId: {
+                productoId: actualProductoId,
+                bodegaId: bodOrigen.id,
+              },
+            },
+          });
+          if (inv) {
+            await tx.inventario.update({
+              where: { id: inv.id },
+              data: { existencia: { decrement: cantidadAPreparar } },
+            });
+          } else {
+            await tx.inventario.create({
+              data: {
+                productoId: actualProductoId,
+                sucursalId: cdId,
+                bodegaId: bodOrigen.id,
+                existencia: -cantidadAPreparar,
+              },
+            });
+          }
+
+          // 6. Registrar en detalles de orden de producción (apuntando al lote mixto)
+          await tx.ordenProduccionDetalle.create({
+            data: {
+              ordenProduccionId: op.id,
+              productoId: actualProductoId,
+              loteId: nuevoLoteMixto.id,
+              cantidadConsumida: cantidadAPreparar,
+            },
+          });
+
+          // 7. Registrar movimiento de inventario general de salida para la mezcla
+          await tx.movimientoInventario.create({
+            data: {
+              tipo: 'SALIDA',
+              productoId: actualProductoId,
+              loteId: nuevoLoteMixto.id,
+              sucursalOrigenId: cdId,
+              bodegaOrigenId: bodOrigen.id,
+              cantidad: cantidadAPreparar,
+              motivo: `Picking de mezcla proporcional del Tanque de Leche en Orden de Producción ${op.numeroOrden}`,
+              usuarioId: req.user.id,
+            },
+          });
+
+        } else {
+
+          if (actualProducto && actualProducto.unidadMedida.toUpperCase() === 'UNIDAD') {
+            if (cantidadAPreparar % 1 !== 0) {
+              throw new BadRequestException(
+                `Para el ingrediente "${actualProducto.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`,
+              );
+            }
+          }
+
+          let pendientePorDescontar = cantidadAPreparar;
+
+          // A: Si se escaneó/seleccionó un lote específico, descontar primero de ese lote
+          if (itemPicking.loteNumero) {
+            const lote = await tx.lote.findFirst({
+              where: {
+                numeroLote: itemPicking.loteNumero,
+                productoId: actualProductoId,
+              },
+            });
+
+            if (!lote) {
+              throw new BadRequestException(
+                `El lote "${itemPicking.loteNumero}" no existe para el producto seleccionado.`,
+              );
             }
 
-            await tx.ordenProduccionDetalle.create({
-              data: {
-                ordenProduccionId: op.id,
+            if (lote.estado !== 'APROBADO') {
+              throw new BadRequestException(
+                `El lote "${itemPicking.loteNumero}" no está APROBADO (Estado actual: ${lote.estado}).`,
+              );
+            }
+
+            const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+            if (aDescontar > 0) {
+              await tx.lote.update({
+                where: { id: lote.id },
+                data: { cantidadActual: { decrement: aDescontar } },
+              });
+
+              // Decrementar del inventario general
+              const inv = await tx.inventario.findUnique({
+                where: {
+                  productoId_bodegaId: {
+                    productoId: actualProductoId,
+                    bodegaId: bodOrigen.id,
+                  },
+                },
+              });
+              if (inv) {
+                await tx.inventario.update({
+                  where: { id: inv.id },
+                  data: { existencia: { decrement: aDescontar } },
+                });
+              } else {
+                await tx.inventario.create({
+                  data: {
+                    productoId: actualProductoId,
+                    sucursalId: cdId,
+                    bodegaId: bodOrigen.id,
+                    existencia: -aDescontar,
+                  },
+                });
+              }
+
+              await tx.ordenProduccionDetalle.create({
+                data: {
+                  ordenProduccionId: op.id,
+                  productoId: actualProductoId,
+                  loteId: lote.id,
+                  cantidadConsumida: aDescontar,
+                },
+              });
+
+              await tx.movimientoInventario.create({
+                data: {
+                  tipo: 'SALIDA',
+                  productoId: actualProductoId,
+                  loteId: lote.id,
+                  sucursalOrigenId: cdId,
+                  bodegaOrigenId: bodOrigen.id,
+                  cantidad: aDescontar,
+                  motivo: `Picking de lote escaneado ${lote.numeroLote} en Orden de Producción ${op.numeroOrden}`,
+                  usuarioId: req.user.id,
+                },
+              });
+
+              pendientePorDescontar -= aDescontar;
+            }
+          }
+
+          // B: Si aún queda cantidad pendiente por descontar, aplicar FEFO sobre los demás lotes
+          if (pendientePorDescontar > 0) {
+            const lotesDisponibles = await tx.lote.findMany({
+              where: {
                 productoId: actualProductoId,
-                loteId: lote.id,
-                cantidadConsumida: aDescontar,
+                cantidadActual: { gt: 0 },
+                estado: 'APROBADO',
+                NOT: itemPicking.loteNumero ? { numeroLote: itemPicking.loteNumero } : undefined,
               },
+              orderBy: { fechaVencimiento: 'asc' },
             });
 
-            await tx.movimientoInventario.create({
-              data: {
-                tipo: 'SALIDA',
-                productoId: actualProductoId,
-                loteId: lote.id,
-                sucursalOrigenId: cdId,
-                bodegaOrigenId: bodOrigen.id,
-                cantidad: aDescontar,
-                motivo: `Picking de materia prima en Orden de Producción ${op.numeroOrden}`,
-                usuarioId: req.user.id,
-              },
-            });
+            for (const lote of lotesDisponibles) {
+              if (pendientePorDescontar <= 0) break;
 
-            pendientePorDescontar -= aDescontar;
+              const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+
+              await tx.lote.update({
+                where: { id: lote.id },
+                data: { cantidadActual: { decrement: aDescontar } },
+              });
+
+              const inv = await tx.inventario.findUnique({
+                where: {
+                  productoId_bodegaId: {
+                    productoId: actualProductoId,
+                    bodegaId: bodOrigen.id,
+                  },
+                },
+              });
+              if (inv) {
+                await tx.inventario.update({
+                  where: { id: inv.id },
+                  data: { existencia: { decrement: aDescontar } },
+                });
+              } else {
+                await tx.inventario.create({
+                  data: {
+                    productoId: actualProductoId,
+                    sucursalId: cdId,
+                    bodegaId: bodOrigen.id,
+                    existencia: -aDescontar,
+                  },
+                });
+              }
+
+              await tx.ordenProduccionDetalle.create({
+                data: {
+                  ordenProduccionId: op.id,
+                  productoId: actualProductoId,
+                  loteId: lote.id,
+                  cantidadConsumida: aDescontar,
+                },
+              });
+
+              await tx.movimientoInventario.create({
+                data: {
+                  tipo: 'SALIDA',
+                  productoId: actualProductoId,
+                  loteId: lote.id,
+                  sucursalOrigenId: cdId,
+                  bodegaOrigenId: bodOrigen.id,
+                  cantidad: aDescontar,
+                  motivo: `Picking de materia prima en Orden de Producción ${op.numeroOrden}`,
+                  usuarioId: req.user.id,
+                },
+              });
+
+              pendientePorDescontar -= aDescontar;
+            }
           }
         }
       }

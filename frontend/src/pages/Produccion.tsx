@@ -1810,6 +1810,9 @@ export default function Produccion() {
                   {pickingData.ingredientes.map((ing: any, idx: number) => {
                     const selectedId = ing.selectedProductoId || ing.productoId;
                     const isSubstitute = selectedId !== ing.productoId;
+                    const isRawMilk = (isSubstitute 
+                      ? (ing.sustitutos?.find((s: any) => s.productoId === selectedId)?.sku || '')
+                      : ing.sku) === 'MP-LECHE-CRUDA';
 
                     let currentStock = ing.stockDisponible;
                     let currentLotes = ing.lotesDisponibles || [];
@@ -1902,32 +1905,53 @@ export default function Produccion() {
                           {currentStock} {currentUnit}
                         </TableCell>
                         <TableCell>
-                          <Autocomplete
-                            freeSolo
-                            options={currentLotes ? currentLotes.map((l: any) => l.numeroLote) : []}
-                            value={ing.loteNumero || ''}
-                            onChange={(_, newValue) => {
-                              const newIng = [...pickingData.ingredientes];
-                              newIng[idx].loteNumero = newValue || '';
-                              setPickingData({ ...pickingData, ingredientes: newIng });
-                            }}
-                            onInputChange={(_, newInputValue) => {
-                              const newIng = [...pickingData.ingredientes];
-                              newIng[idx].loteNumero = newInputValue || '';
-                              setPickingData({ ...pickingData, ingredientes: newIng });
-                            }}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
+                          {isRawMilk ? (
+                            <Box>
+                              <Chip
+                                label="Mezcla Proporcional"
                                 size="small"
-                                placeholder="Escribe o escanea lote"
+                                color="info"
+                                sx={{
+                                  fontWeight: 800,
+                                  background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
+                                  color: 'white',
+                                  mb: 0.5,
+                                }}
                               />
-                            )}
-                          />
-                          {currentLotes && currentLotes.length > 0 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem' }}>
-                              Sugeridos: {currentLotes.map((l: any) => `${l.numeroLote} (${l.cantidadActual} ${currentUnit})`).join(', ')}
-                            </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.72rem' }}>
+                                Lote virtual de mezcla automático del silo.
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <>
+                              <Autocomplete
+                                freeSolo
+                                options={currentLotes ? currentLotes.map((l: any) => l.numeroLote) : []}
+                                value={ing.loteNumero || ''}
+                                onChange={(_, newValue) => {
+                                  const newIng = [...pickingData.ingredientes];
+                                  newIng[idx].loteNumero = newValue || '';
+                                  setPickingData({ ...pickingData, ingredientes: newIng });
+                                }}
+                                onInputChange={(_, newInputValue) => {
+                                  const newIng = [...pickingData.ingredientes];
+                                  newIng[idx].loteNumero = newInputValue || '';
+                                  setPickingData({ ...pickingData, ingredientes: newIng });
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    size="small"
+                                    placeholder="Escribe o escanea lote"
+                                  />
+                                )}
+                              />
+                              {currentLotes && currentLotes.length > 0 && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem' }}>
+                                  Sugeridos: {currentLotes.map((l: any) => `${l.numeroLote} (${l.cantidadActual} ${currentUnit})`).join(', ')}
+                                </Typography>
+                              )}
+                            </>
                           )}
                         </TableCell>
                         <TableCell align="right">

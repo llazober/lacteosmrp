@@ -17,6 +17,61 @@ import { Roles } from './decorators';
 export class InventarioController {
   constructor(private prisma: PrismaService) {}
 
+  @Get('tanque-leche')
+  async obtenerEstadoTanqueLeche() {
+    // 1. Encontrar los lotes de MP-LECHE-CRUDA con stock activo
+    const lotes = await this.prisma.lote.findMany({
+      where: {
+        producto: { sku: 'MP-LECHE-CRUDA' },
+        cantidadActual: { gt: 0 },
+      },
+      orderBy: { createdAt: 'asc' }, // FIFO or insertion order for color consistency
+    });
+
+    const coloresPaleta = [
+      '#10B981', // Emerald Green
+      '#F59E0B', // Amber Yellow
+      '#3B82F6', // Blue
+      '#EC4899', // Pink
+      '#8B5CF6', // Purple
+      '#EF4444', // Red
+      '#06B6D4', // Cyan
+      '#14B8A6', // Teal
+    ];
+
+    const lotesConColor = lotes.map((l, index) => ({
+      ...l,
+      color: coloresPaleta[index % coloresPaleta.length],
+    }));
+
+    const totalLitros = lotes.reduce((sum, l) => sum + l.cantidadActual, 0);
+    const capacidadMax = 10000;
+
+    // 2. Obtener historial de mezclas para trazabilidad
+    const mezclas = await this.prisma.mezclaLeche.findMany({
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        loteMixto: true,
+        ordenProduccion: {
+          include: { receta: true }
+        },
+        componentes: {
+          include: {
+            loteOrigen: true,
+          },
+        },
+      },
+    });
+
+    return {
+      capacidadMax,
+      totalLitros,
+      lotes: lotesConColor,
+      mezclas,
+    };
+  }
+
   @Get()
   async obtenerInventarioGeneral(@Request() req: any) {
     const user = req.user;

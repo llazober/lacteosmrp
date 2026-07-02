@@ -188,6 +188,21 @@ export class RecepcionController {
           );
         }
 
+        if (prodDb.sku === 'MP-LECHE-CRUDA') {
+          const activeLotes = await tx.lote.findMany({
+            where: {
+              producto: { sku: 'MP-LECHE-CRUDA' },
+              cantidadActual: { gt: 0 },
+            },
+          });
+          const currentTotal = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
+          if (currentTotal + cantidad > 10000) {
+            throw new BadRequestException(
+              `Capacidad del tanque de leche entera excedida. Capacidad máxima: 10,000L. Disponible: ${10000 - currentTotal}L. Intento de recibir: ${cantidad}L.`,
+            );
+          }
+        }
+
         // Si viene de una OC, actualizar cantidad recibida en el detalle
         let detalleOC: any = null;
         if (oc) {

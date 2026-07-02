@@ -183,6 +183,9 @@ model Lote {
   movimientos          MovimientoInventario[]
   ordenDetalles        OrdenProduccionDetalle[]
   recepcionMaterialDetalles RecepcionMaterialDetalle[]
+
+  mezclasCreadas     MezclaLeche[]           @relation("LoteMixtoRelation")
+  mezclasComponentes MezclaLecheComponente[] @relation("LoteOrigenRelation")
 }
 
 model Bodega {
@@ -640,6 +643,7 @@ model OrdenProduccion {
   inspecciones       ControlCalidad[]
   lotesProducidos    Lote[]
   operaciones        OrdenProduccionOperacion[]
+  mezclasLeche       MezclaLeche[]
 }
 
 model OrdenProduccionDetalle {
@@ -912,5 +916,27 @@ model RecepcionMaterialDetalle {
   recepcionMaterial   RecepcionMaterial @relation(fields: [recepcionMaterialId], references: [id], onDelete: Cascade)
   producto            Producto          @relation(fields: [productoId], references: [id])
   lote                Lote?             @relation(fields: [loteId], references: [id])
+}
+
+model MezclaLeche {
+  id                 String                  @id @default(uuid())
+  loteMixtoId        String
+  ordenProduccionId  String
+  createdAt          DateTime                @default(now())
+
+  loteMixto          Lote                    @relation("LoteMixtoRelation", fields: [loteMixtoId], references: [id])
+  ordenProduccion    OrdenProduccion         @relation(fields: [ordenProduccionId], references: [id])
+  componentes        MezclaLecheComponente[]
+}
+
+model MezclaLecheComponente {
+  id             String      @id @default(uuid())
+  mezclaLecheId  String
+  loteOrigenId   String
+  cantidadUsada  Float
+  proporcion     Float
+
+  mezclaLeche    MezclaLeche @relation(fields: [mezclaLecheId], references: [id], onDelete: Cascade)
+  loteOrigen     Lote        @relation("LoteOrigenRelation", fields: [loteOrigenId], references: [id])
 }
 
