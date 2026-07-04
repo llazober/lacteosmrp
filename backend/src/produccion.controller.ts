@@ -782,28 +782,47 @@ export class ProduccionController implements OnModuleInit {
             });
 
             // Decrementar del inventario general
-            const inv = await tx.inventario.findUnique({
+            const invs = await tx.inventario.findMany({
               where: {
-                productoId_bodegaId: {
-                  productoId: reqDetalle.productoId,
-                  bodegaId: bodOrigen.id,
-                },
+                productoId: reqDetalle.productoId,
+                bodegaId: bodOrigen.id,
               },
             });
-            if (inv) {
+
+            let cantRestante = aDescontar;
+            const sortedInvs = [...invs].sort((a, b) => {
+              if (a.binId === null) return -1;
+              if (b.binId === null) return 1;
+              return b.existencia - a.existencia;
+            });
+
+            for (const inv of sortedInvs) {
+              if (cantRestante <= 0) break;
+              const aDeducir = Math.min(inv.existencia, cantRestante);
               await tx.inventario.update({
                 where: { id: inv.id },
-                data: { existencia: { decrement: aDescontar } },
+                data: { existencia: { decrement: aDeducir } },
               });
-            } else {
-              await tx.inventario.create({
-                data: {
-                  productoId: reqDetalle.productoId,
-                  sucursalId: cdId,
-                  bodegaId: bodOrigen.id,
-                  existencia: -aDescontar,
-                },
-              });
+              cantRestante -= aDeducir;
+            }
+
+            if (cantRestante > 0) {
+              if (sortedInvs.length > 0) {
+                await tx.inventario.update({
+                  where: { id: sortedInvs[0].id },
+                  data: { existencia: { decrement: cantRestante } },
+                });
+              } else {
+                await tx.inventario.create({
+                  data: {
+                    productoId: reqDetalle.productoId,
+                    sucursalId: cdId,
+                    bodegaId: bodOrigen.id,
+                    binId: null,
+                    existencia: -cantRestante,
+                  },
+                });
+              }
             }
 
             pendientePorDescontar -= aDescontar;
@@ -814,29 +833,47 @@ export class ProduccionController implements OnModuleInit {
             const bodOrigen = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
             if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
 
-            const inv = await tx.inventario.findUnique({
+            const invs = await tx.inventario.findMany({
               where: {
-                productoId_bodegaId: {
-                  productoId: reqDetalle.productoId,
-                  bodegaId: bodOrigen.id,
-                },
+                productoId: reqDetalle.productoId,
+                bodegaId: bodOrigen.id,
               },
             });
 
-            if (inv) {
+            let cantRestanteDeficit = pendientePorDescontar;
+            const sortedInvs = [...invs].sort((a, b) => {
+              if (a.binId === null) return -1;
+              if (b.binId === null) return 1;
+              return b.existencia - a.existencia;
+            });
+
+            for (const inv of sortedInvs) {
+              if (cantRestanteDeficit <= 0) break;
+              const aDeducir = Math.min(inv.existencia, cantRestanteDeficit);
               await tx.inventario.update({
                 where: { id: inv.id },
-                data: { existencia: { decrement: pendientePorDescontar } },
+                data: { existencia: { decrement: aDeducir } },
               });
-            } else {
-              await tx.inventario.create({
-                data: {
-                  productoId: reqDetalle.productoId,
-                  sucursalId: cdId,
-                  bodegaId: bodOrigen.id,
-                  existencia: -pendientePorDescontar,
-                },
-              });
+              cantRestanteDeficit -= aDeducir;
+            }
+
+            if (cantRestanteDeficit > 0) {
+              if (sortedInvs.length > 0) {
+                await tx.inventario.update({
+                  where: { id: sortedInvs[0].id },
+                  data: { existencia: { decrement: cantRestanteDeficit } },
+                });
+              } else {
+                await tx.inventario.create({
+                  data: {
+                    productoId: reqDetalle.productoId,
+                    sucursalId: cdId,
+                    bodegaId: bodOrigen.id,
+                    binId: null,
+                    existencia: -cantRestanteDeficit,
+                  },
+                });
+              }
             }
 
             // Registrar detalle consumido sin lote para el déficit restante
@@ -881,18 +918,34 @@ export class ProduccionController implements OnModuleInit {
           if (!bodM) throw new BadRequestException('No se encontró bodega para la merma.');
 
           // Descontar inventario de la merma de materia prima si no se descontó en FEFO
-          const invM = await tx.inventario.findUnique({
+          const invsM = await tx.inventario.findMany({
             where: {
-              productoId_bodegaId: {
-                productoId: m.productoId,
-                bodegaId: bodM.id,
-              },
+              productoId: m.productoId,
+              bodegaId: bodM.id,
             },
           });
-          if (invM) {
+
+          let cantRestanteMerma = parseFloat(m.cantidad);
+          const sortedInvs = [...invsM].sort((a, b) => {
+            if (a.binId === null) return -1;
+            if (b.binId === null) return 1;
+            return b.existencia - a.existencia;
+          });
+
+          for (const inv of sortedInvs) {
+            if (cantRestanteMerma <= 0) break;
+            const aDeducir = Math.min(inv.existencia, cantRestanteMerma);
             await tx.inventario.update({
-              where: { id: invM.id },
-              data: { existencia: { decrement: parseFloat(m.cantidad) } },
+              where: { id: inv.id },
+              data: { existencia: { decrement: aDeducir } },
+            });
+            cantRestanteMerma -= aDeducir;
+          }
+
+          if (cantRestanteMerma > 0 && sortedInvs.length > 0) {
+            await tx.inventario.update({
+              where: { id: sortedInvs[0].id },
+              data: { existencia: { decrement: cantRestanteMerma } },
             });
           }
         }
@@ -947,13 +1000,12 @@ export class ProduccionController implements OnModuleInit {
       const bodDestino = await this.obtenerBodegaParaProducto(cdId, op.receta.productoFinalId, tx);
       if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
 
-      // 4. Incrementar inventario del producto terminado
-      const invFinal = await tx.inventario.findUnique({
+      // 4. Incrementar inventario del producto terminado targeting binId: null
+      const invFinal = await tx.inventario.findFirst({
         where: {
-          productoId_bodegaId: {
-            productoId: op.receta.productoFinalId,
-            bodegaId: bodDestino.id,
-          },
+          productoId: op.receta.productoFinalId,
+          bodegaId: bodDestino.id,
+          binId: null,
         },
       });
 
@@ -968,6 +1020,7 @@ export class ProduccionController implements OnModuleInit {
             productoId: op.receta.productoFinalId,
             sucursalId: cdId,
             bodegaId: bodDestino.id,
+            binId: null,
             existencia: cantProd,
           },
         });
@@ -1053,13 +1106,23 @@ export class ProduccionController implements OnModuleInit {
         const bodDestino = await this.obtenerBodegaParaProducto(cdId, det.productoId, tx);
         if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
 
-        const invGen = await tx.inventario.findUnique({
-          where: { productoId_bodegaId: { productoId: det.productoId, bodegaId: bodDestino.id } },
+        const invGen = await tx.inventario.findFirst({
+          where: { productoId: det.productoId, bodegaId: bodDestino.id, binId: null },
         });
         if (invGen) {
           await tx.inventario.update({
             where: { id: invGen.id },
             data: { existencia: { increment: det.cantidadConsumida } },
+          });
+        } else {
+          await tx.inventario.create({
+            data: {
+              productoId: det.productoId,
+              sucursalId: cdId,
+              bodegaId: bodDestino.id,
+              binId: null,
+              existencia: det.cantidadConsumida,
+            },
           });
         }
 
@@ -1147,25 +1210,45 @@ export class ProduccionController implements OnModuleInit {
       const targetBodega = await this.obtenerBodegaParaProducto(sucursalId, productoId, tx);
       if (!targetBodega) throw new BadRequestException('No se encontró bodega para el producto.');
 
-      // Descontar inventario general de la sucursal
-      const inv = await tx.inventario.findUnique({
-        where: { productoId_bodegaId: { productoId, bodegaId: targetBodega.id } },
+      // Descontar inventario general de la sucursal across bins
+      const invs = await tx.inventario.findMany({
+        where: { productoId, bodegaId: targetBodega.id },
       });
 
-      if (inv) {
+      let cantRestante = parseFloat(cantidad);
+      const sortedInvs = [...invs].sort((a, b) => {
+        if (a.binId === null) return -1;
+        if (b.binId === null) return 1;
+        return b.existencia - a.existencia;
+      });
+
+      for (const inv of sortedInvs) {
+        if (cantRestante <= 0) break;
+        const aDeducir = Math.min(inv.existencia, cantRestante);
         await tx.inventario.update({
           where: { id: inv.id },
-          data: { existencia: { decrement: parseFloat(cantidad) } },
+          data: { existencia: { decrement: aDeducir } },
         });
-      } else {
-        await tx.inventario.create({
-          data: {
-            productoId,
-            sucursalId,
-            bodegaId: targetBodega.id,
-            existencia: -parseFloat(cantidad),
-          },
-        });
+        cantRestante -= aDeducir;
+      }
+
+      if (cantRestante > 0) {
+        if (sortedInvs.length > 0) {
+          await tx.inventario.update({
+            where: { id: sortedInvs[0].id },
+            data: { existencia: { decrement: cantRestante } },
+          });
+        } else {
+          await tx.inventario.create({
+            data: {
+              productoId,
+              sucursalId,
+              bodegaId: targetBodega.id,
+              binId: null,
+              existencia: -cantRestante,
+            },
+          });
+        }
       }
 
       // Registrar movimiento de inventario de salida
@@ -1554,31 +1637,28 @@ export class ProduccionController implements OnModuleInit {
       const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
 
       const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId);
-      const inv = targetBodega ? await this.prisma.inventario.findUnique({
+      const invs = targetBodega ? await this.prisma.inventario.findMany({
         where: {
-          productoId_bodegaId: {
-            productoId: reqDetalle.productoId,
-            bodegaId: targetBodega.id,
-          },
+          productoId: reqDetalle.productoId,
+          bodegaId: targetBodega.id,
         },
         include: { bin: true },
-      }) : null;
-      const stockDisponible = inv ? inv.existencia : 0;
-      const binInfo = inv?.bin ? { id: inv.bin.id, codigo: inv.bin.codigo, nombre: inv.bin.nombre, capacidad: inv.bin.capacidad } : null;
+      }) : [];
+      const stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
+      const mainInv = invs.find(i => i.binId === null) || invs[0];
+      const binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
 
       // Obtener stock y lotes para cada sustituto
       const sustitutosInfo: any[] = [];
       for (const sust of reqDetalle.sustitutos) {
         const sustBodega = await this.obtenerBodegaParaProducto(cdId, sust.productoId);
-        const invSust = sustBodega ? await this.prisma.inventario.findUnique({
+        const invsSust = sustBodega ? await this.prisma.inventario.findMany({
           where: {
-            productoId_bodegaId: {
-              productoId: sust.productoId,
-              bodegaId: sustBodega.id,
-            },
+            productoId: sust.productoId,
+            bodegaId: sustBodega.id,
           },
-        }) : null;
-        const stockSust = invSust ? invSust.existencia : 0;
+        }) : [];
+        const stockSust = invsSust.reduce((sum, i) => sum + i.existencia, 0);
 
         const lotesSust = await this.prisma.lote.findMany({
           where: {
@@ -1761,7 +1841,12 @@ export class ProduccionController implements OnModuleInit {
           }
         }
 
-        if (actualProducto.sku === 'MP-LECHE-CRUDA') {
+        const esBodegaLeche = bodOrigen.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+                              bodOrigen.tipoBodega === 'LECHE_ENTERA' ||
+                              bodOrigen.nombre.toLowerCase().includes('leche entera') ||
+                              bodOrigen.codigo.toLowerCase().includes('leche');
+
+        if (esBodegaLeche) {
           // 1. Obtener todos los lotes activos del tanque de leche entera en la planta
           const activeLotes = await tx.lote.findMany({
             where: {
@@ -1774,12 +1859,12 @@ export class ProduccionController implements OnModuleInit {
           const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
           if (totalDisponible < cantidadAPreparar) {
             throw new BadRequestException(
-              `Stock insuficiente en el tanque de leche entera para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
+              `Stock insuficiente en la bodega ${bodOrigen.nombre} para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
             );
           }
 
           // 2. Crear lote mixto (hijo) para la orden de producción
-          const mixLoteNum = `L-MIX-LECHE-${Date.now()}`;
+          const mixLoteNum = `L-MIX-${actualProducto.sku}-${Date.now()}`;
           const minVencimiento = activeLotes.length > 0 
             ? new Date(Math.min(...activeLotes.map(l => l.fechaVencimiento.getTime())))
             : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -1842,29 +1927,48 @@ export class ProduccionController implements OnModuleInit {
             });
           }
 
-          // 5. Decrementar existencia del inventario general en la bodega
-          const inv = await tx.inventario.findUnique({
+          // 5. Decrementar existencia del inventario general en la bodega across bins
+          const invs = await tx.inventario.findMany({
             where: {
-              productoId_bodegaId: {
-                productoId: actualProductoId,
-                bodegaId: bodOrigen.id,
-              },
+              productoId: actualProductoId,
+              bodegaId: bodOrigen.id,
             },
           });
-          if (inv) {
+
+          let cantRestante = cantidadAPreparar;
+          const sortedInvs = [...invs].sort((a, b) => {
+            if (a.binId === null) return -1;
+            if (b.binId === null) return 1;
+            return b.existencia - a.existencia;
+          });
+
+          for (const inv of sortedInvs) {
+            if (cantRestante <= 0) break;
+            const aDeducir = Math.min(inv.existencia, cantRestante);
             await tx.inventario.update({
               where: { id: inv.id },
-              data: { existencia: { decrement: cantidadAPreparar } },
+              data: { existencia: { decrement: aDeducir } },
             });
-          } else {
-            await tx.inventario.create({
-              data: {
-                productoId: actualProductoId,
-                sucursalId: cdId,
-                bodegaId: bodOrigen.id,
-                existencia: -cantidadAPreparar,
-              },
-            });
+            cantRestante -= aDeducir;
+          }
+
+          if (cantRestante > 0) {
+            if (sortedInvs.length > 0) {
+              await tx.inventario.update({
+                where: { id: sortedInvs[0].id },
+                data: { existencia: { decrement: cantRestante } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId: actualProductoId,
+                  sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
+                  binId: null,
+                  existencia: -cantRestante,
+                },
+              });
+            }
           }
 
           // 6. Registrar en detalles de orden de producción (apuntando al lote mixto)
@@ -1886,7 +1990,7 @@ export class ProduccionController implements OnModuleInit {
               sucursalOrigenId: cdId,
               bodegaOrigenId: bodOrigen.id,
               cantidad: cantidadAPreparar,
-              motivo: `Picking de mezcla proporcional del Tanque de Leche en Orden de Producción ${op.numeroOrden}`,
+              motivo: `Picking de mezcla proporcional de la bodega ${bodOrigen.nombre} en Orden de Producción ${op.numeroOrden}`,
               usuarioId: req.user.id,
             },
           });
@@ -1931,29 +2035,48 @@ export class ProduccionController implements OnModuleInit {
                 data: { cantidadActual: { decrement: aDescontar } },
               });
 
-              // Decrementar del inventario general
-              const inv = await tx.inventario.findUnique({
+              // Decrementar del inventario general across bins
+              const invs = await tx.inventario.findMany({
                 where: {
-                  productoId_bodegaId: {
-                    productoId: actualProductoId,
-                    bodegaId: bodOrigen.id,
-                  },
+                  productoId: actualProductoId,
+                  bodegaId: bodOrigen.id,
                 },
               });
-              if (inv) {
+
+              let cantRestante = aDescontar;
+              const sortedInvs = [...invs].sort((a, b) => {
+                if (a.binId === null) return -1;
+                if (b.binId === null) return 1;
+                return b.existencia - a.existencia;
+              });
+
+              for (const inv of sortedInvs) {
+                if (cantRestante <= 0) break;
+                const aDeducir = Math.min(inv.existencia, cantRestante);
                 await tx.inventario.update({
                   where: { id: inv.id },
-                  data: { existencia: { decrement: aDescontar } },
+                  data: { existencia: { decrement: aDeducir } },
                 });
-              } else {
-                await tx.inventario.create({
-                  data: {
-                    productoId: actualProductoId,
-                    sucursalId: cdId,
-                    bodegaId: bodOrigen.id,
-                    existencia: -aDescontar,
-                  },
-                });
+                cantRestante -= aDeducir;
+              }
+
+              if (cantRestante > 0) {
+                if (sortedInvs.length > 0) {
+                  await tx.inventario.update({
+                    where: { id: sortedInvs[0].id },
+                    data: { existencia: { decrement: cantRestante } },
+                  });
+                } else {
+                  await tx.inventario.create({
+                    data: {
+                      productoId: actualProductoId,
+                      sucursalId: cdId,
+                      bodegaId: bodOrigen.id,
+                      binId: null,
+                      existencia: -cantRestante,
+                    },
+                  });
+                }
               }
 
               await tx.ordenProduccionDetalle.create({
@@ -2004,28 +2127,47 @@ export class ProduccionController implements OnModuleInit {
                 data: { cantidadActual: { decrement: aDescontar } },
               });
 
-              const inv = await tx.inventario.findUnique({
+              const invs = await tx.inventario.findMany({
                 where: {
-                  productoId_bodegaId: {
-                    productoId: actualProductoId,
-                    bodegaId: bodOrigen.id,
-                  },
+                  productoId: actualProductoId,
+                  bodegaId: bodOrigen.id,
                 },
               });
-              if (inv) {
+
+              let cantRestante = aDescontar;
+              const sortedInvs = [...invs].sort((a, b) => {
+                if (a.binId === null) return -1;
+                if (b.binId === null) return 1;
+                return b.existencia - a.existencia;
+              });
+
+              for (const inv of sortedInvs) {
+                if (cantRestante <= 0) break;
+                const aDeducir = Math.min(inv.existencia, cantRestante);
                 await tx.inventario.update({
                   where: { id: inv.id },
-                  data: { existencia: { decrement: aDescontar } },
+                  data: { existencia: { decrement: aDeducir } },
                 });
-              } else {
-                await tx.inventario.create({
-                  data: {
-                    productoId: actualProductoId,
-                    sucursalId: cdId,
-                    bodegaId: bodOrigen.id,
-                    existencia: -aDescontar,
-                  },
-                });
+                cantRestante -= aDeducir;
+              }
+
+              if (cantRestante > 0) {
+                if (sortedInvs.length > 0) {
+                  await tx.inventario.update({
+                    where: { id: sortedInvs[0].id },
+                    data: { existencia: { decrement: cantRestante } },
+                  });
+                } else {
+                  await tx.inventario.create({
+                    data: {
+                      productoId: actualProductoId,
+                      sucursalId: cdId,
+                      bodegaId: bodOrigen.id,
+                      binId: null,
+                      existencia: -cantRestante,
+                    },
+                  });
+                }
               }
 
               await tx.ordenProduccionDetalle.create({
@@ -2187,13 +2329,23 @@ export class ProduccionController implements OnModuleInit {
           const bodDestino = await this.obtenerBodegaParaProducto(cdId, det.productoId, tx);
           if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
 
-          const invGen = await tx.inventario.findUnique({
-            where: { productoId_bodegaId: { productoId: det.productoId, bodegaId: bodDestino.id } },
+          const invGen = await tx.inventario.findFirst({
+            where: { productoId: det.productoId, bodegaId: bodDestino.id, binId: null },
           });
           if (invGen) {
             await tx.inventario.update({
               where: { id: invGen.id },
               data: { existencia: { increment: det.cantidadConsumida } },
+            });
+          } else {
+            await tx.inventario.create({
+              data: {
+                productoId: det.productoId,
+                sucursalId: cdId,
+                bodegaId: bodDestino.id,
+                binId: null,
+                existencia: det.cantidadConsumida,
+              },
             });
           }
 
@@ -2244,15 +2396,13 @@ export class ProduccionController implements OnModuleInit {
         // Si el balance restante es mayor que 0 (redondeado a 5 decimales), verificar stock disponible
         if (balancePendienteRounded > 0) {
           const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId, tx);
-          const inv = targetBodega ? await tx.inventario.findUnique({
+          const invs = targetBodega ? await tx.inventario.findMany({
             where: {
-              productoId_bodegaId: {
-                productoId: reqDetalle.productoId,
-                bodegaId: targetBodega.id,
-              },
+              productoId: reqDetalle.productoId,
+              bodegaId: targetBodega.id,
             },
-          }) : null;
-          const stockDisponible = inv ? inv.existencia : 0;
+          }) : [];
+          const stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
           const stockDisponibleRounded = Math.round(stockDisponible * 100000) / 100000;
           if (stockDisponibleRounded < balancePendienteRounded) {
             tieneShortage = true;
@@ -2643,36 +2793,94 @@ export class ProduccionController implements OnModuleInit {
                 },
               });
 
-              const inv = await tx.inventario.findUnique({
-                where: { productoId_bodegaId: { productoId: reqDetalle.productoId, bodegaId: bodOrigen.id } },
+              const invs = await tx.inventario.findMany({
+                where: {
+                  productoId: reqDetalle.productoId,
+                  bodegaId: bodOrigen.id,
+                },
               });
-              if (inv) {
+
+              let cantRestante = aDescontar;
+              const sortedInvs = [...invs].sort((a, b) => {
+                if (a.binId === null) return -1;
+                if (b.binId === null) return 1;
+                return b.existencia - a.existencia;
+              });
+
+              for (const inv of sortedInvs) {
+                if (cantRestante <= 0) break;
+                const aDeducir = Math.min(inv.existencia, cantRestante);
                 await tx.inventario.update({
                   where: { id: inv.id },
-                  data: { existencia: { decrement: aDescontar } },
+                  data: { existencia: { decrement: aDeducir } },
                 });
-              } else {
-                await tx.inventario.create({
-                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, bodegaId: bodOrigen.id, existencia: -aDescontar },
-                });
+                cantRestante -= aDeducir;
+              }
+
+              if (cantRestante > 0) {
+                if (sortedInvs.length > 0) {
+                  await tx.inventario.update({
+                    where: { id: sortedInvs[0].id },
+                    data: { existencia: { decrement: cantRestante } },
+                  });
+                } else {
+                  await tx.inventario.create({
+                    data: {
+                      productoId: reqDetalle.productoId,
+                      sucursalId: cdId,
+                      bodegaId: bodOrigen.id,
+                      binId: null,
+                      existencia: -cantRestante,
+                    },
+                  });
+                }
               }
 
               pendientePorDescontar -= aDescontar;
             }
 
             if (pendientePorDescontar > 0) {
-              const inv = await tx.inventario.findUnique({
-                where: { productoId_bodegaId: { productoId: reqDetalle.productoId, bodegaId: bodOrigen.id } },
+              const invs = await tx.inventario.findMany({
+                where: {
+                  productoId: reqDetalle.productoId,
+                  bodegaId: bodOrigen.id,
+                },
               });
-              if (inv) {
+
+              let cantRestanteDeficit = pendientePorDescontar;
+              const sortedInvs = [...invs].sort((a, b) => {
+                if (a.binId === null) return -1;
+                if (b.binId === null) return 1;
+                return b.existencia - a.existencia;
+              });
+
+              for (const inv of sortedInvs) {
+                if (cantRestanteDeficit <= 0) break;
+                const aDeducir = Math.min(inv.existencia, cantRestanteDeficit);
                 await tx.inventario.update({
                   where: { id: inv.id },
-                  data: { existencia: { decrement: pendientePorDescontar } },
+                  data: { existencia: { decrement: aDeducir } },
                 });
-              } else {
-                await tx.inventario.create({
-                  data: { productoId: reqDetalle.productoId, sucursalId: cdId, bodegaId: bodOrigen.id, existencia: -pendientePorDescontar },
-                });
+                cantRestanteDeficit -= aDeducir;
+              }
+
+              if (cantRestanteDeficit > 0) {
+                if (sortedInvs.length > 0) {
+                  await tx.inventario.update({
+                    where: { id: sortedInvs[0].id },
+                    data: { existencia: { decrement: cantRestanteDeficit } },
+                  });
+                } else {
+                  await tx.inventario.create({
+                    data: {
+                      productoId: reqDetalle.productoId,
+                      sucursalId: cdId,
+                      bodegaId: bodOrigen.id,
+                      binId: null,
+                      existencia: -cantRestanteDeficit,
+                    },
+                  });
+                }
               }
 
               await tx.ordenProduccionDetalle.create({
@@ -2712,13 +2920,31 @@ export class ProduccionController implements OnModuleInit {
             });
 
             const bodMerma = await this.obtenerBodegaParaProducto(cdId, m.productoId, tx);
-            const invM = bodMerma ? await tx.inventario.findUnique({
-              where: { productoId_bodegaId: { productoId: m.productoId, bodegaId: bodMerma.id } },
-            }) : null;
-            if (invM) {
+            const invsM = bodMerma ? await tx.inventario.findMany({
+              where: { productoId: m.productoId, bodegaId: bodMerma.id },
+            }) : [];
+
+            let cantRestanteMerma = parseFloat(m.cantidad);
+            const sortedInvs = [...invsM].sort((a, b) => {
+              if (a.binId === null) return -1;
+              if (b.binId === null) return 1;
+              return b.existencia - a.existencia;
+            });
+
+            for (const inv of sortedInvs) {
+              if (cantRestanteMerma <= 0) break;
+              const aDeducir = Math.min(inv.existencia, cantRestanteMerma);
               await tx.inventario.update({
-                where: { id: invM.id },
-                data: { existencia: { decrement: parseFloat(m.cantidad) } },
+                where: { id: inv.id },
+                data: { existencia: { decrement: aDeducir } },
+              });
+              cantRestanteMerma -= aDeducir;
+            }
+
+            if (cantRestanteMerma > 0 && sortedInvs.length > 0) {
+              await tx.inventario.update({
+                where: { id: sortedInvs[0].id },
+                data: { existencia: { decrement: cantRestanteMerma } },
               });
             }
           }
@@ -2773,9 +2999,9 @@ export class ProduccionController implements OnModuleInit {
         const bodDestino = await this.obtenerBodegaParaProducto(cdId, op.receta.productoFinalId, tx);
         if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
 
-        // Incrementar inventario del producto terminado
-        const invFinal = await tx.inventario.findUnique({
-          where: { productoId_bodegaId: { productoId: op.receta.productoFinalId, bodegaId: bodDestino.id } },
+        // Incrementar inventario del producto terminado targeting binId: null
+        const invFinal = await tx.inventario.findFirst({
+          where: { productoId: op.receta.productoFinalId, bodegaId: bodDestino.id, binId: null },
         });
 
         if (invFinal) {
@@ -2785,7 +3011,7 @@ export class ProduccionController implements OnModuleInit {
           });
         } else {
           await tx.inventario.create({
-            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, bodegaId: bodDestino.id, existencia: cantProd },
+            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, bodegaId: bodDestino.id, binId: null, existencia: cantProd },
           });
         }
 

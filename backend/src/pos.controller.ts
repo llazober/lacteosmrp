@@ -318,16 +318,16 @@ export class PosController {
           throw new BadRequestException('No se encontró bodega para el producto.');
         }
 
-        const inv = await tx.inventario.findUnique({
+        const invs = await tx.inventario.findMany({
           where: {
-            productoId_bodegaId: {
-              productoId: prod.productoId,
-              bodegaId: targetBodega.id,
-            },
+            productoId: prod.productoId,
+            bodegaId: targetBodega.id,
           },
         });
 
-        if (!inv || inv.existencia < cantNum) {
+        const existenciaTotal = invs.reduce((sum, i) => sum + i.existencia, 0);
+
+        if (existenciaTotal < cantNum) {
           throw new BadRequestException(
             `Stock insuficiente en el inventario de la sucursal para el producto "${dbProd.descripcion}".`,
           );
@@ -359,15 +359,29 @@ export class PosController {
         });
 
         // 4. Descontar inventario sucursal
-        await tx.inventario.update({
-          where: {
-            productoId_bodegaId: {
-              productoId: prod.productoId,
-              bodegaId: targetBodega.id,
-            },
-          },
-          data: { existencia: { decrement: cantNum } },
+        let cantRestante = cantNum;
+        const sortedInvs = [...invs].sort((a, b) => {
+          if (a.binId === null) return -1;
+          if (b.binId === null) return 1;
+          return b.existencia - a.existencia;
         });
+
+        for (const inv of sortedInvs) {
+          if (cantRestante <= 0) break;
+          const aDeducir = Math.min(inv.existencia, cantRestante);
+          await tx.inventario.update({
+            where: { id: inv.id },
+            data: { existencia: { decrement: aDeducir } },
+          });
+          cantRestante -= aDeducir;
+        }
+
+        if (cantRestante > 0 && sortedInvs.length > 0) {
+          await tx.inventario.update({
+            where: { id: sortedInvs[0].id },
+            data: { existencia: { decrement: cantRestante } },
+          });
+        }
 
         // 5. Registrar movimiento de stock (Kardex)
         await tx.movimientoInventario.create({
@@ -479,15 +493,31 @@ export class PosController {
           throw new BadRequestException('No se encontró bodega para el producto.');
         }
 
-        await tx.inventario.update({
+        const existingInv = await tx.inventario.findFirst({
           where: {
-            productoId_bodegaId: {
-              productoId: det.productoId,
-              bodegaId: targetBodega.id,
-            },
+            productoId: det.productoId,
+            bodegaId: targetBodega.id,
+            binId: null,
           },
-          data: { existencia: { increment: det.cantidad } },
         });
+        if (existingInv) {
+          await tx.inventario.update({
+            where: { id: existingInv.id },
+            data: { existencia: { increment: det.cantidad } },
+          });
+        } else {
+          await tx.inventario.create({
+            data: {
+              productoId: det.productoId,
+              sucursalId: venta.sucursalId,
+              bodegaId: targetBodega.id,
+              binId: null,
+              existencia: det.cantidad,
+              existMin: 5,
+              existMax: 100,
+            },
+          });
+        }
 
         await tx.movimientoInventario.create({
           data: {

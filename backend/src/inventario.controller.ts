@@ -43,10 +43,33 @@ export class InventarioController {
       ? bins.reduce((sum, b) => sum + (b.capacidad || 0), 0) || 10000
       : 10000;
 
-    // 3. Encontrar los lotes de MP-LECHE-CRUDA con stock activo
+    // 3. Encontrar los productos asociados a esta bodega (o sus bins) en Inventario
+    const invs = bodegaLeche
+      ? await this.prisma.inventario.findMany({
+          where: {
+            bodegaId: bodegaLeche.id,
+          },
+          select: {
+            productoId: true,
+          },
+        })
+      : [];
+
+    const productIds = Array.from(new Set(invs.map((i) => i.productoId)));
+
+    // Fallback por si no hay inventario asignado aún
+    if (productIds.length === 0) {
+      const fallbackProd = await this.prisma.producto.findUnique({
+        where: { sku: 'MP-LECHE-CRUDA' },
+      });
+      if (fallbackProd) {
+        productIds.push(fallbackProd.id);
+      }
+    }
+
     const lotes = await this.prisma.lote.findMany({
       where: {
-        producto: { sku: 'MP-LECHE-CRUDA' },
+        productoId: { in: productIds },
         cantidadActual: { gt: 0 },
       },
       orderBy: { createdAt: 'asc' },
@@ -156,12 +179,16 @@ export class InventarioController {
       }
     }
 
-    const exist = await this.prisma.inventario.findUnique({
-      where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
+    const exist = await this.prisma.inventario.findFirst({
+      where: {
+        productoId,
+        bodegaId: targetBodegaId,
+        binId: binId || null,
+      },
     });
     if (exist) {
       throw new BadRequestException(
-        'Este producto ya está registrado en la bodega seleccionada.',
+        'Este producto ya está registrado en la bodega y bin seleccionados.',
       );
     }
 
@@ -211,6 +238,25 @@ export class InventarioController {
     });
     if (!prev) {
       throw new BadRequestException('Registro de inventario no encontrado.');
+    }
+
+    if (binId !== undefined) {
+      const targetBinId = binId || null;
+      if (targetBinId !== prev.binId) {
+        const exist = await this.prisma.inventario.findFirst({
+          where: {
+            productoId: prev.productoId,
+            bodegaId: prev.bodegaId,
+            binId: targetBinId,
+            NOT: { id },
+          },
+        });
+        if (exist) {
+          throw new BadRequestException(
+            'Ya existe un registro para este producto en el bin seleccionado.',
+          );
+        }
+      }
     }
 
     if (prev.producto.unidadMedida.toUpperCase() === 'UNIDAD') {
@@ -359,32 +405,31 @@ export class InventarioController {
       targetBodegaId = defaultBodega.id;
     }
 
-    // Verificar / Crear registro de inventario
-    const inv = await this.prisma.inventario.findUnique({
-      where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
-    });
+    // Ejecutar en transacción de Prisma
+    const { movimiento, nuevoStock } = await this.prisma.$transaction(async (tx) => {
+      const inv = await tx.inventario.findFirst({
+        where: { productoId, bodegaId: targetBodegaId, binId: null },
+      });
 
-    const stockActual = inv ? inv.existencia : 0;
-    let nuevoStock = stockActual;
+      const stockActual = inv ? inv.existencia : 0;
+      let nuevoStock = stockActual;
 
-    if (tipo === 'ENTRADA') {
-      nuevoStock += cantNum;
-    } else if (tipo === 'SALIDA') {
-      if (stockActual < cantNum) {
+      if (tipo === 'ENTRADA') {
+        nuevoStock += cantNum;
+      } else if (tipo === 'SALIDA') {
+        if (stockActual < cantNum) {
+          throw new BadRequestException(
+            `Stock insuficiente para realizar el egreso. Stock actual: ${stockActual}`,
+          );
+        }
+        nuevoStock -= cantNum;
+      } else {
         throw new BadRequestException(
-          `Stock insuficiente para realizar el egreso. Stock actual: ${stockActual}`,
+          'Tipo de ajuste inválido. Debe ser ENTRADA o SALIDA.',
         );
       }
-      nuevoStock -= cantNum;
-    } else {
-      throw new BadRequestException(
-        'Tipo de ajuste inválido. Debe ser ENTRADA o SALIDA.',
-      );
-    }
 
-    // Ejecutar en transacción de Prisma
-    const [movimiento] = await this.prisma.$transaction([
-      this.prisma.movimientoInventario.create({
+      const mov = await tx.movimientoInventario.create({
         data: {
           tipo,
           productoId,
@@ -398,33 +443,40 @@ export class InventarioController {
           usuarioId: req.user.id,
         },
         include: { producto: true },
-      }),
-      this.prisma.inventario.upsert({
-        where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
-        update: { existencia: nuevoStock },
-        create: {
-          productoId,
-          sucursalId,
-          bodegaId: targetBodegaId,
-          existencia: nuevoStock,
-          existMin: 10,
-          existMax: 100,
-        },
-      }),
-      // Si hay lote, ajustar la cantidad del lote si es salida
-      ...(loteId
-        ? [
-            this.prisma.lote.update({
-              where: { id: loteId },
-              data: {
-                cantidadActual: {
-                  [tipo === 'ENTRADA' ? 'increment' : 'decrement']: cantNum,
-                },
-              },
-            }),
-          ]
-        : []),
-    ]);
+      });
+
+      if (inv) {
+        await tx.inventario.update({
+          where: { id: inv.id },
+          data: { existencia: nuevoStock },
+        });
+      } else {
+        await tx.inventario.create({
+          data: {
+            productoId,
+            sucursalId,
+            bodegaId: targetBodegaId,
+            binId: null,
+            existencia: nuevoStock,
+            existMin: 10,
+            existMax: 100,
+          },
+        });
+      }
+
+      if (loteId) {
+        await tx.lote.update({
+          where: { id: loteId },
+          data: {
+            cantidadActual: {
+              [tipo === 'ENTRADA' ? 'increment' : 'decrement']: cantNum,
+            },
+          },
+        });
+      }
+
+      return { movimiento: mov, nuevoStock };
+    });
 
     // Auditoría
     await this.prisma.auditoria.create({
@@ -490,21 +542,23 @@ export class InventarioController {
       targetBodegaId = defaultBodega.id;
     }
 
-    // Verificar existencias generales
-    const inv = await this.prisma.inventario.findUnique({
-      where: { productoId_bodegaId: { productoId, bodegaId: targetBodegaId } },
+    // Verificar existencias generales across all bins in this bodega
+    const invs = await this.prisma.inventario.findMany({
+      where: { productoId, bodegaId: targetBodegaId },
       include: { producto: true },
     });
 
-    if (!inv) {
+    if (invs.length === 0) {
       throw new BadRequestException(
         'No se encontraron registros de inventario para este producto en la bodega seleccionada.',
       );
     }
 
-    if (inv.existencia < cantNum) {
+    const existenciaTotal = invs.reduce((sum, i) => sum + i.existencia, 0);
+
+    if (existenciaTotal < cantNum) {
       throw new BadRequestException(
-        `Existencias insuficientes en inventario. Stock actual: ${inv.existencia}`,
+        `Existencias insuficientes en inventario. Stock actual: ${existenciaTotal}`,
       );
     }
 
@@ -523,11 +577,11 @@ export class InventarioController {
       }
     }
 
-    const nuevoStock = inv.existencia - cantNum;
+    const nuevoStockTotal = existenciaTotal - cantNum;
 
     // Ejecutar en transacción de Prisma
-    const [movimiento] = await this.prisma.$transaction([
-      this.prisma.movimientoInventario.create({
+    const [movimiento] = await this.prisma.$transaction(async (tx) => {
+      const mov = await tx.movimientoInventario.create({
         data: {
           tipo: 'MERMA',
           productoId,
@@ -541,20 +595,42 @@ export class InventarioController {
           usuarioId: req.user.id,
         },
         include: { producto: true },
-      }),
-      this.prisma.inventario.update({
-        where: { id: inv.id },
-        data: { existencia: nuevoStock },
-      }),
-      ...(loteId
-        ? [
-            this.prisma.lote.update({
-              where: { id: loteId },
-              data: { cantidadActual: { decrement: cantNum } },
-            }),
-          ]
-        : []),
-    ]);
+      });
+
+      let cantRestante = cantNum;
+      // Deduct from bins starting with binId: null or largest existence
+      const sortedInvs = [...invs].sort((a, b) => {
+        if (a.binId === null) return -1;
+        if (b.binId === null) return 1;
+        return b.existencia - a.existencia;
+      });
+
+      for (const inv of sortedInvs) {
+        if (cantRestante <= 0) break;
+        const aDeducir = Math.min(inv.existencia, cantRestante);
+        await tx.inventario.update({
+          where: { id: inv.id },
+          data: { existencia: { decrement: aDeducir } },
+        });
+        cantRestante -= aDeducir;
+      }
+
+      if (cantRestante > 0 && sortedInvs.length > 0) {
+        await tx.inventario.update({
+          where: { id: sortedInvs[0].id },
+          data: { existencia: { decrement: cantRestante } },
+        });
+      }
+
+      if (loteId) {
+        await tx.lote.update({
+          where: { id: loteId },
+          data: { cantidadActual: { decrement: cantNum } },
+        });
+      }
+
+      return [mov];
+    });
 
     // Auditoría
     await this.prisma.auditoria.create({
@@ -565,11 +641,11 @@ export class InventarioController {
         modulo: 'INVENTARIO',
         detalles: JSON.stringify({
           tipoMerma,
-          sku: inv.producto.sku,
+          sku: invs[0].producto.sku,
           cantidad: cantNum,
           sucursalId,
           bodegaId: targetBodegaId,
-          nuevoStock,
+          nuevoStock: nuevoStockTotal,
           motivo,
         }),
       },
@@ -577,7 +653,7 @@ export class InventarioController {
 
     return {
       message: 'Merma registrada con éxito.',
-      nuevoStock,
+      nuevoStock: nuevoStockTotal,
       movimientoId: movimiento.id,
     };
   }
@@ -665,19 +741,19 @@ export class InventarioController {
           throw new BadRequestException('No se encontró ninguna bodega para la sucursal de origen.');
         }
 
-        // Verificar existencia en origen
-        const invOrigen = await tx.inventario.findUnique({
+        // Verificar existencia en origen (across all bins in this bodega)
+        const invsOrigen = await tx.inventario.findMany({
           where: {
-            productoId_bodegaId: {
-              productoId: prod.productoId,
-              bodegaId: defaultBodegaOrigen.id,
-            },
+            productoId: prod.productoId,
+            bodegaId: defaultBodegaOrigen.id,
           },
         });
 
-        if (!invOrigen || invOrigen.existencia < parseFloat(prod.cantidad)) {
+        const totalDisponible = invsOrigen.reduce((sum, i) => sum + i.existencia, 0);
+
+        if (totalDisponible < parseFloat(prod.cantidad)) {
           throw new BadRequestException(
-            `Stock insuficiente en sucursal de origen para el producto seleccionado. Disponible: ${invOrigen ? invOrigen.existencia : 0}`,
+            `Stock insuficiente en sucursal de origen para el producto seleccionado. Disponible: ${totalDisponible}`,
           );
         }
 
@@ -747,15 +823,33 @@ export class InventarioController {
             throw new BadRequestException('No se encontró bodega de origen.');
           }
 
-          await tx.inventario.update({
-            where: {
-              productoId_bodegaId: {
-                productoId: det.productoId,
-                bodegaId: bodOrigen.id,
-              },
-            },
-            data: { existencia: { decrement: det.cantidad } },
+          const invsOrigen = await tx.inventario.findMany({
+            where: { productoId: det.productoId, bodegaId: bodOrigen.id },
           });
+
+          let detCantidadRestante = det.cantidad;
+          const sortedInvs = [...invsOrigen].sort((a, b) => {
+            if (a.binId === null) return -1;
+            if (b.binId === null) return 1;
+            return b.existencia - a.existencia;
+          });
+
+          for (const inv of sortedInvs) {
+            if (detCantidadRestante <= 0) break;
+            const aDeducir = Math.min(inv.existencia, detCantidadRestante);
+            await tx.inventario.update({
+              where: { id: inv.id },
+              data: { existencia: { decrement: aDeducir } },
+            });
+            detCantidadRestante -= aDeducir;
+          }
+
+          if (detCantidadRestante > 0 && sortedInvs.length > 0) {
+            await tx.inventario.update({
+              where: { id: sortedInvs[0].id },
+              data: { existencia: { decrement: detCantidadRestante } },
+            });
+          }
 
           // Registrar movimiento de salida
           await tx.movimientoInventario.create({
@@ -783,15 +877,34 @@ export class InventarioController {
               throw new BadRequestException('No se encontró bodega de origen.');
             }
 
-            await tx.inventario.update({
-              where: {
-                productoId_bodegaId: {
-                  productoId: det.productoId,
-                  bodegaId: bodOrigen.id,
-                },
-              },
-              data: { existencia: { decrement: det.cantidad } },
+            const invsOrigen = await tx.inventario.findMany({
+              where: { productoId: det.productoId, bodegaId: bodOrigen.id },
             });
+
+            let detCantidadRestante = det.cantidad;
+            const sortedInvs = [...invsOrigen].sort((a, b) => {
+              if (a.binId === null) return -1;
+              if (b.binId === null) return 1;
+              return b.existencia - a.existencia;
+            });
+
+            for (const inv of sortedInvs) {
+              if (detCantidadRestante <= 0) break;
+              const aDeducir = Math.min(inv.existencia, detCantidadRestante);
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: aDeducir } },
+              });
+              detCantidadRestante -= aDeducir;
+            }
+
+            if (detCantidadRestante > 0 && sortedInvs.length > 0) {
+              await tx.inventario.update({
+                where: { id: sortedInvs[0].id },
+                data: { existencia: { decrement: detCantidadRestante } },
+              });
+            }
+
             await tx.movimientoInventario.create({
               data: {
                 tipo: 'SALIDA',
@@ -813,24 +926,33 @@ export class InventarioController {
             throw new BadRequestException('No se encontró bodega de destino.');
           }
 
-          // Aumentar existencia en destino
-          await tx.inventario.upsert({
+          // Aumentar existencia en destino targeting binId: null
+          const existingInv = await tx.inventario.findFirst({
             where: {
-              productoId_bodegaId: {
-                productoId: det.productoId,
-                bodegaId: bodDestino.id,
-              },
-            },
-            update: { existencia: { increment: det.cantidad } },
-            create: {
               productoId: det.productoId,
-              sucursalId: tr.destinoId,
               bodegaId: bodDestino.id,
-              existencia: det.cantidad,
-              existMin: 5,
-              existMax: 100,
+              binId: null,
             },
           });
+
+          if (existingInv) {
+            await tx.inventario.update({
+              where: { id: existingInv.id },
+              data: { existencia: { increment: det.cantidad } },
+            });
+          } else {
+            await tx.inventario.create({
+              data: {
+                productoId: det.productoId,
+                sucursalId: tr.destinoId,
+                bodegaId: bodDestino.id,
+                binId: null,
+                existencia: det.cantidad,
+                existMin: 5,
+                existMax: 100,
+              },
+            });
+          }
 
           // Registrar movimiento de entrada en destino
           await tx.movimientoInventario.create({
@@ -938,15 +1060,33 @@ export class InventarioController {
             const bodOrigen = await this.obtenerBodegaParaProducto(tr.origenId, det.productoId, tx);
             if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
 
-            await tx.inventario.update({
-              where: {
-                productoId_bodegaId: {
-                  productoId: det.productoId,
-                  bodegaId: bodOrigen.id,
-                },
-              },
-              data: { existencia: { decrement: det.cantidad } },
+            const invsOrigen = await tx.inventario.findMany({
+              where: { productoId: det.productoId, bodegaId: bodOrigen.id },
             });
+
+            let detCantidadRestante = det.cantidad;
+            const sortedInvs = [...invsOrigen].sort((a, b) => {
+              if (a.binId === null) return -1;
+              if (b.binId === null) return 1;
+              return b.existencia - a.existencia;
+            });
+
+            for (const inv of sortedInvs) {
+              if (detCantidadRestante <= 0) break;
+              const aDeducir = Math.min(inv.existencia, detCantidadRestante);
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: aDeducir } },
+              });
+              detCantidadRestante -= aDeducir;
+            }
+
+            if (detCantidadRestante > 0 && sortedInvs.length > 0) {
+              await tx.inventario.update({
+                where: { id: sortedInvs[0].id },
+                data: { existencia: { decrement: detCantidadRestante } },
+              });
+            }
 
             await tx.movimientoInventario.create({
               data: {
@@ -970,23 +1110,32 @@ export class InventarioController {
             throw new BadRequestException('No se encontró bodega de destino.');
           }
 
-          await tx.inventario.upsert({
+          const existingInv = await tx.inventario.findFirst({
             where: {
-              productoId_bodegaId: {
-                productoId: det.productoId,
-                bodegaId: bodDestino.id,
-              },
-            },
-            update: { existencia: { increment: det.cantidad } },
-            create: {
               productoId: det.productoId,
-              sucursalId: tr.destinoId,
               bodegaId: bodDestino.id,
-              existencia: det.cantidad,
-              existMin: 5,
-              existMax: 100,
+              binId: null,
             },
           });
+
+          if (existingInv) {
+            await tx.inventario.update({
+              where: { id: existingInv.id },
+              data: { existencia: { increment: det.cantidad } },
+            });
+          } else {
+            await tx.inventario.create({
+              data: {
+                productoId: det.productoId,
+                sucursalId: tr.destinoId,
+                bodegaId: bodDestino.id,
+                binId: null,
+                existencia: det.cantidad,
+                existMin: 5,
+                existMax: 100,
+              },
+            });
+          }
 
           await tx.movimientoInventario.create({
             data: {

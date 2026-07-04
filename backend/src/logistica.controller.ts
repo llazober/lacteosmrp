@@ -882,20 +882,45 @@ export class LogisticaController implements OnModuleInit {
           const bodOrigen = await this.obtenerBodegaParaProducto(origenId, productoId, tx);
           if (!bodOrigen) throw new BadRequestException('No se encontró bodega de origen.');
 
-          // Disminuir stock en inventario de origen y sumarlo a "comprometido"
-          // O simplemente deducir y realizar el movimiento
-          // Para mantener el estándar del ERP, actualizamos Inventario
-          const invOrigen = await tx.inventario.findUnique({
-            where: {
-              productoId_bodegaId: { productoId, bodegaId: bodOrigen.id },
-            },
+          // Disminuir stock en inventario de origen across bins
+          const invsOrigen = await tx.inventario.findMany({
+            where: { productoId, bodegaId: bodOrigen.id },
           });
 
-          if (invOrigen) {
+          let cantRestante = aTransferir;
+          const sortedInvs = [...invsOrigen].sort((a, b) => {
+            if (a.binId === null) return -1;
+            if (b.binId === null) return 1;
+            return b.existencia - a.existencia;
+          });
+
+          for (const inv of sortedInvs) {
+            if (cantRestante <= 0) break;
+            const aDeducir = Math.min(inv.existencia, cantRestante);
             await tx.inventario.update({
-              where: { id: invOrigen.id },
-              data: { existencia: { decrement: aTransferir } },
+              where: { id: inv.id },
+              data: { existencia: { decrement: aDeducir } },
             });
+            cantRestante -= aDeducir;
+          }
+
+          if (cantRestante > 0) {
+            if (sortedInvs.length > 0) {
+              await tx.inventario.update({
+                where: { id: sortedInvs[0].id },
+                data: { existencia: { decrement: cantRestante } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId,
+                  sucursalId: origenId,
+                  bodegaId: bodOrigen.id,
+                  binId: null,
+                  existencia: -cantRestante,
+                },
+              });
+            }
           }
 
           // Actualizar cantidad en lote

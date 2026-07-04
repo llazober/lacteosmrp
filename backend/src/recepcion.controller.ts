@@ -188,20 +188,7 @@ export class RecepcionController {
           );
         }
 
-        if (prodDb.sku === 'MP-LECHE-CRUDA') {
-          const activeLotes = await tx.lote.findMany({
-            where: {
-              producto: { sku: 'MP-LECHE-CRUDA' },
-              cantidadActual: { gt: 0 },
-            },
-          });
-          const currentTotal = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
-          if (currentTotal + cantidad > 10000) {
-            throw new BadRequestException(
-              `Capacidad del tanque de leche entera excedida. Capacidad máxima: 10,000L. Disponible: ${10000 - currentTotal}L. Intento de recibir: ${cantidad}L.`,
-            );
-          }
-        }
+
 
         // Si viene de una OC, actualizar cantidad recibida en el detalle
         let detalleOC: any = null;
@@ -274,24 +261,66 @@ export class RecepcionController {
           throw new BadRequestException(`No se encontró bodega para almacenar el producto "${prodDb.descripcion}".`);
         }
 
-        // Upsert en Inventario
-        await tx.inventario.upsert({
-          where: {
-            productoId_bodegaId: {
-              productoId: item.productoId,
-              bodegaId: targetBodega.id,
+        // Si la bodega es de tipo leche entera fluida (o es la bodega de leche)
+        const esBodegaLeche = targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+                              targetBodega.tipoBodega === 'LECHE_ENTERA' ||
+                              targetBodega.nombre.toLowerCase().includes('leche entera') ||
+                              targetBodega.codigo.toLowerCase().includes('leche');
+
+        if (esBodegaLeche) {
+          // Obtener bins de la bodega
+          const bins = await tx.bin.findMany({
+            where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
+          });
+          const capMax = bins.reduce((sum: number, b: any) => sum + (b.capacidad || 0), 0) || 10000;
+
+          // Obtener todos los productos asociados a esta bodega en Inventario
+          const invs = await tx.inventario.findMany({
+            where: { bodegaId: targetBodega.id },
+            select: { productoId: true },
+          });
+          const productIds = Array.from(new Set([item.productoId, ...invs.map((i: any) => i.productoId)]));
+
+          const activeLotes = await tx.lote.findMany({
+            where: {
+              productoId: { in: productIds },
+              cantidadActual: { gt: 0 },
             },
-          },
-          update: { existencia: { increment: cantidad } },
-          create: {
+          });
+          const currentTotal = activeLotes.reduce((sum: number, l: any) => sum + l.cantidadActual, 0);
+          if (currentTotal + cantidad > capMax) {
+            throw new BadRequestException(
+              `Capacidad de la bodega/tanque excedida. Capacidad máxima: ${capMax.toLocaleString()}L. Disponible: ${(capMax - currentTotal).toLocaleString()}L. Intento de recibir: ${cantidad.toLocaleString()}L.`,
+            );
+          }
+        }
+
+        // Upsert en Inventario targeting binId: null
+        const existingInv = await tx.inventario.findFirst({
+          where: {
             productoId: item.productoId,
-            sucursalId,
             bodegaId: targetBodega.id,
-            existencia: cantidad,
-            existMin: 10,
-            existMax: 500,
+            binId: null,
           },
         });
+        if (existingInv) {
+          await tx.inventario.update({
+            where: { id: existingInv.id },
+            data: { existencia: { increment: cantidad } },
+          });
+        } else {
+          await tx.inventario.create({
+            data: {
+              productoId: item.productoId,
+              sucursalId,
+              bodegaId: targetBodega.id,
+              binId: null,
+              existencia: cantidad,
+              existMin: 10,
+              existMax: 500,
+            },
+          });
+        }
 
         // Registrar movimiento
         await tx.movimientoInventario.create({

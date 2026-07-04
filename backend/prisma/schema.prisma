@@ -241,7 +241,7 @@ model Inventario {
   bodega   Bodega?  @relation(fields: [bodegaId], references: [id])
   bin      Bin?     @relation(fields: [binId], references: [id])
 
-  @@unique([productoId, bodegaId])
+  @@unique([productoId, bodegaId, binId])
 }
 
 model MovimientoInventario {

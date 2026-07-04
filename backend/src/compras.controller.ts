@@ -262,24 +262,32 @@ export class ComprasController {
           throw new BadRequestException('No se encontró bodega para recibir el producto.');
         }
 
-        // Upsert en inventario
-        await tx.inventario.upsert({
+        // Upsert en inventario targeting binId: null
+        const existingInv = await tx.inventario.findFirst({
           where: {
-            productoId_bodegaId: {
-              productoId: loteInfo.productoId,
-              bodegaId: targetBodega.id,
-            },
-          },
-          update: { existencia: { increment: cantidadRecibidaAhora } },
-          create: {
             productoId: loteInfo.productoId,
-            sucursalId: oc.sucursalId,
             bodegaId: targetBodega.id,
-            existencia: cantidadRecibidaAhora,
-            existMin: 10,
-            existMax: 500,
+            binId: null,
           },
         });
+        if (existingInv) {
+          await tx.inventario.update({
+            where: { id: existingInv.id },
+            data: { existencia: { increment: cantidadRecibidaAhora } },
+          });
+        } else {
+          await tx.inventario.create({
+            data: {
+              productoId: loteInfo.productoId,
+              sucursalId: oc.sucursalId,
+              bodegaId: targetBodega.id,
+              binId: null,
+              existencia: cantidadRecibidaAhora,
+              existMin: 10,
+              existMax: 500,
+            },
+          });
+        }
 
         // Registrar movimiento
         await tx.movimientoInventario.create({
