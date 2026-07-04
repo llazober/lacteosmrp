@@ -127,10 +127,8 @@ export default function RecepcionMateriales() {
     setOpenCapacityWarning(false);
     setCapacityWarningData(null);
     
-    // Submit with bypass
-    setTimeout(() => {
-      handleSubmitRecepcion(true);
-    }, 100);
+    // Submit with the new items list directly
+    handleSubmitRecepcion(true, newItems);
   };
 
   const handleForceCapacitySubmit = () => {
@@ -357,12 +355,13 @@ export default function RecepcionMateriales() {
   };
 
   // Enviar recepción
-  const handleSubmitRecepcion = async (bypassMilkCheck: boolean | any = false) => {
+  const handleSubmitRecepcion = async (bypassMilkCheck: boolean | any = false, itemsOverride?: ItemRecepcion[]) => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
     const isBypass = bypassMilkCheck === true;
-    const itemsAEnviar = itemsRecibir.filter((it) => it.checked !== false);
+    const currentItems = itemsOverride || itemsRecibir;
+    const itemsAEnviar = currentItems.filter((it) => it.checked !== false);
 
     if (itemsAEnviar.length === 0) {
       setErrorMsg('Debe registrar al menos un producto seleccionado en el recibo.');
@@ -457,8 +456,8 @@ export default function RecepcionMateriales() {
                   }
                 }
 
-                // Find the original index of this item in the full itemsRecibir list
-                const originalIndex = itemsRecibir.findIndex((it) => it.productoId === item.productoId && it.numeroLote === item.numeroLote);
+                // Find the original index of this item in the full items list
+                const originalIndex = currentItems.findIndex((it) => it.productoId === item.productoId && it.numeroLote === item.numeroLote);
 
                 setCapacityWarningData({
                   itemIndex: originalIndex,
