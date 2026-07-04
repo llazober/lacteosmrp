@@ -22,6 +22,10 @@ import {
   CardContent,
   Divider,
   Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   LocalShipping,
@@ -52,6 +56,7 @@ interface ItemRecepcion {
   tempMin?: number;
   tempMax?: number;
   checked?: boolean;
+  binId?: string;
 }
 
 export default function RecepcionMateriales() {
@@ -82,6 +87,38 @@ export default function RecepcionMateriales() {
   // Mensajes de feedback
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Milk bins and confirm states
+  const [binsLecheEntera, setBinsLecheEntera] = useState<any[]>([]);
+  const [binsLecheDescremada, setBinsLecheDescremada] = useState<any[]>([]);
+  const [openMilkConfirm, setOpenMilkConfirm] = useState(false);
+
+  const cargarBinsLeche = async (sucId: string) => {
+    try {
+      const bods = await apiFetch(`/inventario/bodegas?sucursalId=${sucId}`);
+      
+      const enteraBodega = bods.find((b: any) => 
+        b.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+        b.tipoBodega === 'LECHE_ENTERA' || 
+        b.nombre.toLowerCase().includes('leche entera')
+      );
+      setBinsLecheEntera(enteraBodega ? (enteraBodega.bins || []) : []);
+
+      const descremadaBodega = bods.find((b: any) => 
+        b.tipoBodega === 'LECHE_DESCREMADA' || 
+        b.nombre.toLowerCase().includes('leche descremada')
+      );
+      setBinsLecheDescremada(descremadaBodega ? (descremadaBodega.bins || []) : []);
+    } catch (e) {
+      console.error('Error cargando bins de leche:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (sucursalId) {
+      cargarBinsLeche(sucursalId);
+    }
+  }, [sucursalId]);
 
   // Cargar catálogos
   useEffect(() => {
@@ -246,10 +283,11 @@ export default function RecepcionMateriales() {
   };
 
   // Enviar recepción
-  const handleSubmitRecepcion = async () => {
+  const handleSubmitRecepcion = async (bypassMilkCheck: boolean | any = false) => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const isBypass = bypassMilkCheck === true;
     const itemsAEnviar = itemsRecibir.filter((it) => it.checked !== false);
 
     if (itemsAEnviar.length === 0) {
@@ -275,6 +313,20 @@ export default function RecepcionMateriales() {
       }
     }
 
+    // Alerta de leche en tanque por defecto
+    if (!isBypass) {
+      const lecheSinTanque = itemsAEnviar.filter(
+        (it) =>
+          (it.descripcion.toLowerCase().includes('leche entera') ||
+            it.descripcion.toLowerCase().includes('leche descremada')) &&
+          !it.binId
+      );
+      if (lecheSinTanque.length > 0) {
+        setOpenMilkConfirm(true);
+        return;
+      }
+    }
+
     const payload = {
       ordenCompraId: selectedOC ? selectedOC.id : undefined,
       proveedorId: proveedorId || undefined,
@@ -292,6 +344,7 @@ export default function RecepcionMateriales() {
         fechaVencimiento: it.esMateriaPrima ? it.fechaVencimiento : undefined,
         tempMin: it.esMateriaPrima ? it.tempMin : undefined,
         tempMax: it.esMateriaPrima ? it.tempMax : undefined,
+        binId: it.binId || undefined,
       })),
     };
 
@@ -859,6 +912,28 @@ export default function RecepcionMateriales() {
                                     }
                                   />
                                 </Box>
+                                {(item.descripcion.toLowerCase().includes('leche entera') || item.descripcion.toLowerCase().includes('leche descremada')) && (
+                                  <Box sx={{ gridColumn: 'span 12', mt: 1 }}>
+                                    <FormControl fullWidth size="small">
+                                      <InputLabel>Tanque de Almacenamiento (Opcional)</InputLabel>
+                                      <Select
+                                        value={item.binId || ''}
+                                        label="Tanque de Almacenamiento (Opcional)"
+                                        disabled={item.checked === false}
+                                        onChange={(e) =>
+                                          handleChangeItem(idx, 'binId', e.target.value)
+                                        }
+                                      >
+                                        <MenuItem value=""><em>-- Tanque por Defecto (Configurado) --</em></MenuItem>
+                                        {(item.descripcion.toLowerCase().includes('leche entera') ? binsLecheEntera : binsLecheDescremada).map((bin: any) => (
+                                          <MenuItem key={bin.id} value={bin.id}>
+                                            {bin.codigo} — {bin.nombre}
+                                          </MenuItem>
+                                        ))}
+                                      </Select>
+                                    </FormControl>
+                                  </Box>
+                                )}
                               </Box>
                             </Box>
                           ) : (
@@ -886,6 +961,42 @@ export default function RecepcionMateriales() {
           </Box>
         </Box>
       )}
+
+      {/* DIALOG: CONFIRMAR TANQUE DE LECHE */}
+      <Dialog open={openMilkConfirm} onClose={() => setOpenMilkConfirm(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>⚠️ Confirmar Tanque de Recepción</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Se ha detectado que va a recibir <strong>Leche</strong> y no ha seleccionado un tanque específico (se enviará al <strong>Tanque por Defecto</strong>).
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            ¿Desea cambiar el tanque receptor o prefiere continuar con el tanque predeterminado?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            onClick={() => setOpenMilkConfirm(false)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Quiero cambiar de Tanque
+          </Button>
+          <Button
+            fullWidth
+            variant="outlined"
+            color="warning"
+            onClick={() => {
+              setOpenMilkConfirm(false);
+              handleSubmitRecepcion(true); // Bypass check
+            }}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Continuar con el Tanque por Defecto
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
