@@ -374,7 +374,7 @@ export class InventarioController {
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
   @Post('ajuste')
   async realizarAjuste(@Request() req: any, @Body() body: any) {
-    const { productoId, sucursalId, bodegaId, loteId, cantidad, tipo, motivo } = body;
+    const { productoId, sucursalId, bodegaId, binId, loteId, cantidad, tipo, motivo } = body;
 
     if (!productoId || !sucursalId || cantidad == null || !tipo || !motivo) {
       throw new BadRequestException(
@@ -407,8 +407,9 @@ export class InventarioController {
 
     // Ejecutar en transacción de Prisma
     const { movimiento, nuevoStock } = await this.prisma.$transaction(async (tx) => {
+      const targetBinId = binId || null;
       const inv = await tx.inventario.findFirst({
-        where: { productoId, bodegaId: targetBodegaId, binId: null },
+        where: { productoId, bodegaId: targetBodegaId, binId: targetBinId },
       });
 
       const stockActual = inv ? inv.existencia : 0;
@@ -419,7 +420,7 @@ export class InventarioController {
       } else if (tipo === 'SALIDA') {
         if (stockActual < cantNum) {
           throw new BadRequestException(
-            `Stock insuficiente para realizar el egreso. Stock actual: ${stockActual}`,
+            `Stock insuficiente en la ubicación seleccionada para realizar el egreso. Stock actual: ${stockActual}`,
           );
         }
         nuevoStock -= cantNum;
@@ -439,7 +440,9 @@ export class InventarioController {
           bodegaOrigenId: tipo === 'SALIDA' ? targetBodegaId : null,
           bodegaDestinoId: tipo === 'ENTRADA' ? targetBodegaId : null,
           cantidad: cantNum,
-          motivo,
+          motivo: targetBinId 
+            ? `${motivo} (Ajuste en Bin: ${targetBinId})` 
+            : motivo,
           usuarioId: req.user.id,
         },
         include: { producto: true },
@@ -456,7 +459,7 @@ export class InventarioController {
             productoId,
             sucursalId,
             bodegaId: targetBodegaId,
-            binId: null,
+            binId: targetBinId,
             existencia: nuevoStock,
             existMin: 10,
             existMax: 100,
@@ -497,6 +500,116 @@ export class InventarioController {
     });
 
     return { message: 'Ajuste de inventario procesado con éxito.', nuevoStock };
+  }
+
+  @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN')
+  @Post('mover-bin')
+  async moverBin(@Request() req: any, @Body() body: any) {
+    const { productoId, sucursalId, bodegaId, binOrigenId, binDestinoId, loteId, cantidad } = body;
+
+    if (!productoId || !sucursalId || !bodegaId || cantidad == null) {
+      throw new BadRequestException(
+        'Producto, Sucursal, Bodega y Cantidad son requeridos para mover stock.',
+      );
+    }
+
+    const cantNum = parseFloat(cantidad);
+    if (cantNum <= 0) {
+      throw new BadRequestException('La cantidad a mover debe ser mayor que cero.');
+    }
+
+    const sourceBinId = binOrigenId || null;
+    const destBinId = binDestinoId || null;
+
+    if (sourceBinId === destBinId) {
+      throw new BadRequestException('El bin de origen y destino deben ser diferentes.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Verificar inventario origen
+      const invOrigen = await tx.inventario.findFirst({
+        where: { productoId, sucursalId, bodegaId, binId: sourceBinId },
+      });
+
+      if (!invOrigen || invOrigen.existencia < cantNum) {
+        throw new BadRequestException(
+          `Stock insuficiente en el bin de origen. Stock disponible: ${invOrigen ? invOrigen.existencia : 0}`,
+        );
+      }
+
+      // 2. Decrementar origen
+      const newOrigenStock = invOrigen.existencia - cantNum;
+      await tx.inventario.update({
+        where: { id: invOrigen.id },
+        data: { existencia: newOrigenStock },
+      });
+
+      // 3. Incrementar/Crear destino
+      const invDestino = await tx.inventario.findFirst({
+        where: { productoId, sucursalId, bodegaId, binId: destBinId },
+      });
+
+      if (invDestino) {
+        await tx.inventario.update({
+          where: { id: invDestino.id },
+          data: { existencia: invDestino.existencia + cantNum },
+        });
+      } else {
+        await tx.inventario.create({
+          data: {
+            productoId,
+            sucursalId,
+            bodegaId,
+            binId: destBinId,
+            existencia: cantNum,
+            existMin: invOrigen.existMin,
+            existMax: invOrigen.existMax,
+          },
+        });
+      }
+
+      // 4. Obtener datos para el movimiento
+      const prod = await tx.producto.findUnique({ where: { id: productoId } });
+      const lote = loteId ? await tx.lote.findUnique({ where: { id: loteId } }) : null;
+      const binOrigen = sourceBinId ? await tx.bin.findUnique({ where: { id: sourceBinId } }) : null;
+      const binDestino = destBinId ? await tx.bin.findUnique({ where: { id: destBinId } }) : null;
+
+      const descOrigen = binOrigen ? binOrigen.codigo : 'Defecto';
+      const descDestino = binDestino ? binDestino.codigo : 'Defecto';
+
+      // 5. Registrar movimientos de inventario para Kardex
+      await tx.movimientoInventario.create({
+        data: {
+          tipo: 'SALIDA',
+          productoId,
+          loteId: loteId || null,
+          sucursalOrigenId: sucursalId,
+          bodegaOrigenId: bodegaId,
+          cantidad: cantNum,
+          motivo: `Traslado interno: Egreso del bin ${descOrigen} hacia bin ${descDestino}${lote ? ` (Lote: ${lote.numeroLote})` : ''}`,
+          usuarioId: req.user.id,
+        },
+      });
+
+      await tx.movimientoInventario.create({
+        data: {
+          tipo: 'ENTRADA',
+          productoId,
+          loteId: loteId || null,
+          sucursalDestinoId: sucursalId,
+          bodegaDestinoId: bodegaId,
+          cantidad: cantNum,
+          motivo: `Traslado interno: Ingreso al bin ${descDestino} desde bin ${descOrigen}${lote ? ` (Lote: ${lote.numeroLote})` : ''}`,
+          usuarioId: req.user.id,
+        },
+      });
+
+      return {
+        message: 'Traslado de bin completado con éxito.',
+        stockOrigen: newOrigenStock,
+        stockDestino: (invDestino ? invDestino.existencia : 0) + cantNum,
+      };
+    });
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'GERENTE_TIENDA')
@@ -1196,7 +1309,7 @@ export class InventarioController {
     }
     return this.prisma.bodega.findMany({
       where: filter,
-      include: { sucursal: true },
+      include: { sucursal: true, bins: true },
       orderBy: { nombre: 'asc' },
     });
   }

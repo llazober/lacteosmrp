@@ -295,12 +295,23 @@ export class RecepcionController {
           }
         }
 
-        // Upsert en Inventario targeting binId: null
+        // Buscar si ya existe una asociación en inventario para este producto con un bin específico en esta bodega
+        const associatedInv = await tx.inventario.findFirst({
+          where: {
+            productoId: item.productoId,
+            bodegaId: targetBodega.id,
+            NOT: { binId: null },
+          },
+        });
+
+        const targetBinId = associatedInv ? associatedInv.binId : null;
+
+        // Upsert en Inventario targeting targetBinId
         const existingInv = await tx.inventario.findFirst({
           where: {
             productoId: item.productoId,
             bodegaId: targetBodega.id,
-            binId: null,
+            binId: targetBinId,
           },
         });
         if (existingInv) {
@@ -314,7 +325,7 @@ export class RecepcionController {
               productoId: item.productoId,
               sucursalId,
               bodegaId: targetBodega.id,
-              binId: null,
+              binId: targetBinId,
               existencia: cantidad,
               existMin: 10,
               existMax: 500,

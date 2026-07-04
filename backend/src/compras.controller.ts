@@ -262,12 +262,23 @@ export class ComprasController {
           throw new BadRequestException('No se encontró bodega para recibir el producto.');
         }
 
-        // Upsert en inventario targeting binId: null
+        // Buscar si ya existe una asociación en inventario para este producto con un bin específico en esta bodega
+        const associatedInv = await tx.inventario.findFirst({
+          where: {
+            productoId: loteInfo.productoId,
+            bodegaId: targetBodega.id,
+            NOT: { binId: null },
+          },
+        });
+
+        const targetBinId = associatedInv ? associatedInv.binId : null;
+
+        // Upsert en inventario targeting targetBinId
         const existingInv = await tx.inventario.findFirst({
           where: {
             productoId: loteInfo.productoId,
             bodegaId: targetBodega.id,
-            binId: null,
+            binId: targetBinId,
           },
         });
         if (existingInv) {
@@ -281,7 +292,7 @@ export class ComprasController {
               productoId: loteInfo.productoId,
               sucursalId: oc.sucursalId,
               bodegaId: targetBodega.id,
-              binId: null,
+              binId: targetBinId,
               existencia: cantidadRecibidaAhora,
               existMin: 10,
               existMax: 500,

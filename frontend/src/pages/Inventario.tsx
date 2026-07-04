@@ -151,6 +151,7 @@ export default function Inventario() {
     productoId: '',
     sucursalId: '',
     bodegaId: '',
+    binId: '',
     loteId: '',
     cantidad: '',
     tipo: 'ENTRADA',
@@ -197,6 +198,18 @@ export default function Inventario() {
     binId: '',
   });
   const [binsForEdit, setBinsForEdit] = useState<any[]>([]);
+
+  const [openMoverBin, setOpenMoverBin] = useState(false);
+  const [moverBinForm, setMoverBinForm] = useState({
+    productoId: '',
+    sucursalId: '',
+    bodegaId: '',
+    binOrigenId: '',
+    binDestinoId: '',
+    loteId: '',
+    cantidad: '',
+  });
+  const [binsForMover, setBinsForMover] = useState<any[]>([]);
 
   const [openDelete, setOpenDelete] = useState(false);
 
@@ -350,6 +363,8 @@ export default function Inventario() {
         setProductos(prod.filter((p: any) => p.estado === 'ACTIVO'));
         const bods = await apiFetch('/inventario/bodegas');
         setBodegas(bods);
+        const lot = await apiFetch('/lotes');
+        setLotes(lot.filter((l: any) => l.estado === 'APROBADO'));
       } else if (activeTab === 1) {
         const mov = await apiFetch('/inventario/movimientos');
         setMovimientos(mov);
@@ -983,6 +998,50 @@ export default function Inventario() {
     }
   };
 
+  const handleOpenMoverBin = (inv: any) => {
+    setMoverBinForm({
+      productoId: inv.productoId,
+      sucursalId: inv.sucursalId,
+      bodegaId: inv.bodegaId,
+      binOrigenId: inv.binId || '',
+      binDestinoId: '',
+      loteId: '',
+      cantidad: '',
+    });
+    if (inv.bodegaId) {
+      apiFetch(`/inventario/bodegas/${inv.bodegaId}/bins`).then((binsData) => {
+        setBinsForMover(binsData);
+      }).catch(() => setBinsForMover([]));
+    } else {
+      setBinsForMover([]);
+    }
+    setOpenMoverBin(true);
+  };
+
+  const handleMoverBinSubmit = async () => {
+    try {
+      setErrorMsg(null);
+      const prod = productos.find((p) => p.id === moverBinForm.productoId);
+      if (prod && prod.unidadMedida?.toUpperCase() === 'UNIDAD') {
+        if (parseFloat(moverBinForm.cantidad) % 1 !== 0) {
+          throw new Error(`Para productos en Unidades (${prod.descripcion}), la cantidad a mover debe ser un número entero.`);
+        }
+      }
+      if (!moverBinForm.binDestinoId) {
+        throw new Error('Debe seleccionar un bin de destino.');
+      }
+      await apiFetch('/inventario/mover-bin', {
+        method: 'POST',
+        body: JSON.stringify(moverBinForm),
+      });
+      setSuccessMsg('Movimiento de bin procesado con éxito.');
+      setOpenMoverBin(false);
+      cargarDatos();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+  };
+
   const handleTransferSubmit = async () => {
     try {
       setErrorMsg(null);
@@ -1370,6 +1429,7 @@ export default function Inventario() {
                   productoId: '',
                   sucursalId: usuario?.sucursalId || '',
                   bodegaId: '',
+                  binId: '',
                   loteId: '',
                   cantidad: '',
                   tipo: 'ENTRADA',
@@ -1606,6 +1666,20 @@ export default function Inventario() {
                                 }}
                               >
                                 <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                            <Tooltip title="Mover Stock / Lotes de este Bin">
+                              <IconButton
+                                size="small"
+                                color="info"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenMoverBin(inv);
+                                }}
+                              >
+                                <CompareArrows fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -2739,7 +2813,7 @@ export default function Inventario() {
             <Select
               value={ajusteForm.sucursalId}
               label="Sucursal"
-              onChange={(e) => setAjusteForm({ ...ajusteForm, sucursalId: e.target.value, bodegaId: '' })}
+              onChange={(e) => setAjusteForm({ ...ajusteForm, sucursalId: e.target.value, bodegaId: '', binId: '' })}
             >
               {sucursales.map((s) => (
                 <MenuItem key={s.id} value={s.id}>{s.nombre}</MenuItem>
@@ -2752,7 +2826,7 @@ export default function Inventario() {
             <Select
               value={ajusteForm.bodegaId}
               label="Bodega"
-              onChange={(e) => setAjusteForm({ ...ajusteForm, bodegaId: e.target.value })}
+              onChange={(e) => setAjusteForm({ ...ajusteForm, bodegaId: e.target.value, binId: '' })}
             >
               <MenuItem value=""><em>Determinar automáticamente</em></MenuItem>
               {bodegas
@@ -2760,6 +2834,20 @@ export default function Inventario() {
                 .map((b) => (
                   <MenuItem key={b.id} value={b.id}>{b.nombre} ({b.codigo})</MenuItem>
                 ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small" disabled={!ajusteForm.bodegaId}>
+            <InputLabel>Ubicación / Bin</InputLabel>
+            <Select
+              value={ajusteForm.binId}
+              label="Ubicación / Bin"
+              onChange={(e) => setAjusteForm({ ...ajusteForm, binId: e.target.value })}
+            >
+              <MenuItem value="">Ninguno (Por defecto / null)</MenuItem>
+              {bodegas.find((b) => b.id === ajusteForm.bodegaId)?.bins?.map((bin: any) => (
+                <MenuItem key={bin.id} value={bin.id}>{bin.codigo} - {bin.nombre}</MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -3333,6 +3421,71 @@ export default function Inventario() {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEdit(false); setSelectedInv(null); setBinsForEdit([]); }}>Cancelar</Button>
           <Button variant="contained" color="primary" onClick={handleEditSubmit}>Actualizar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: MOVER STOCK ENTRE BINS */}
+      <Dialog open={openMoverBin} onClose={() => { setOpenMoverBin(false); setBinsForMover([]); }} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Trasladar Stock entre Bins / Ubicaciones</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          {moverBinForm.productoId && (
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Producto: <strong>{productos.find(p => p.id === moverBinForm.productoId)?.descripcion}</strong>
+              <br />
+              Bodega: <strong>{bodegas.find(b => b.id === moverBinForm.bodegaId)?.nombre}</strong>
+              <br />
+              Ubicación de Origen: <strong>{moverBinForm.binOrigenId ? (binsForMover.find(b => b.id === moverBinForm.binOrigenId)?.nombre || moverBinForm.binOrigenId) : 'Ninguno (Por defecto)'}</strong>
+            </Typography>
+          )}
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Seleccionar Lote a mover</InputLabel>
+            <Select
+              value={moverBinForm.loteId}
+              label="Seleccionar Lote a mover"
+              onChange={(e) => setMoverBinForm({ ...moverBinForm, loteId: e.target.value })}
+            >
+              <MenuItem value="">-- Ninguno (Sin Lote / Mover genérico) --</MenuItem>
+              {lotes
+                .filter((l) => l.productoId === moverBinForm.productoId)
+                .map((l) => (
+                  <MenuItem key={l.id} value={l.id}>
+                    {l.numeroLote} (Disponible: {l.cantidadActual})
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Bin / Ubicación de Destino</InputLabel>
+            <Select
+              value={moverBinForm.binDestinoId}
+              label="Bin / Ubicación de Destino"
+              onChange={(e) => setMoverBinForm({ ...moverBinForm, binDestinoId: e.target.value })}
+            >
+              <MenuItem value="">Ninguno (Por defecto / null)</MenuItem>
+              {binsForMover
+                .filter((bin: any) => bin.id !== moverBinForm.binOrigenId)
+                .map((bin: any) => (
+                  <MenuItem key={bin.id} value={bin.id}>
+                    {bin.codigo} — {bin.nombre}{bin.capacidad ? ` (Cap: ${bin.capacidad.toLocaleString()})` : ''}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            fullWidth
+            label="Cantidad a Trasladar"
+            type="number"
+            size="small"
+            value={moverBinForm.cantidad}
+            onChange={(e) => setMoverBinForm({ ...moverBinForm, cantidad: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => { setOpenMoverBin(false); setBinsForMover([]); }}>Cancelar</Button>
+          <Button variant="contained" color="primary" onClick={handleMoverBinSubmit}>Confirmar Traslado</Button>
         </DialogActions>
       </Dialog>
 
