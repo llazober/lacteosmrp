@@ -137,6 +137,7 @@ export class InventarioController {
       activeBinId: selectedBinId,
       bodegaId: bodegaLeche?.id,
       bodegaNombre: bodegaLeche?.nombre,
+      sucursalId: bodegaLeche?.sucursalId,
       bins: bins.map((b) => ({
         id: b.id,
         codigo: b.codigo,

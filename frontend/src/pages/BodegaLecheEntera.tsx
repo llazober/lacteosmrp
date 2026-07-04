@@ -17,14 +17,25 @@ import {
   Divider,
   Tabs,
   Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   LocalLaundryService as TankIcon,
   InfoOutlined as InfoIcon,
   History as HistoryIcon,
+  CompareArrows as TransferIcon,
 } from '@mui/icons-material';
-import { apiFetch } from '../store/useAuthStore';
+import { apiFetch, useAuthStore } from '../store/useAuthStore';
 import dayjs from 'dayjs';
 
 interface ComponenteMezcla {
@@ -55,6 +66,7 @@ interface MezclaLeche {
 
 interface LoteLeche {
   id: string;
+  productoId: string;
   numeroLote: string;
   cantidadActual: number;
   cantidadInicial: number;
@@ -79,6 +91,60 @@ export default function BodegaLecheEntera({ tipo = 'LECHE_ENTERA' }: { tipo?: 'L
   const [selectedLote, setSelectedLote] = useState<LoteLeche | null>(null);
   const [hoveredLoteId, setHoveredLoteId] = useState<string | null>(null);
   const [activeBinId, setActiveBinId] = useState<string | null>(null);
+
+  const usuario = useAuthStore((state) => state.usuario);
+  const [openTransferModal, setOpenTransferModal] = useState(false);
+  const [transferAmount, setTransferAmount] = useState('');
+  const [targetBinId, setTargetBinId] = useState('');
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferLoading, setTransferLoading] = useState(false);
+
+  const handleTransferSubmit = async () => {
+    if (!targetBinId) {
+      setTransferError('Debe seleccionar el tanque de destino.');
+      return;
+    }
+    const amount = parseFloat(transferAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setTransferError('Debe ingresar una cantidad válida mayor a cero.');
+      return;
+    }
+    const currentTotal = data?.totalLitros || 0;
+    if (amount > currentTotal) {
+      setTransferError(`No hay suficiente leche en este tanque. Stock disponible: ${currentTotal.toLocaleString()} L.`);
+      return;
+    }
+
+    setTransferLoading(true);
+    setTransferError(null);
+
+    try {
+      const activeProduct = data?.lotes?.[0];
+      const prodId = activeProduct ? activeProduct.productoId : '';
+      
+      const payload = {
+        productoId: prodId,
+        sucursalId: (data as any)?.sucursalId || usuario?.sucursalId || '',
+        bodegaId: (data as any)?.bodegaId || '',
+        binOrigenId: activeBinId || (data?.bins?.[0]?.id || ''),
+        binDestinoId: targetBinId,
+        loteId: '',
+        cantidad: amount
+      };
+
+      await apiFetch('/inventario/mover-bin', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setOpenTransferModal(false);
+      fetchTankState(activeBinId || (data?.bins?.[0]?.id || undefined));
+    } catch (e: any) {
+      setTransferError(e.message || 'Error al procesar el traslado.');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
 
   const fetchTankState = async (binToFetch?: string) => {
     setLoading(true);
@@ -227,23 +293,49 @@ export default function BodegaLecheEntera({ tipo = 'LECHE_ENTERA' }: { tipo?: 'L
             )}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<RefreshIcon />}
-          onClick={() => fetchTankState(activeBinId || undefined)}
-          sx={{
-            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-            boxShadow: '0 4px 20px rgba(2, 132, 199, 0.3)',
-            borderRadius: 2.5,
-            px: 3,
-            '&:hover': {
-              background: 'linear-gradient(135deg, #0369a1 0%, #075985 100%)',
-            }
-          }}
-        >
-          Actualizar Estado
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<TransferIcon />}
+            disabled={totalLitros <= 0}
+            onClick={() => {
+              setTransferAmount('');
+              setTargetBinId('');
+              setTransferError(null);
+              setOpenTransferModal(true);
+            }}
+            sx={{
+              background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+              boxShadow: '0 4px 20px rgba(79, 70, 229, 0.3)',
+              borderRadius: 2.5,
+              px: 3,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4338ca 0%, #3730a3 100%)',
+              }
+            }}
+          >
+            Trasladar Leche
+          </Button>
+
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<RefreshIcon />}
+            onClick={() => fetchTankState(activeBinId || undefined)}
+            sx={{
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              boxShadow: '0 4px 20px rgba(2, 132, 199, 0.3)',
+              borderRadius: 2.5,
+              px: 3,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #0369a1 0%, #075985 100%)',
+              }
+            }}
+          >
+            Actualizar Estado
+          </Button>
+        </Box>
       </Box>
 
       {/* Tabs para seleccionar el Tanque / Bin */}
@@ -658,6 +750,69 @@ export default function BodegaLecheEntera({ tipo = 'LECHE_ENTERA' }: { tipo?: 'L
           </CardContent>
         </Card>
       </Box>
+      {/* DIALOG: TRASLADAR LECHE ENTRE TANQUES */}
+      <Dialog open={openTransferModal} onClose={() => setOpenTransferModal(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Trasladar Leche entre Silos / Tanques</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2 }}>
+          {transferError && (
+            <Alert severity="error" onClose={() => setTransferError(null)}>
+              {transferError}
+            </Alert>
+          )}
+
+          <Typography variant="body2" color="text.secondary">
+            Trasladar leche desde el silo origen <strong>{binPrincipal?.codigo} — {binPrincipal?.nombre}</strong> hacia otro silo disponible de la bodega.
+            <br />
+            Stock disponible en origen: <strong>{totalLitros.toLocaleString()} L</strong>
+          </Typography>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Silo / Tanque de Destino</InputLabel>
+            <Select
+              value={targetBinId}
+              label="Silo / Tanque de Destino"
+              onChange={(e) => setTargetBinId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>-- Seleccione Tanque --</em>
+              </MenuItem>
+              {bins
+                .filter((b) => b.id !== activeBinId)
+                .map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.codigo} — {b.nombre} (Capacidad: {b.capacidad.toLocaleString()} L)
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            fullWidth
+            label="Cantidad a Trasladar (Litros)"
+            type="number"
+            size="small"
+            value={transferAmount}
+            onChange={(e) => setTransferAmount(e.target.value)}
+            placeholder="Ingrese cantidad en litros"
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setOpenTransferModal(false)} disabled={transferLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleTransferSubmit}
+            disabled={transferLoading || !targetBinId || !transferAmount}
+            sx={{
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            }}
+          >
+            {transferLoading ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Traslado'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
