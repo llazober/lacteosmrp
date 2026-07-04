@@ -294,6 +294,8 @@ export default function Inventario() {
     vidaUtilDias: '30',
     leadTime: '0',
     esManufacturado: true,
+    bodegaId: '',
+    binId: '',
   });
 
   const [openEditarProducto, setOpenEditarProducto] = useState(false);
@@ -315,6 +317,8 @@ export default function Inventario() {
     leadTime: '0',
     estado: 'ACTIVO',
     esManufacturado: true,
+    bodegaId: '',
+    binId: '',
   });
 
   // Dialog de Lote
@@ -590,6 +594,7 @@ export default function Inventario() {
           temperaturaMax: parseFloat(productoForm.temperaturaMax),
           vidaUtilDias: parseInt(productoForm.vidaUtilDias),
           leadTime: parseInt(productoForm.leadTime || '0'),
+          sucursalId: filterSucursalId || usuario?.sucursalId || '',
         }),
       });
       setSuccessMsg('Producto creado exitosamente en el catálogo.');
@@ -614,6 +619,7 @@ export default function Inventario() {
           temperaturaMax: parseFloat(editarProductoForm.temperaturaMax),
           vidaUtilDias: parseInt(editarProductoForm.vidaUtilDias),
           leadTime: parseInt(editarProductoForm.leadTime || '0'),
+          sucursalId: filterSucursalId || usuario?.sucursalId || '',
         }),
       });
       setSuccessMsg('Producto actualizado en el catálogo.');
@@ -1428,6 +1434,8 @@ export default function Inventario() {
                   vidaUtilDias: '30',
                   leadTime: '0',
                   esManufacturado: true,
+                  bodegaId: '',
+                  binId: '',
                 });
                 setOpenCrearProducto(true);
               }}
@@ -2061,6 +2069,8 @@ export default function Inventario() {
                   <TableCell>Código de Barras</TableCell>
                   <TableCell>Descripción</TableCell>
                   <TableCell>Categoría</TableCell>
+                  <TableCell>Bodega</TableCell>
+                  <TableCell>Tanque / Bin</TableCell>
                   <TableCell>Tipo</TableCell>
                   <TableCell>Marca</TableCell>
                   <TableCell>Medida</TableCell>
@@ -2076,11 +2086,15 @@ export default function Inventario() {
               <TableBody>
                 {paginatedTodosProductos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={14} align="center">No hay productos en el catálogo.</TableCell>
+                    <TableCell colSpan={16} align="center">No hay productos en el catálogo.</TableCell>
                   </TableRow>
                 ) : (
                   paginatedTodosProductos.map((p) => {
                     const isSelected = selectedRowId === p.id;
+                    const finalSucId = filterSucursalId || usuario?.sucursalId || '';
+                    const matchingInv = inventario.find(
+                      (invItem) => invItem.productoId === p.id && invItem.sucursalId === finalSucId
+                    );
                     return (
                       <TableRow
                         key={p.id}
@@ -2100,6 +2114,8 @@ export default function Inventario() {
                         <TableCell>{p.codigoBarras}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{p.descripcion}</TableCell>
                         <TableCell>{p.categoria}</TableCell>
+                        <TableCell>{matchingInv?.bodega?.nombre || 'No asignada'}</TableCell>
+                        <TableCell>{matchingInv?.bin?.nombre || matchingInv?.bin?.codigo || 'No asignado'}</TableCell>
                         <TableCell>
                           <Chip
                             label={
@@ -2158,6 +2174,10 @@ export default function Inventario() {
                                   color="primary"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    const finalSucId = filterSucursalId || usuario?.sucursalId || '';
+                                    const matchingInv = inventario.find(
+                                      (invItem) => invItem.productoId === p.id && invItem.sucursalId === finalSucId
+                                    );
                                     setSelectedProducto(p);
                                     setEditarProductoForm({
                                       sku: p.sku,
@@ -2175,6 +2195,8 @@ export default function Inventario() {
                                       leadTime: String(p.leadTime || 0),
                                       estado: p.estado,
                                       esManufacturado: p.esManufacturado !== false,
+                                      bodegaId: matchingInv?.bodegaId || '',
+                                      binId: matchingInv?.binId || '',
                                     });
                                     setOpenEditarProducto(true);
                                   }}
@@ -3927,6 +3949,42 @@ export default function Inventario() {
               label="Es Manufacturado (¿Se fabrica en planta?)"
             />
           )}
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Bodega</InputLabel>
+            <Select
+              value={productoForm.bodegaId}
+              label="Bodega"
+              onChange={(e) => setProductoForm({ ...productoForm, bodegaId: e.target.value, binId: '' })}
+            >
+              <MenuItem value="">-- No Asignada --</MenuItem>
+              {bodegas
+                .filter((b) => b.sucursalId === (filterSucursalId || usuario?.sucursalId || ''))
+                .map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.nombre}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small" disabled={!productoForm.bodegaId}>
+            <InputLabel>Tanque / Bin</InputLabel>
+            <Select
+              value={productoForm.binId}
+              label="Tanque / Bin"
+              onChange={(e) => setProductoForm({ ...productoForm, binId: e.target.value })}
+            >
+              <MenuItem value="">-- Ninguno (Por Defecto) --</MenuItem>
+              {bodegas
+                .find((b) => b.id === productoForm.bodegaId)
+                ?.bins?.map((bin: any) => (
+                  <MenuItem key={bin.id} value={bin.id}>
+                    {bin.nombre || bin.codigo}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenCrearProducto(false)}>Cancelar</Button>
@@ -4153,6 +4211,42 @@ export default function Inventario() {
               label="Es Manufacturado (¿Se fabrica en planta?)"
             />
           )}
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Bodega</InputLabel>
+            <Select
+              value={editarProductoForm.bodegaId}
+              label="Bodega"
+              onChange={(e) => setEditarProductoForm({ ...editarProductoForm, bodegaId: e.target.value, binId: '' })}
+            >
+              <MenuItem value="">-- No Asignada --</MenuItem>
+              {bodegas
+                .filter((b) => b.sucursalId === (filterSucursalId || usuario?.sucursalId || ''))
+                .map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.nombre}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small" disabled={!editarProductoForm.bodegaId}>
+            <InputLabel>Tanque / Bin</InputLabel>
+            <Select
+              value={editarProductoForm.binId}
+              label="Tanque / Bin"
+              onChange={(e) => setEditarProductoForm({ ...editarProductoForm, binId: e.target.value })}
+            >
+              <MenuItem value="">-- Ninguno (Por Defecto) --</MenuItem>
+              {bodegas
+                .find((b) => b.id === editarProductoForm.bodegaId)
+                ?.bins?.map((bin: any) => (
+                  <MenuItem key={bin.id} value={bin.id}>
+                    {bin.nombre || bin.codigo}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => { setOpenEditarProducto(false); setSelectedProducto(null); }}>Cancelar</Button>

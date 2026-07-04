@@ -253,6 +253,7 @@ export class ComprasController {
             bodegaId: targetBodega.id,
             NOT: { binId: null },
           },
+          orderBy: { createdAt: 'asc' },
         });
 
         const targetBinId = associatedInv ? associatedInv.binId : null;

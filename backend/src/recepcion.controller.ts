@@ -222,6 +222,7 @@ export class RecepcionController {
             bodegaId: targetBodega.id,
             NOT: { binId: null },
           },
+          orderBy: { createdAt: 'asc' },
         });
 
         const targetBinId = item.binId || (associatedInv ? associatedInv.binId : null);

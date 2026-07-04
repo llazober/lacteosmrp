@@ -50,6 +50,9 @@ export class ProductosController {
       vidaUtilDias,
       leadTime,
       esManufacturado,
+      bodegaId,
+      binId,
+      sucursalId,
     } = body;
 
     if (
@@ -108,6 +111,22 @@ export class ProductosController {
       },
     });
 
+    if (bodegaId) {
+      const finalSuc = sucursalId || req.user.sucursalId;
+      if (finalSuc) {
+        await this.prisma.inventario.create({
+          data: {
+            productoId: producto.id,
+            sucursalId: finalSuc,
+            bodegaId,
+            binId: binId || null,
+            existencia: 0,
+            existMin: 10,
+            existMax: 100,
+          },
+        });
+      }
+    }
 
     // Auditoría
     await this.prisma.auditoria.create({
@@ -146,6 +165,9 @@ export class ProductosController {
       leadTime,
       estado,
       esManufacturado,
+      bodegaId,
+      binId,
+      sucursalId,
     } = body;
 
     // Validar unicidad del SKU si se está actualizando
@@ -180,6 +202,36 @@ export class ProductosController {
         esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : undefined,
       },
     });
+
+    if (bodegaId !== undefined) {
+      const finalSuc = sucursalId || req.user.sucursalId;
+      if (finalSuc) {
+        const existingInv = await this.prisma.inventario.findFirst({
+          where: { productoId: id, sucursalId: finalSuc },
+        });
+        if (existingInv) {
+          await this.prisma.inventario.update({
+            where: { id: existingInv.id },
+            data: {
+              bodegaId: bodegaId || null,
+              binId: binId || null,
+            },
+          });
+        } else if (bodegaId) {
+          await this.prisma.inventario.create({
+            data: {
+              productoId: id,
+              sucursalId: finalSuc,
+              bodegaId,
+              binId: binId || null,
+              existencia: 0,
+              existMin: 10,
+              existMax: 100,
+            },
+          });
+        }
+      }
+    }
 
     // Auditoría
     await this.prisma.auditoria.create({
