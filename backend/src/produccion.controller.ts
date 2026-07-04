@@ -1653,7 +1653,21 @@ export class ProduccionController implements OnModuleInit {
         include: { bin: true },
       }) : [];
       const stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
-      const mainInv = invs.find(i => i.binId === null) || invs[0];
+
+      // Sort inventory records so that records with stock come first, then sorted by bin code ascending
+      const sortedInvs = [...invs].sort((a, b) => {
+        if (a.existencia > 0 && b.existencia <= 0) return -1;
+        if (b.existencia > 0 && a.existencia <= 0) return 1;
+        if (a.existencia > 0 && b.existencia > 0) {
+          if (b.existencia !== a.existencia) {
+            return b.existencia - a.existencia;
+          }
+        }
+        const codeA = a.bin?.codigo || 'ZZZ';
+        const codeB = b.bin?.codigo || 'ZZZ';
+        return codeA.localeCompare(codeB);
+      });
+      const mainInv = sortedInvs.find(i => i.binId === null) || sortedInvs[0];
       let binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
 
       if (op.pickingCompletado && esBodegaLeche) {
@@ -1902,9 +1916,20 @@ export class ProduccionController implements OnModuleInit {
                 bodegaId: bodOrigen.id,
               },
               include: { bin: true },
-              orderBy: { createdAt: 'asc' },
             });
-            const mainInv = invs[0];
+            const sortedInvs = [...invs].sort((a, b) => {
+              if (a.existencia > 0 && b.existencia <= 0) return -1;
+              if (b.existencia > 0 && a.existencia <= 0) return 1;
+              if (a.existencia > 0 && b.existencia > 0) {
+                if (b.existencia !== a.existencia) {
+                  return b.existencia - a.existencia;
+                }
+              }
+              const codeA = a.bin?.codigo || 'ZZZ';
+              const codeB = b.bin?.codigo || 'ZZZ';
+              return codeA.localeCompare(codeB);
+            });
+            const mainInv = sortedInvs[0];
             targetBinId = mainInv ? mainInv.binId : null;
           }
 
