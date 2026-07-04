@@ -234,6 +234,16 @@ export class InventarioController {
       include: { producto: true, sucursal: true, bodega: true, bin: true },
     });
 
+    if (existMin != null || existMax != null) {
+      await this.prisma.producto.update({
+        where: { id: productoId },
+        data: {
+          stockMin: existMin != null ? parseFloat(existMin) : undefined,
+          stockMax: existMax != null ? parseFloat(existMax) : undefined,
+        },
+      });
+    }
+
     await this.prisma.auditoria.create({
       data: {
         usuarioId: req.user.id,
@@ -310,6 +320,16 @@ export class InventarioController {
       },
       include: { producto: true, sucursal: true, bin: true },
     });
+
+    if (existMin != null || existMax != null) {
+      await this.prisma.producto.update({
+        where: { id: prev.productoId },
+        data: {
+          stockMin: existMin != null ? parseFloat(existMin) : undefined,
+          stockMax: existMax != null ? parseFloat(existMax) : undefined,
+        },
+      });
+    }
 
     await this.prisma.auditoria.create({
       data: {

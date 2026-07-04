@@ -296,6 +296,8 @@ export default function Inventario() {
     esManufacturado: true,
     bodegaId: '',
     binId: '',
+    stockMin: '10',
+    stockMax: '100',
   });
 
   const [openEditarProducto, setOpenEditarProducto] = useState(false);
@@ -319,6 +321,8 @@ export default function Inventario() {
     esManufacturado: true,
     bodegaId: '',
     binId: '',
+    stockMin: '10',
+    stockMax: '100',
   });
 
   // Dialog de Lote
@@ -594,6 +598,8 @@ export default function Inventario() {
           temperaturaMax: parseFloat(productoForm.temperaturaMax),
           vidaUtilDias: parseInt(productoForm.vidaUtilDias),
           leadTime: parseInt(productoForm.leadTime || '0'),
+          stockMin: parseFloat(productoForm.stockMin || '0'),
+          stockMax: parseFloat(productoForm.stockMax || '0'),
           sucursalId: filterSucursalId || usuario?.sucursalId || '',
         }),
       });
@@ -619,6 +625,8 @@ export default function Inventario() {
           temperaturaMax: parseFloat(editarProductoForm.temperaturaMax),
           vidaUtilDias: parseInt(editarProductoForm.vidaUtilDias),
           leadTime: parseInt(editarProductoForm.leadTime || '0'),
+          stockMin: parseFloat(editarProductoForm.stockMin || '0'),
+          stockMax: parseFloat(editarProductoForm.stockMax || '0'),
           sucursalId: filterSucursalId || usuario?.sucursalId || '',
         }),
       });
@@ -1436,6 +1444,8 @@ export default function Inventario() {
                   esManufacturado: true,
                   bodegaId: '',
                   binId: '',
+                  stockMin: '10',
+                  stockMax: '100',
                 });
                 setOpenCrearProducto(true);
               }}
@@ -2079,6 +2089,8 @@ export default function Inventario() {
                   <TableCell>T° Conservación</TableCell>
                   <TableCell>Vida Útil</TableCell>
                   <TableCell>Lead Time</TableCell>
+                  <TableCell>Stock Mín</TableCell>
+                  <TableCell>Stock Máx</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
@@ -2086,7 +2098,7 @@ export default function Inventario() {
               <TableBody>
                 {paginatedTodosProductos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={16} align="center">No hay productos en el catálogo.</TableCell>
+                    <TableCell colSpan={18} align="center">No hay productos en el catálogo.</TableCell>
                   </TableRow>
                 ) : (
                   paginatedTodosProductos.map((p) => {
@@ -2145,6 +2157,8 @@ export default function Inventario() {
                         <TableCell>{p.temperaturaMin}°C a {p.temperaturaMax}°C</TableCell>
                         <TableCell>{p.vidaUtilDias} días</TableCell>
                         <TableCell>{p.leadTime || 0} días</TableCell>
+                        <TableCell>{p.stockMin}</TableCell>
+                        <TableCell>{p.stockMax}</TableCell>
                         <TableCell>
                           <Chip
                             label={p.estado}
@@ -2197,6 +2211,8 @@ export default function Inventario() {
                                       esManufacturado: p.esManufacturado !== false,
                                       bodegaId: matchingInv?.bodegaId || '',
                                       binId: matchingInv?.binId || '',
+                                      stockMin: String(p.stockMin || 0),
+                                      stockMax: String(p.stockMax || 0),
                                     });
                                     setOpenEditarProducto(true);
                                   }}
@@ -3953,6 +3969,25 @@ export default function Inventario() {
             onChange={(e) => setProductoForm({ ...productoForm, vidaUtilDias: e.target.value })}
           />
 
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Stock Mínimo"
+              type="number"
+              size="small"
+              value={productoForm.stockMin}
+              onChange={(e) => setProductoForm({ ...productoForm, stockMin: e.target.value })}
+            />
+            <TextField
+              fullWidth
+              label="Stock Máximo"
+              type="number"
+              size="small"
+              value={productoForm.stockMax}
+              onChange={(e) => setProductoForm({ ...productoForm, stockMax: e.target.value })}
+            />
+          </Box>
+
           {(productoForm.tipoProducto === 'PRODUCTO_TERMINADO' || productoForm.tipoProducto === 'PT') && (
             <FormControlLabel
               control={
@@ -4202,6 +4237,25 @@ export default function Inventario() {
             value={editarProductoForm.vidaUtilDias}
             onChange={(e) => setEditarProductoForm({ ...editarProductoForm, vidaUtilDias: e.target.value })}
           />
+
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Stock Mínimo"
+              type="number"
+              size="small"
+              value={editarProductoForm.stockMin}
+              onChange={(e) => setEditarProductoForm({ ...editarProductoForm, stockMin: e.target.value })}
+            />
+            <TextField
+              fullWidth
+              label="Stock Máximo"
+              type="number"
+              size="small"
+              value={editarProductoForm.stockMax}
+              onChange={(e) => setEditarProductoForm({ ...editarProductoForm, stockMax: e.target.value })}
+            />
+          </Box>
 
           <FormControl fullWidth size="small">
             <InputLabel>Estado</InputLabel>

@@ -776,6 +776,11 @@ export default function Compras() {
     setOpenRecepcion(true);
   };
 
+  // Dummy reference to satisfy TS compiler when the button is commented out
+  if (false as boolean) {
+    console.log(handleAbrirRecepcion, LocalShipping);
+  }
+
   const handleUpdateLoteInfo = (idx: number, field: string, val: any) => {
     const updated = [...recepcionLotes];
     updated[idx] = { ...updated[idx], [field]: val };
@@ -1018,7 +1023,7 @@ export default function Compras() {
                               Aprobar
                             </Button>
                           )}
-                          {(oc.estado === 'APROBADA' || oc.estado === 'PARCIAL') && (
+                          {/* {(oc.estado === 'APROBADA' || oc.estado === 'PARCIAL') && (
                             <Button
                               variant="contained"
                               size="small"
@@ -1028,7 +1033,7 @@ export default function Compras() {
                             >
                               Recibir Lotes
                             </Button>
-                          )}
+                          )} */}
 
                           {oc.estado !== 'RECIBIDA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' || usuario?.rol === 'GERENTE_TIENDA') && (
                             <Tooltip title="Editar Orden de Compra">

@@ -53,6 +53,8 @@ export class ProductosController {
       bodegaId,
       binId,
       sucursalId,
+      stockMin,
+      stockMax,
     } = body;
 
     if (
@@ -108,6 +110,8 @@ export class ProductosController {
         vidaUtilDias: parseInt(vidaUtilDias || 30),
         leadTime: leadTime != null ? parseInt(leadTime) : 0,
         esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : true,
+        stockMin: stockMin != null ? parseFloat(stockMin) : 0.0,
+        stockMax: stockMax != null ? parseFloat(stockMax) : 0.0,
       },
     });
 
@@ -121,8 +125,8 @@ export class ProductosController {
             bodegaId,
             binId: binId || null,
             existencia: 0,
-            existMin: 10,
-            existMax: 100,
+            existMin: stockMin != null ? parseFloat(stockMin) : 10,
+            existMax: stockMax != null ? parseFloat(stockMax) : 100,
           },
         });
       }
@@ -168,6 +172,8 @@ export class ProductosController {
       bodegaId,
       binId,
       sucursalId,
+      stockMin,
+      stockMax,
     } = body;
 
     // Validar unicidad del SKU si se está actualizando
@@ -200,36 +206,38 @@ export class ProductosController {
         leadTime: leadTime != null ? parseInt(leadTime) : undefined,
         estado,
         esManufacturado: esManufacturado !== undefined ? Boolean(esManufacturado) : undefined,
+        stockMin: stockMin != null ? parseFloat(stockMin) : undefined,
+        stockMax: stockMax != null ? parseFloat(stockMax) : undefined,
       },
     });
 
-    if (bodegaId !== undefined) {
-      const finalSuc = sucursalId || req.user.sucursalId;
-      if (finalSuc) {
-        const existingInv = await this.prisma.inventario.findFirst({
-          where: { productoId: id, sucursalId: finalSuc },
+    const finalSuc = sucursalId || req.user.sucursalId;
+    if (finalSuc) {
+      const existingInv = await this.prisma.inventario.findFirst({
+        where: { productoId: id, sucursalId: finalSuc },
+      });
+      if (existingInv) {
+        await this.prisma.inventario.update({
+          where: { id: existingInv.id },
+          data: {
+            bodegaId: bodegaId !== undefined ? (bodegaId || null) : undefined,
+            binId: binId !== undefined ? (binId || null) : undefined,
+            existMin: stockMin != null ? parseFloat(stockMin) : undefined,
+            existMax: stockMax != null ? parseFloat(stockMax) : undefined,
+          },
         });
-        if (existingInv) {
-          await this.prisma.inventario.update({
-            where: { id: existingInv.id },
-            data: {
-              bodegaId: bodegaId || null,
-              binId: binId || null,
-            },
-          });
-        } else if (bodegaId) {
-          await this.prisma.inventario.create({
-            data: {
-              productoId: id,
-              sucursalId: finalSuc,
-              bodegaId,
-              binId: binId || null,
-              existencia: 0,
-              existMin: 10,
-              existMax: 100,
-            },
-          });
-        }
+      } else if (bodegaId) {
+        await this.prisma.inventario.create({
+          data: {
+            productoId: id,
+            sucursalId: finalSuc,
+            bodegaId,
+            binId: binId || null,
+            existencia: 0,
+            existMin: stockMin != null ? parseFloat(stockMin) : 10,
+            existMax: stockMax != null ? parseFloat(stockMax) : 100,
+          },
+        });
       }
     }
 

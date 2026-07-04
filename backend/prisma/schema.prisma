@@ -103,6 +103,8 @@ model Producto {
   temperaturaMax Float
   vidaUtilDias   Int
   leadTime       Int      @default(0)
+  stockMin       Float    @default(0.0)
+  stockMax       Float    @default(0.0)
   estado         String   @default("ACTIVO") // ACTIVO, INACTIVO
   esManufacturado Boolean @default(true)
   createdAt      DateTime @default(now())
