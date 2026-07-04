@@ -1893,10 +1893,19 @@ export class ProduccionController implements OnModuleInit {
                               bodOrigen.codigo.toLowerCase().includes('leche');
 
         if (esBodegaLeche) {
-          if (!itemPicking.binId) {
-            throw new BadRequestException(
-              `Debe seleccionar el Tanque/Silo de origen para el ingrediente "${actualProducto.descripcion}".`,
-            );
+          // Resolve default tank/bin for this product in the bodega if not explicitly passed
+          let targetBinId = itemPicking.binId;
+          if (!targetBinId) {
+            const invs = await tx.inventario.findMany({
+              where: {
+                productoId: actualProductoId,
+                bodegaId: bodOrigen.id,
+              },
+              include: { bin: true },
+              orderBy: { createdAt: 'asc' },
+            });
+            const mainInv = invs[0];
+            targetBinId = mainInv ? mainInv.binId : null;
           }
 
           // 1. Obtener todos los lotes activos del tanque de leche entera en la planta
@@ -1904,15 +1913,15 @@ export class ProduccionController implements OnModuleInit {
             where: {
               productoId: actualProductoId,
               cantidadActual: { gt: 0 },
-              binId: itemPicking.binId,
+              binId: targetBinId || undefined,
             },
             orderBy: { fechaVencimiento: 'asc' },
           });
 
           const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
           if (totalDisponible < cantidadAPreparar) {
-            const tankObj = await tx.bin.findUnique({ where: { id: itemPicking.binId } });
-            const tankName = tankObj ? `${tankObj.codigo} — ${tankObj.nombre}` : 'seleccionado';
+            const tankObj = targetBinId ? await tx.bin.findUnique({ where: { id: targetBinId } }) : null;
+            const tankName = tankObj ? `${tankObj.codigo} — ${tankObj.nombre}` : 'principal';
             throw new BadRequestException(
               `Stock insuficiente en el tanque ${tankName} para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
             );
@@ -1987,7 +1996,7 @@ export class ProduccionController implements OnModuleInit {
             where: {
               productoId: actualProductoId,
               bodegaId: bodOrigen.id,
-              binId: itemPicking.binId,
+              binId: targetBinId,
             },
           });
           if (inv) {
@@ -2001,7 +2010,7 @@ export class ProduccionController implements OnModuleInit {
                 productoId: actualProductoId,
                 sucursalId: cdId,
                 bodegaId: bodOrigen.id,
-                binId: itemPicking.binId,
+                binId: targetBinId,
                 existencia: -cantidadAPreparar,
               },
             });
