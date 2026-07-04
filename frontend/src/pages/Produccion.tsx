@@ -565,6 +565,7 @@ export default function Produccion() {
         ...i,
         picked: false,
         selectedProductoId: i.productoId,
+        binId: i.bin?.id || '',
       }));
       setPickingData({ ...data, ingredientes });
       setOpenPicking(true);
@@ -584,6 +585,9 @@ export default function Produccion() {
             throw new Error(`Para el ingrediente "${prod.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`);
           }
         }
+        if (ing.esBodegaLeche && ing.picked && !ing.binId) {
+          throw new Error(`Debe seleccionar el Tanque/Silo de origen para el ingrediente "${ing.descripcion}".`);
+        }
       }
       const res = await apiFetch(`/produccion/ordenes/${selectedPickingOrder.id}/picking`, {
         method: 'POST',
@@ -594,6 +598,7 @@ export default function Produccion() {
             cantidadPicked: parseFloat(i.cantidadPicked),
             picked: i.picked,
             loteNumero: i.loteNumero || '',
+            binId: i.binId || '',
           })),
         }),
       });
@@ -1904,20 +1909,31 @@ export default function Produccion() {
                         </TableCell>
                         <TableCell>
                           {isRawMilk ? (
-                            <Box>
-                              <Chip
-                                label="Mezcla Proporcional"
-                                size="small"
-                                color="info"
-                                sx={{
-                                  fontWeight: 800,
-                                  background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
-                                  color: 'white',
-                                  mb: 0.5,
-                                }}
-                              />
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.72rem' }}>
-                                Lote virtual de mezcla automático del silo.
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 200 }}>
+                              <FormControl size="small" fullWidth>
+                                <Select
+                                  value={ing.binId || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const newIng = [...pickingData.ingredientes];
+                                    newIng[idx].binId = val;
+                                    setPickingData({ ...pickingData, ingredientes: newIng });
+                                  }}
+                                  displayEmpty
+                                  sx={{ fontSize: '0.75rem', height: '32px' }}
+                                >
+                                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>
+                                    <em>-- Seleccione Silo/Tanque --</em>
+                                  </MenuItem>
+                                  {(ing.bins || []).map((b: any) => (
+                                    <MenuItem key={b.id} value={b.id} sx={{ fontSize: '0.75rem' }}>
+                                      {b.codigo} — {b.nombre}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
+                                Desglose proporcional de lotes del silo seleccionado.
                               </Typography>
                             </Box>
                           ) : (

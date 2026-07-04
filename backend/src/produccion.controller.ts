@@ -1640,7 +1640,9 @@ export class ProduccionController implements OnModuleInit {
       const esBodegaLeche = targetBodega ? (
         targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
         targetBodega.tipoBodega === 'LECHE_ENTERA' ||
+        targetBodega.tipoBodega === 'LECHE_DESCREMADA' ||
         targetBodega.nombre.toLowerCase().includes('leche entera') ||
+        targetBodega.nombre.toLowerCase().includes('leche descremada') ||
         targetBodega.codigo.toLowerCase().includes('leche')
       ) : false;
       const invs = targetBodega ? await this.prisma.inventario.findMany({
@@ -1652,7 +1654,41 @@ export class ProduccionController implements OnModuleInit {
       }) : [];
       const stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
       const mainInv = invs.find(i => i.binId === null) || invs[0];
-      const binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
+      let binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
+
+      if (op.pickingCompletado && esBodegaLeche) {
+        const mezcla = await this.prisma.mezclaLeche.findFirst({
+          where: { ordenProduccionId: op.id },
+          include: {
+            componentes: {
+              include: {
+                loteOrigen: {
+                  include: { bin: true }
+                }
+              }
+            }
+          }
+        });
+        if (mezcla && mezcla.componentes.length > 0) {
+          const firstCompBin = mezcla.componentes[0].loteOrigen?.bin;
+          if (firstCompBin) {
+            binInfo = {
+              id: firstCompBin.id,
+              codigo: firstCompBin.codigo,
+              nombre: firstCompBin.nombre,
+              capacidad: firstCompBin.capacidad,
+            };
+          }
+        }
+      }
+
+      let bodegaBins: any[] = [];
+      if (esBodegaLeche && targetBodega) {
+        bodegaBins = await this.prisma.bin.findMany({
+          where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
+          orderBy: { codigo: 'asc' },
+        });
+      }
 
       // Obtener stock y lotes para cada sustituto
       const sustitutosInfo: any[] = [];
@@ -1747,6 +1783,7 @@ export class ProduccionController implements OnModuleInit {
           nombre: targetBodega.nombre,
         } : null,
         bin: binInfo,
+        bins: bodegaBins,
       });
     }
 
@@ -1850,23 +1887,34 @@ export class ProduccionController implements OnModuleInit {
 
         const esBodegaLeche = bodOrigen.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
                               bodOrigen.tipoBodega === 'LECHE_ENTERA' ||
+                              bodOrigen.tipoBodega === 'LECHE_DESCREMADA' ||
                               bodOrigen.nombre.toLowerCase().includes('leche entera') ||
+                              bodOrigen.nombre.toLowerCase().includes('leche descremada') ||
                               bodOrigen.codigo.toLowerCase().includes('leche');
 
         if (esBodegaLeche) {
+          if (!itemPicking.binId) {
+            throw new BadRequestException(
+              `Debe seleccionar el Tanque/Silo de origen para el ingrediente "${actualProducto.descripcion}".`,
+            );
+          }
+
           // 1. Obtener todos los lotes activos del tanque de leche entera en la planta
           const activeLotes = await tx.lote.findMany({
             where: {
               productoId: actualProductoId,
               cantidadActual: { gt: 0 },
+              binId: itemPicking.binId,
             },
             orderBy: { fechaVencimiento: 'asc' },
           });
 
           const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
           if (totalDisponible < cantidadAPreparar) {
+            const tankObj = await tx.bin.findUnique({ where: { id: itemPicking.binId } });
+            const tankName = tankObj ? `${tankObj.codigo} — ${tankObj.nombre}` : 'seleccionado';
             throw new BadRequestException(
-              `Stock insuficiente en la bodega ${bodOrigen.nombre} para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
+              `Stock insuficiente en el tanque ${tankName} para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
             );
           }
 
@@ -1934,48 +1982,29 @@ export class ProduccionController implements OnModuleInit {
             });
           }
 
-          // 5. Decrementar existencia del inventario general en la bodega across bins
-          const invs = await tx.inventario.findMany({
+          // 5. Decrementar existencia del inventario general en la bodega para ese bin específico
+          const inv = await tx.inventario.findFirst({
             where: {
               productoId: actualProductoId,
               bodegaId: bodOrigen.id,
+              binId: itemPicking.binId,
             },
           });
-
-          let cantRestante = cantidadAPreparar;
-          const sortedInvs = [...invs].sort((a, b) => {
-            if (a.binId === null) return -1;
-            if (b.binId === null) return 1;
-            return b.existencia - a.existencia;
-          });
-
-          for (const inv of sortedInvs) {
-            if (cantRestante <= 0) break;
-            const aDeducir = Math.min(inv.existencia, cantRestante);
+          if (inv) {
             await tx.inventario.update({
               where: { id: inv.id },
-              data: { existencia: { decrement: aDeducir } },
+              data: { existencia: { decrement: cantidadAPreparar } },
             });
-            cantRestante -= aDeducir;
-          }
-
-          if (cantRestante > 0) {
-            if (sortedInvs.length > 0) {
-              await tx.inventario.update({
-                where: { id: sortedInvs[0].id },
-                data: { existencia: { decrement: cantRestante } },
-              });
-            } else {
-              await tx.inventario.create({
-                data: {
-                  productoId: actualProductoId,
-                  sucursalId: cdId,
-                  bodegaId: bodOrigen.id,
-                  binId: null,
-                  existencia: -cantRestante,
-                },
-              });
-            }
+          } else {
+            await tx.inventario.create({
+              data: {
+                productoId: actualProductoId,
+                sucursalId: cdId,
+                bodegaId: bodOrigen.id,
+                binId: itemPicking.binId,
+                existencia: -cantidadAPreparar,
+              },
+            });
           }
 
           // 6. Registrar en detalles de orden de producción (apuntando al lote mixto)
