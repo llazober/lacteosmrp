@@ -1810,9 +1810,7 @@ export default function Produccion() {
                   {pickingData.ingredientes.map((ing: any, idx: number) => {
                     const selectedId = ing.selectedProductoId || ing.productoId;
                     const isSubstitute = selectedId !== ing.productoId;
-                    const isRawMilk = (isSubstitute 
-                      ? (ing.sustitutos?.find((s: any) => s.productoId === selectedId)?.sku || '')
-                      : ing.sku) === 'MP-LECHE-CRUDA';
+                    const isRawMilk = !!ing.esBodegaLeche;
 
                     let currentStock = ing.stockDisponible;
                     let currentLotes = ing.lotesDisponibles || [];

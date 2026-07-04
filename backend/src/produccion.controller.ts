@@ -1637,6 +1637,12 @@ export class ProduccionController implements OnModuleInit {
       const cantidadRequerida = reqDetalle.cantidadRequerida * op.cantidadPlanificada;
 
       const targetBodega = await this.obtenerBodegaParaProducto(cdId, reqDetalle.productoId);
+      const esBodegaLeche = targetBodega ? (
+        targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+        targetBodega.tipoBodega === 'LECHE_ENTERA' ||
+        targetBodega.nombre.toLowerCase().includes('leche entera') ||
+        targetBodega.codigo.toLowerCase().includes('leche')
+      ) : false;
       const invs = targetBodega ? await this.prisma.inventario.findMany({
         where: {
           productoId: reqDetalle.productoId,
@@ -1719,6 +1725,7 @@ export class ProduccionController implements OnModuleInit {
 
       ingredientes.push({
         productoId: reqDetalle.productoId,
+        esBodegaLeche,
         sku: reqDetalle.producto.sku,
         descripcion: reqDetalle.producto.descripcion,
         unidadMedida: reqDetalle.producto.unidadMedida || 'U',
