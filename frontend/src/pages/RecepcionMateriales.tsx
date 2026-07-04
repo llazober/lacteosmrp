@@ -115,11 +115,12 @@ export default function RecepcionMateriales() {
     newItems.splice(itemIndex, 1);
     
     // Insert split items
-    suggestedDistribution.forEach((dist) => {
+    suggestedDistribution.forEach((dist, subIdx) => {
       newItems.push({
         ...originalItem,
         cantidad: dist.cantidad,
         binId: dist.binId,
+        numeroLote: originalItem.numeroLote ? `${originalItem.numeroLote}-${subIdx + 1}` : undefined,
       });
     });
     
@@ -365,6 +366,12 @@ export default function RecepcionMateriales() {
 
     if (itemsAEnviar.length === 0) {
       setErrorMsg('Debe registrar al menos un producto seleccionado en el recibo.');
+      return;
+    }
+
+    // Validar que se ingrese Factura o Packing Slip
+    if (!facturaNumero.trim() && !packingSlip.trim()) {
+      setErrorMsg('Debe ingresar el Número de Factura o el Packing Slip para poder registrar la recepción.');
       return;
     }
 
