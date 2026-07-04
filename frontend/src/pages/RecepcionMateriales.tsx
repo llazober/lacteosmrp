@@ -166,6 +166,34 @@ export default function RecepcionMateriales() {
     }
   }, [sucursalId]);
 
+  // Pre-populate default bins for fluid milks when bins or items change
+  useEffect(() => {
+    let changed = false;
+    const updated = itemsRecibir.map((item) => {
+      // Leche Entera Fluida: SKU MP-LEC-LEF
+      if (item.sku === 'MP-LEC-LEF' && item.binId === undefined && binsLecheEntera.length > 0) {
+        const defaultBin = binsLecheEntera.find(b => b.codigo === 'TANK-01') || binsLecheEntera[0];
+        if (defaultBin) {
+          changed = true;
+          return { ...item, binId: defaultBin.id };
+        }
+      }
+      // Leche Descremada Fluida: SKU MP-LEC-LDF
+      if (item.sku === 'MP-LEC-LDF' && item.binId === undefined && binsLecheDescremada.length > 0) {
+        const defaultBin = binsLecheDescremada.find(b => b.codigo === 'TANK-01') || binsLecheDescremada[0];
+        if (defaultBin) {
+          changed = true;
+          return { ...item, binId: defaultBin.id };
+        }
+      }
+      return item;
+    });
+
+    if (changed) {
+      setItemsRecibir(updated);
+    }
+  }, [binsLecheEntera, binsLecheDescremada, itemsRecibir]);
+
   // Cargar catálogos
   useEffect(() => {
     cargarCatalogos();
@@ -363,8 +391,7 @@ export default function RecepcionMateriales() {
     if (!isBypass) {
       const lecheSinTanque = itemsAEnviar.filter(
         (it) =>
-          (it.descripcion.toLowerCase().includes('leche entera') ||
-            it.descripcion.toLowerCase().includes('leche descremada')) &&
+          (it.sku === 'MP-LEC-LEF' || it.sku === 'MP-LEC-LDF') &&
           !it.binId
       );
       if (lecheSinTanque.length > 0) {
@@ -375,8 +402,8 @@ export default function RecepcionMateriales() {
       // Alerta de capacidad de tanque excedida
       for (let idx = 0; idx < itemsAEnviar.length; idx++) {
         const item = itemsAEnviar[idx];
-        const isEntera = item.descripcion.toLowerCase().includes('leche entera');
-        const isDescremada = item.descripcion.toLowerCase().includes('leche descremada');
+        const isEntera = item.sku === 'MP-LEC-LEF';
+        const isDescremada = item.sku === 'MP-LEC-LDF';
         if (isEntera || isDescremada) {
           const binsList = isEntera ? binsLecheEntera : binsLecheDescremada;
           if (binsList.length > 0) {
@@ -1034,7 +1061,7 @@ export default function RecepcionMateriales() {
                                     }
                                   />
                                 </Box>
-                                {(item.descripcion.toLowerCase().includes('leche entera') || item.descripcion.toLowerCase().includes('leche descremada')) && (
+                                {(item.sku === 'MP-LEC-LEF' || item.sku === 'MP-LEC-LDF') && (
                                   <Box sx={{ gridColumn: 'span 12', mt: 1 }}>
                                     <FormControl fullWidth size="small">
                                       <InputLabel>Tanque de Almacenamiento (Opcional)</InputLabel>
