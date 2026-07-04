@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Paper,
   Typography,
@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Divider,
   Tabs,
   Tab,
   Dialog,
@@ -45,6 +46,7 @@ import {
   Delete,
   QrCode,
   Store,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
 import { useSearchParams } from 'react-router-dom';
@@ -212,6 +214,9 @@ export default function Inventario() {
   const [binsForMover, setBinsForMover] = useState<any[]>([]);
 
   const [openDelete, setOpenDelete] = useState(false);
+
+  const [openDetails, setOpenDetails] = useState(false);
+  const [detailsInv, setDetailsInv] = useState<any | null>(null);
 
   // Catálogo de Productos y Lotes
   const [todosProductos, setTodosProductos] = useState<any[]>([]);
@@ -1260,7 +1265,34 @@ export default function Inventario() {
     }).format(val);
   };
 
-  const filteredInventario = inventario.filter((inv) => {
+  const groupedInventario = useMemo(() => {
+    const groupedMap = new Map<string, any>();
+    inventario.forEach((inv) => {
+      const key = `${inv.sucursalId}_${inv.bodegaId || 'null'}_${inv.productoId}`;
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, {
+          ...inv,
+          existencia: inv.existencia,
+          records: [inv],
+        });
+      } else {
+        const existing = groupedMap.get(key)!;
+        existing.existencia += inv.existencia;
+        existing.records.push(inv);
+        // If the existing representative doesn't have a bin but this one does, use this one's bin as the default/assigned bin!
+        if (!existing.binId && inv.binId) {
+          existing.id = inv.id;
+          existing.binId = inv.binId;
+          existing.bin = inv.bin;
+          existing.existMin = inv.existMin;
+          existing.existMax = inv.existMax;
+        }
+      }
+    });
+    return Array.from(groupedMap.values());
+  }, [inventario]);
+
+  const filteredInventario = groupedInventario.filter((inv) => {
     if (filterSucursalId && inv.sucursalId !== filterSucursalId) {
       return false;
     }
@@ -1640,6 +1672,21 @@ export default function Inventario() {
                           />
                         </TableCell>
                         <TableCell align="right">
+                          <Tooltip title="Ver detalles de Bins y Lotes">
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDetailsInv(inv);
+                                setOpenDetails(true);
+                              }}
+                              sx={{ mr: 0.5 }}
+                            >
+                              <InfoIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+
                           {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
                             <Tooltip title="Editar Stock y Límites">
                               <IconButton
@@ -1648,8 +1695,9 @@ export default function Inventario() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedInv(inv);
+                                  const repRecord = inv.records?.find((r: any) => r.id === inv.id) || inv;
                                   setEditForm({
-                                    existencia: String(inv.existencia),
+                                    existencia: String(repRecord.existencia),
                                     existMin: String(inv.existMin),
                                     existMax: String(inv.existMax),
                                     binId: inv.binId || '',
@@ -1664,6 +1712,7 @@ export default function Inventario() {
                                   }
                                   setOpenEdit(true);
                                 }}
+                                sx={{ mr: 0.5 }}
                               >
                                 <Edit fontSize="small" />
                               </IconButton>
@@ -1678,6 +1727,7 @@ export default function Inventario() {
                                   e.stopPropagation();
                                   handleOpenMoverBin(inv);
                                 }}
+                                sx={{ mr: 0.5 }}
                               >
                                 <CompareArrows fontSize="small" />
                               </IconButton>
@@ -3424,6 +3474,109 @@ export default function Inventario() {
         </DialogActions>
       </Dialog>
 
+      {/* DIALOG: DETALLES DE INVENTARIO POR BINS Y LOTES */}
+      <Dialog open={openDetails} onClose={() => { setOpenDetails(false); setDetailsInv(null); }} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>Desglose de Existencias por Bins y Lotes</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
+          {detailsInv && (
+            <>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  {detailsInv.producto.descripcion}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  SKU: {detailsInv.producto.sku} | Categoría: {detailsInv.producto.categoria}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Sucursal: {detailsInv.sucursal.nombre} {detailsInv.bodega && `| Bodega: ${detailsInv.bodega.nombre}`}
+                </Typography>
+                <Typography variant="h6" sx={{ mt: 1, fontWeight: 800, color: '#38bdf8' }}>
+                  Existencia Total: {detailsInv.existencia} {detailsInv.producto.unidadMedida}
+                </Typography>
+              </Box>
+
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                  Distribución en Bins y Lotes Asociados:
+                </Typography>
+                {detailsInv.records.map((record: any, idx: number) => {
+                  // Find lots for this specific bin record
+                  const recordLots = lotes.filter(
+                    (l: any) =>
+                      l.productoId === detailsInv.productoId &&
+                      (l.binId || '') === (record.binId || '')
+                  );
+
+                  return (
+                    <Box key={record.id || idx} sx={{ mb: 2, p: 2, borderRadius: 2.5, bgcolor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                            Ubicación:
+                          </Typography>
+                          {record.bin ? (
+                            <Chip
+                              label={`${record.bin.codigo} — ${record.bin.nombre}`}
+                              size="small"
+                              sx={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.75rem',
+                                bgcolor: 'rgba(56, 189, 248, 0.15)',
+                                color: '#38bdf8',
+                                fontWeight: 'bold'
+                              }}
+                            />
+                          ) : (
+                            <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+                              Sin Bin (Por defecto)
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#f8fafc' }}>
+                          Stock: {record.existencia} {detailsInv.producto.unidadMedida}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                        Límites de Seguridad — Mín: {record.existMin} | Máx: {record.existMax}
+                      </Typography>
+
+                      {recordLots.length === 0 ? (
+                        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', display: 'block', mt: 1 }}>
+                          No hay lotes específicos registrados en esta ubicación.
+                        </Typography>
+                      ) : (
+                        <Box sx={{ mt: 1, borderTop: '1px dashed rgba(255, 255, 255, 0.1)', pt: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                            Lotes en este Bin:
+                          </Typography>
+                          {recordLots.map((lote: any) => (
+                            <Box key={lote.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}>
+                              <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#e2e8f0' }}>
+                                Lote: <strong>{lote.numeroLote}</strong> (Vence: {dayjs(lote.fechaVencimiento).format('DD/MM/YYYY')})
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontWeight: 750, color: '#38bdf8' }}>
+                                {lote.cantidadActual} {detailsInv.producto.unidadMedida}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => { setOpenDetails(false); setDetailsInv(null); }} variant="contained" sx={{ borderRadius: 2 }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* DIALOG: MOVER STOCK ENTRE BINS */}
       <Dialog open={openMoverBin} onClose={() => { setOpenMoverBin(false); setBinsForMover([]); }} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>Trasladar Stock entre Bins / Ubicaciones</DialogTitle>
@@ -3433,10 +3586,32 @@ export default function Inventario() {
               Producto: <strong>{productos.find(p => p.id === moverBinForm.productoId)?.descripcion}</strong>
               <br />
               Bodega: <strong>{bodegas.find(b => b.id === moverBinForm.bodegaId)?.nombre}</strong>
-              <br />
-              Ubicación de Origen: <strong>{moverBinForm.binOrigenId ? (binsForMover.find(b => b.id === moverBinForm.binOrigenId)?.nombre || moverBinForm.binOrigenId) : 'Ninguno (Por defecto)'}</strong>
             </Typography>
           )}
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Bin / Ubicación de Origen</InputLabel>
+            <Select
+              value={moverBinForm.binOrigenId}
+              label="Bin / Ubicación de Origen"
+              onChange={(e) => {
+                const newOriginId = e.target.value;
+                setMoverBinForm({
+                  ...moverBinForm,
+                  binOrigenId: newOriginId,
+                  binDestinoId: moverBinForm.binDestinoId === newOriginId ? '' : moverBinForm.binDestinoId,
+                  loteId: '',
+                });
+              }}
+            >
+              <MenuItem value="">Ninguno (Por defecto / null)</MenuItem>
+              {binsForMover.map((bin: any) => (
+                <MenuItem key={bin.id} value={bin.id}>
+                  {bin.codigo} — {bin.nombre}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           <FormControl fullWidth size="small">
             <InputLabel>Seleccionar Lote a mover</InputLabel>
@@ -3447,10 +3622,10 @@ export default function Inventario() {
             >
               <MenuItem value="">-- Ninguno (Sin Lote / Mover genérico) --</MenuItem>
               {lotes
-                .filter((l) => l.productoId === moverBinForm.productoId)
+                .filter((l) => l.productoId === moverBinForm.productoId && (l.binId || '') === (moverBinForm.binOrigenId || ''))
                 .map((l) => (
                   <MenuItem key={l.id} value={l.id}>
-                    {l.numeroLote} (Disponible: {l.cantidadActual})
+                    {l.numeroLote} (Disponible: {l.cantidadActual} {productos.find(p => p.id === l.productoId)?.unidadMedida || ''})
                   </MenuItem>
                 ))}
             </Select>
