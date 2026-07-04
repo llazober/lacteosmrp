@@ -186,6 +186,9 @@ model Lote {
 
   mezclasCreadas     MezclaLeche[]           @relation("LoteMixtoRelation")
   mezclasComponentes MezclaLecheComponente[] @relation("LoteOrigenRelation")
+
+  binId          String?
+  bin            Bin?                    @relation(fields: [binId], references: [id])
 }
 
 model Bodega {
@@ -219,6 +222,7 @@ model Bin {
 
   bodega     Bodega       @relation(fields: [bodegaId], references: [id])
   inventarios Inventario[]
+  lotes      Lote[]
 
   @@unique([bodegaId, codigo])
 }

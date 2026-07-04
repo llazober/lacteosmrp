@@ -203,6 +203,7 @@ function MainLayout() {
     { text: 'Compras / OC', icon: <ComprasIcon />, path: '/compras', roles: [], permission: 'VER_COMPRAS' },
     { text: 'Inventarios', icon: <InventarioIcon />, path: '/inventario', roles: [], permission: 'VER_INVENTARIO' },
     { text: 'Bodega Leche Entera', icon: <FrioIcon />, path: '/bodegas/leche-entera', roles: [], permission: 'VER_INVENTARIO' },
+    { text: 'Bodega Leche Descremada', icon: <FrioIcon />, path: '/bodegas/leche-descremada', roles: [], permission: 'VER_INVENTARIO' },
     { text: 'Producción', icon: <ProduccionIcon />, path: '/produccion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PRODUCCION' },
     { text: 'Planificación de Producción', icon: <PlanificacionIcon />, path: '/produccion/planificacion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PLANIFICACION_PRODUCCION' },
     { text: 'Requerimientos MP', icon: <PlanificacionIcon />, path: '/compras/requerimientos', roles: [], permission: 'VER_REQUERIMIENTOS_MP' },
@@ -527,7 +528,8 @@ function MainLayout() {
           <Route path="/frio" element={<Frio />} />
           <Route path="/trazabilidad" element={<Trazabilidad />} />
           <Route path="/inventario" element={<Inventario />} />
-          <Route path="/bodegas/leche-entera" element={<BodegaLecheEntera />} />
+          <Route path="/bodegas/leche-entera" element={<BodegaLecheEntera tipo="LECHE_ENTERA" />} />
+          <Route path="/bodegas/leche-descremada" element={<BodegaLecheEntera tipo="LECHE_DESCREMADA" />} />
           <Route
             path="/produccion"
             element={

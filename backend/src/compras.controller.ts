@@ -241,22 +241,6 @@ export class ComprasController {
           },
         });
 
-        // Crear lote
-        const nuevoLote = await tx.lote.create({
-          data: {
-            numeroLote: loteInfo.numeroLote,
-            productoId: loteInfo.productoId,
-            fechaProduccion: new Date(loteInfo.fechaProduccion),
-            fechaVencimiento: new Date(loteInfo.fechaVencimiento),
-            proveedorId: oc.proveedorId,
-            temperaturaRequeridaMin: parseFloat(loteInfo.tempMin || 2.0),
-            temperaturaRequeridaMax: parseFloat(loteInfo.tempMax || 6.0),
-            cantidadInicial: cantidadRecibidaAhora,
-            cantidadActual: cantidadRecibidaAhora,
-            estado: 'PENDIENTE',
-          },
-        });
-
         const targetBodega = await this.obtenerBodegaParaProducto(oc.sucursalId, loteInfo.productoId, tx);
         if (!targetBodega) {
           throw new BadRequestException('No se encontró bodega para recibir el producto.');
@@ -272,6 +256,23 @@ export class ComprasController {
         });
 
         const targetBinId = associatedInv ? associatedInv.binId : null;
+
+        // Crear lote
+        const nuevoLote = await tx.lote.create({
+          data: {
+            numeroLote: loteInfo.numeroLote,
+            productoId: loteInfo.productoId,
+            fechaProduccion: new Date(loteInfo.fechaProduccion),
+            fechaVencimiento: new Date(loteInfo.fechaVencimiento),
+            proveedorId: oc.proveedorId,
+            temperaturaRequeridaMin: parseFloat(loteInfo.tempMin || 2.0),
+            temperaturaRequeridaMax: parseFloat(loteInfo.tempMax || 6.0),
+            cantidadInicial: cantidadRecibidaAhora,
+            cantidadActual: cantidadRecibidaAhora,
+            estado: 'PENDIENTE',
+            binId: targetBinId,
+          },
+        });
 
         // Upsert en inventario targeting targetBinId
         const existingInv = await tx.inventario.findFirst({

@@ -18,14 +18,18 @@ export class InventarioController {
   constructor(private prisma: PrismaService) {}
 
   @Get('tanque-leche')
-  async obtenerEstadoTanqueLeche() {
-    // 1. Encontrar la bodega de Leche Entera Fluida
+  async obtenerEstadoTanqueLeche(
+    @Query('tipo') tipo?: string,
+    @Query('binId') binId?: string,
+  ) {
+    const targetTipo = tipo || 'LECHE_ENTERA';
+
+    // 1. Encontrar la bodega correspondiente
     const bodegaLeche = await this.prisma.bodega.findFirst({
       where: {
         OR: [
-          { tipoBodega: 'LECHE_ENTERA_FLUIDA' },
-          { nombre: { contains: 'Leche Entera' } },
-          { codigo: { contains: 'LECHE' } },
+          { tipoBodega: targetTipo },
+          { nombre: { contains: targetTipo === 'LECHE_DESCREMADA' ? 'Descremada' : 'Leche Entera' } },
         ],
       },
       include: {
@@ -38,16 +42,19 @@ export class InventarioController {
 
     const bins = bodegaLeche?.bins || [];
 
-    // 2. Capacidad total del silo: suma de capacidades de bins, o 10000 por defecto
-    const capacidadMax = bins.length > 0
-      ? bins.reduce((sum, b) => sum + (b.capacidad || 0), 0) || 10000
-      : 10000;
+    // Determinar el bin seleccionado (por defecto el primero si no se especifica)
+    const selectedBinId = binId || (bins.length > 0 ? bins[0].id : null);
+    const selectedBin = bins.find((b) => b.id === selectedBinId);
 
-    // 3. Encontrar los productos asociados a esta bodega (o sus bins) en Inventario
+    // Capacidad del silo/tanque seleccionado
+    const capacidadMax = selectedBin ? (selectedBin.capacidad || 10000) : 10000;
+
+    // 3. Encontrar los productos asociados a esta bodega en este bin específico en Inventario
     const invs = bodegaLeche
       ? await this.prisma.inventario.findMany({
           where: {
             bodegaId: bodegaLeche.id,
+            binId: selectedBinId,
           },
           select: {
             productoId: true,
@@ -59,8 +66,14 @@ export class InventarioController {
 
     // Fallback por si no hay inventario asignado aún
     if (productIds.length === 0) {
-      const fallbackProd = await this.prisma.producto.findUnique({
-        where: { sku: 'MP-LECHE-CRUDA' },
+      const fallbackSku = targetTipo === 'LECHE_DESCREMADA' ? 'MP-LECHE-DESCREMADA' : 'MP-LECHE-CRUDA';
+      const fallbackProd = await this.prisma.producto.findFirst({
+        where: {
+          OR: [
+            { sku: fallbackSku },
+            { descripcion: { contains: targetTipo === 'LECHE_DESCREMADA' ? 'Descremada' : 'Leche Cruda' } },
+          ],
+        },
       });
       if (fallbackProd) {
         productIds.push(fallbackProd.id);
@@ -71,6 +84,7 @@ export class InventarioController {
       where: {
         productoId: { in: productIds },
         cantidadActual: { gt: 0 },
+        binId: selectedBinId,
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -87,14 +101,25 @@ export class InventarioController {
 
     const totalLitros = lotes.reduce((sum, l) => sum + l.cantidadActual, 0);
 
-    // 4. Obtener historial de mezclas para trazabilidad
+    // 4. Obtener historial de mezclas para trazabilidad de este bin
     const mezclas = await this.prisma.mezclaLeche.findMany({
       take: 20,
       orderBy: { createdAt: 'desc' },
+      where: selectedBinId
+        ? {
+            componentes: {
+              some: {
+                loteOrigen: {
+                  binId: selectedBinId,
+                },
+              },
+            },
+          }
+        : undefined,
       include: {
         loteMixto: true,
         ordenProduccion: {
-          include: { receta: true }
+          include: { receta: true },
         },
         componentes: {
           include: {
@@ -109,7 +134,10 @@ export class InventarioController {
       totalLitros,
       lotes: lotesConColor,
       mezclas,
-      bins: bins.map(b => ({
+      activeBinId: selectedBinId,
+      bodegaId: bodegaLeche?.id,
+      bodegaNombre: bodegaLeche?.nombre,
+      bins: bins.map((b) => ({
         id: b.id,
         codigo: b.codigo,
         nombre: b.nombre,
@@ -566,6 +594,52 @@ export class InventarioController {
             existMax: invOrigen.existMax,
           },
         });
+      }
+
+      // 3.5. Si se especificó loteId, mover o dividir el lote
+      if (loteId) {
+        const lote = await tx.lote.findUnique({ where: { id: loteId } });
+        if (!lote) {
+          throw new BadRequestException(`El lote especificado no existe.`);
+        }
+        if (lote.cantidadActual < cantNum) {
+          throw new BadRequestException(
+            `La cantidad en el lote (${lote.cantidadActual}) es menor que la cantidad a mover (${cantNum}).`,
+          );
+        }
+
+        if (Math.abs(lote.cantidadActual - cantNum) < 0.00001) {
+          // Mover lote completo
+          await tx.lote.update({
+            where: { id: lote.id },
+            data: { binId: destBinId },
+          });
+        } else {
+          // Dividir lote
+          await tx.lote.update({
+            where: { id: lote.id },
+            data: { cantidadActual: lote.cantidadActual - cantNum },
+          });
+
+          const uniqueSuffix = `-S${Date.now().toString().slice(-4)}`;
+          await tx.lote.create({
+            data: {
+              numeroLote: `${lote.numeroLote}${uniqueSuffix}`,
+              productoId: lote.productoId,
+              fechaProduccion: lote.fechaProduccion,
+              fechaVencimiento: lote.fechaVencimiento,
+              proveedorId: lote.proveedorId,
+              certificadoUrl: lote.certificadoUrl,
+              temperaturaRequeridaMin: lote.temperaturaRequeridaMin,
+              temperaturaRequeridaMax: lote.temperaturaRequeridaMax,
+              cantidadInicial: cantNum,
+              cantidadActual: cantNum,
+              estado: lote.estado,
+              binId: destBinId,
+              ordenProduccionId: lote.ordenProduccionId,
+            },
+          });
+        }
       }
 
       // 4. Obtener datos para el movimiento

@@ -209,6 +209,57 @@ export class RecepcionController {
           }
         }
 
+        // Buscar Bodega destino
+        const targetBodega = await this.obtenerBodegaParaProducto(sucursalId, item.productoId, tx);
+        if (!targetBodega) {
+          throw new BadRequestException(`No se encontró bodega para almacenar el producto "${prodDb.descripcion}".`);
+        }
+
+        // Buscar si ya existe una asociación en inventario para este producto con un bin específico en esta bodega
+        const associatedInv = await tx.inventario.findFirst({
+          where: {
+            productoId: item.productoId,
+            bodegaId: targetBodega.id,
+            NOT: { binId: null },
+          },
+        });
+
+        const targetBinId = item.binId || (associatedInv ? associatedInv.binId : null);
+
+        // Si la bodega es de tipo leche entera fluida (o es la bodega de leche)
+        const esBodegaLeche = targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+                              targetBodega.tipoBodega === 'LECHE_ENTERA' ||
+                              targetBodega.nombre.toLowerCase().includes('leche entera') ||
+                              targetBodega.codigo.toLowerCase().includes('leche');
+
+        if (esBodegaLeche) {
+          // Obtener bins de la bodega
+          const bins = await tx.bin.findMany({
+            where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
+          });
+          const capMax = bins.reduce((sum: number, b: any) => sum + (b.capacidad || 0), 0) || 10000;
+
+          // Obtener todos los productos asociados a esta bodega en Inventario
+          const invs = await tx.inventario.findMany({
+            where: { bodegaId: targetBodega.id },
+            select: { productoId: true },
+          });
+          const productIds = Array.from(new Set([item.productoId, ...invs.map((i: any) => i.productoId)]));
+
+          const activeLotes = await tx.lote.findMany({
+            where: {
+              productoId: { in: productIds },
+              cantidadActual: { gt: 0 },
+            },
+          });
+          const currentTotal = activeLotes.reduce((sum: number, l: any) => sum + l.cantidadActual, 0);
+          if (currentTotal + cantidad > capMax) {
+            throw new BadRequestException(
+              `Capacidad de la bodega/tanque excedida. Capacidad máxima: ${capMax.toLocaleString()}L. Disponible: ${(capMax - currentTotal).toLocaleString()}L. Intento de recibir: ${cantidad.toLocaleString()}L.`,
+            );
+          }
+        }
+
         // Clasificar Producto (Materia Prima/Insumo vs MNA)
         // MP/Insumo requiere creación de lote
         const esMateriaPrima =
@@ -250,61 +301,11 @@ export class RecepcionController {
               cantidadInicial: cantidad,
               cantidadActual: cantidad,
               estado: (prodDb.tipoProducto === 'MATERIA_PRIMA' || prodDb.tipoProducto === 'MP') ? 'PENDIENTE' : 'APROBADO',
+              binId: targetBinId,
             },
           });
           loteId = nuevoLote.id;
         }
-
-        // Buscar Bodega destino
-        const targetBodega = await this.obtenerBodegaParaProducto(sucursalId, item.productoId, tx);
-        if (!targetBodega) {
-          throw new BadRequestException(`No se encontró bodega para almacenar el producto "${prodDb.descripcion}".`);
-        }
-
-        // Si la bodega es de tipo leche entera fluida (o es la bodega de leche)
-        const esBodegaLeche = targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
-                              targetBodega.tipoBodega === 'LECHE_ENTERA' ||
-                              targetBodega.nombre.toLowerCase().includes('leche entera') ||
-                              targetBodega.codigo.toLowerCase().includes('leche');
-
-        if (esBodegaLeche) {
-          // Obtener bins de la bodega
-          const bins = await tx.bin.findMany({
-            where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
-          });
-          const capMax = bins.reduce((sum: number, b: any) => sum + (b.capacidad || 0), 0) || 10000;
-
-          // Obtener todos los productos asociados a esta bodega en Inventario
-          const invs = await tx.inventario.findMany({
-            where: { bodegaId: targetBodega.id },
-            select: { productoId: true },
-          });
-          const productIds = Array.from(new Set([item.productoId, ...invs.map((i: any) => i.productoId)]));
-
-          const activeLotes = await tx.lote.findMany({
-            where: {
-              productoId: { in: productIds },
-              cantidadActual: { gt: 0 },
-            },
-          });
-          const currentTotal = activeLotes.reduce((sum: number, l: any) => sum + l.cantidadActual, 0);
-          if (currentTotal + cantidad > capMax) {
-            throw new BadRequestException(
-              `Capacidad de la bodega/tanque excedida. Capacidad máxima: ${capMax.toLocaleString()}L. Disponible: ${(capMax - currentTotal).toLocaleString()}L. Intento de recibir: ${cantidad.toLocaleString()}L.`,
-            );
-          }
-        }
-
-        // Buscar si ya existe una asociación en inventario para este producto con un bin específico en esta bodega
-        const associatedInv = await tx.inventario.findFirst({
-          where: {
-            productoId: item.productoId,
-            bodegaId: targetBodega.id,
-            NOT: { binId: null },
-          },
-        });
-
-        const targetBinId = associatedInv ? associatedInv.binId : null;
 
         // Upsert en Inventario targeting targetBinId
         const existingInv = await tx.inventario.findFirst({

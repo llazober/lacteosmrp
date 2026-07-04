@@ -15,6 +15,8 @@ import {
   CircularProgress,
   Chip,
   Divider,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -67,19 +69,23 @@ interface EstadoTanque {
   totalLitros: number;
   lotes: LoteLeche[];
   mezclas: MezclaLeche[];
+  activeBinId: string | null;
   bins: { id: string; codigo: string; nombre: string; capacidad: number; unidad: string }[];
 }
 
-export default function BodegaLecheEntera() {
+export default function BodegaLecheEntera({ tipo = 'LECHE_ENTERA' }: { tipo?: 'LECHE_ENTERA' | 'LECHE_DESCREMADA' }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<EstadoTanque | null>(null);
   const [selectedLote, setSelectedLote] = useState<LoteLeche | null>(null);
   const [hoveredLoteId, setHoveredLoteId] = useState<string | null>(null);
+  const [activeBinId, setActiveBinId] = useState<string | null>(null);
 
-  const fetchTankState = async () => {
+  const fetchTankState = async (binToFetch?: string) => {
     setLoading(true);
     try {
-      const res = await apiFetch('/inventario/tanque-leche');
+      const bId = binToFetch !== undefined ? binToFetch : activeBinId;
+      const binQuery = bId ? `&binId=${bId}` : '';
+      const res = await apiFetch(`/inventario/tanque-leche?tipo=${tipo}${binQuery}`);
       setData(res);
       if (res.lotes && res.lotes.length > 0) {
         setSelectedLote(res.lotes[0]);
@@ -94,8 +100,34 @@ export default function BodegaLecheEntera() {
   };
 
   useEffect(() => {
-    fetchTankState();
-  }, []);
+    setActiveBinId(null);
+    setData(null);
+    const getInitialState = async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(`/inventario/tanque-leche?tipo=${tipo}`);
+        setData(res);
+        if (res.activeBinId) {
+          setActiveBinId(res.activeBinId);
+        }
+        if (res.lotes && res.lotes.length > 0) {
+          setSelectedLote(res.lotes[0]);
+        } else {
+          setSelectedLote(null);
+        }
+      } catch (err) {
+        console.error('Error al cargar estado del tanque:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getInitialState();
+  }, [tipo]);
+
+  const handleTabChange = (_event: React.SyntheticEvent, newBinId: string) => {
+    setActiveBinId(newBinId);
+    fetchTankState(newBinId);
+  };
 
   if (loading && !data) {
     return (
@@ -106,8 +138,8 @@ export default function BodegaLecheEntera() {
   }
 
   const { capacidadMax = 10000, totalLitros = 0, lotes = [], mezclas = [], bins = [] } = data || {};
-  // Si hay bins, el primer bin define el silo principal
-  const binPrincipal = bins.length > 0 ? bins[0] : null;
+  // Buscar el bin activo o por defecto el primero
+  const binPrincipal = bins.find((b) => b.id === activeBinId) || (bins.length > 0 ? bins[0] : null);
   const capacidadSilo = binPrincipal?.capacidad || capacidadMax;
   const porcentajeOcupado = (totalLitros / capacidadSilo) * 100;
   const disponible = capacidadSilo - totalLitros;
@@ -184,10 +216,12 @@ export default function BodegaLecheEntera() {
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800, background: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <TankIcon sx={{ fontSize: 36, color: '#38bdf8' }} />
-            Bodega de Leche Entera Fluida
+            {tipo === 'LECHE_DESCREMADA' ? 'Bodega de Leche Descremada' : 'Bodega de Leche Entera'}
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-            Visualización en tiempo real del nivel y mezcla de lotes en el Silo de Recepción.
+            {tipo === 'LECHE_DESCREMADA'
+              ? 'Visualización en tiempo real del nivel y mezcla de lotes en el Silo de Leche Descremada.'
+              : 'Visualización en tiempo real del nivel y mezcla de lotes en el Silo de Recepción.'}
             {binPrincipal && (
               <> Capacidad configurada: <strong>{capacidadSilo.toLocaleString()} {binPrincipal.unidad}</strong></>
             )}
@@ -197,7 +231,7 @@ export default function BodegaLecheEntera() {
           variant="contained"
           color="primary"
           startIcon={<RefreshIcon />}
-          onClick={fetchTankState}
+          onClick={() => fetchTankState(activeBinId || undefined)}
           sx={{
             background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
             boxShadow: '0 4px 20px rgba(2, 132, 199, 0.3)',
@@ -211,6 +245,46 @@ export default function BodegaLecheEntera() {
           Actualizar Estado
         </Button>
       </Box>
+
+      {/* Tabs para seleccionar el Tanque / Bin */}
+      {bins.length > 0 && (
+        <Box sx={{ borderBottom: 1, borderColor: 'rgba(255, 255, 255, 0.08)', mb: 4 }}>
+          <Tabs
+            value={activeBinId || (bins.length > 0 ? bins[0].id : '')}
+            onChange={handleTabChange}
+            textColor="primary"
+            indicatorColor="primary"
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              '& .MuiTab-root': {
+                color: 'text.secondary',
+                fontWeight: 750,
+                fontSize: '0.9rem',
+                textTransform: 'none',
+                minWidth: 140,
+                borderBottom: '2px solid transparent',
+                transition: 'color 0.2s',
+                '&.Mui-selected': {
+                  color: '#38bdf8',
+                },
+                '&:hover': {
+                  color: 'text.primary',
+                },
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#38bdf8',
+                height: 3,
+                borderRadius: '3px 3px 0 0',
+              }
+            }}
+          >
+            {bins.map((bin) => (
+              <Tab key={bin.id} label={`${bin.codigo} — ${bin.nombre}`} value={bin.id} />
+            ))}
+          </Tabs>
+        </Box>
+      )}
 
       {/* Main Grid via CSS grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(12, 1fr)' }, gap: 4 }}>
