@@ -596,55 +596,172 @@ export class InventarioController {
         });
       }
 
-      // 3.5. Si se especificó loteId, mover o dividir el lote
-      if (loteId) {
-        const lote = await tx.lote.findUnique({ where: { id: loteId } });
-        if (!lote) {
-          throw new BadRequestException(`El lote especificado no existe.`);
-        }
-        if (lote.cantidadActual < cantNum) {
+      // Fetch product info to check type/name
+      const prod = await tx.producto.findUnique({ where: { id: productoId } });
+      if (!prod) {
+        throw new BadRequestException('El producto especificado no existe.');
+      }
+
+      const bodega = await tx.bodega.findUnique({ where: { id: bodegaId } });
+      const esBodegaLeche = bodega ? (
+        bodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+        bodega.tipoBodega === 'LECHE_ENTERA' ||
+        bodega.tipoBodega === 'LECHE_DESCREMADA' ||
+        bodega.nombre.toLowerCase().includes('leche entera') ||
+        bodega.nombre.toLowerCase().includes('leche descremada') ||
+        bodega.codigo.toLowerCase().includes('leche')
+      ) : false;
+
+      let resolvedLoteId = loteId;
+
+      if (esBodegaLeche) {
+        const activeLotes = await tx.lote.findMany({
+          where: {
+            productoId,
+            cantidadActual: { gt: 0 },
+            binId: sourceBinId,
+          },
+          orderBy: { fechaVencimiento: 'asc' },
+        });
+
+        if (activeLotes.length === 0) {
           throw new BadRequestException(
-            `La cantidad en el lote (${lote.cantidadActual}) es menor que la cantidad a mover (${cantNum}).`,
+            'No hay lotes activos en el bin de origen para realizar el traslado.',
           );
-        }
+        } else if (activeLotes.length === 1) {
+          const singleLote = activeLotes[0];
+          resolvedLoteId = singleLote.id;
+          if (singleLote.cantidadActual < cantNum) {
+            throw new BadRequestException(
+              `La cantidad en el único lote disponible (${singleLote.cantidadActual}) es menor que la cantidad a mover (${cantNum}).`,
+            );
+          }
 
-        if (Math.abs(lote.cantidadActual - cantNum) < 0.00001) {
-          // Mover lote completo
-          await tx.lote.update({
-            where: { id: lote.id },
-            data: { binId: destBinId },
-          });
+          if (Math.abs(singleLote.cantidadActual - cantNum) < 0.00001) {
+            await tx.lote.update({
+              where: { id: singleLote.id },
+              data: { binId: destBinId },
+            });
+          } else {
+            await tx.lote.update({
+              where: { id: singleLote.id },
+              data: { cantidadActual: singleLote.cantidadActual - cantNum },
+            });
+
+            const uniqueSuffix = `-S${Date.now().toString().slice(-4)}`;
+            const nuevoLoteTraslado = await tx.lote.create({
+              data: {
+                numeroLote: `${singleLote.numeroLote}${uniqueSuffix}`,
+                productoId: singleLote.productoId,
+                fechaProduccion: singleLote.fechaProduccion,
+                fechaVencimiento: singleLote.fechaVencimiento,
+                proveedorId: singleLote.proveedorId,
+                temperaturaRequeridaMin: singleLote.temperaturaRequeridaMin,
+                temperaturaRequeridaMax: singleLote.temperaturaRequeridaMax,
+                cantidadInicial: cantNum,
+                cantidadActual: cantNum,
+                estado: singleLote.estado,
+                binId: destBinId,
+              },
+            });
+            resolvedLoteId = nuevoLoteTraslado.id;
+          }
         } else {
-          // Dividir lote
-          await tx.lote.update({
-            where: { id: lote.id },
-            data: { cantidadActual: lote.cantidadActual - cantNum },
-          });
+          // Multiple lotes: proportional deduction and parent transfer mix lote creation
+          const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
+          if (totalDisponible < cantNum) {
+            throw new BadRequestException(
+              `El stock total de todos los lotes en el bin (${totalDisponible}) es menor que la cantidad a mover (${cantNum}).`,
+            );
+          }
 
-          const uniqueSuffix = `-S${Date.now().toString().slice(-4)}`;
-          await tx.lote.create({
+          const fraction = cantNum / totalDisponible;
+          for (const lote of activeLotes) {
+            const aDescontar = lote.cantidadActual * fraction;
+            const newCantidadActual = Math.max(0, lote.cantidadActual - aDescontar);
+            await tx.lote.update({
+              where: { id: lote.id },
+              data: { cantidadActual: newCantidadActual },
+            });
+          }
+
+          const minVencimiento = new Date(Math.min(...activeLotes.map(l => l.fechaVencimiento.getTime())));
+          let proveedorInterno = await tx.proveedor.findFirst({
+            where: { codigo: 'INTERNO' },
+          });
+          if (!proveedorInterno) {
+            proveedorInterno = await tx.proveedor.findFirst();
+          }
+          const proveedorId = proveedorInterno ? proveedorInterno.id : activeLotes[0].proveedorId;
+
+          const nuevoLoteMixto = await tx.lote.create({
             data: {
-              numeroLote: `${lote.numeroLote}${uniqueSuffix}`,
-              productoId: lote.productoId,
-              fechaProduccion: lote.fechaProduccion,
-              fechaVencimiento: lote.fechaVencimiento,
-              proveedorId: lote.proveedorId,
-              certificadoUrl: lote.certificadoUrl,
-              temperaturaRequeridaMin: lote.temperaturaRequeridaMin,
-              temperaturaRequeridaMax: lote.temperaturaRequeridaMax,
+              numeroLote: `L-MIX-TR-${prod.sku}-${Date.now()}`,
+              productoId,
+              fechaProduccion: new Date(),
+              fechaVencimiento: minVencimiento,
+              proveedorId: proveedorId,
+              temperaturaRequeridaMin: prod.temperaturaMin || 2.0,
+              temperaturaRequeridaMax: prod.temperaturaMax || 4.0,
               cantidadInicial: cantNum,
               cantidadActual: cantNum,
-              estado: lote.estado,
+              estado: 'APROBADO',
               binId: destBinId,
-              ordenProduccionId: lote.ordenProduccionId,
             },
           });
+          resolvedLoteId = nuevoLoteMixto.id;
+        }
+      } else {
+        // Normal non-milk products: proceed with the normal loteId logic
+        if (loteId) {
+          const lote = await tx.lote.findUnique({ where: { id: loteId } });
+          if (!lote) {
+            throw new BadRequestException(`El lote especificado no existe.`);
+          }
+          if (lote.cantidadActual < cantNum) {
+            throw new BadRequestException(
+              `La cantidad en el lote (${lote.cantidadActual}) es menor que la cantidad a mover (${cantNum}).`,
+            );
+          }
+
+          if (Math.abs(lote.cantidadActual - cantNum) < 0.00001) {
+            // Mover lote completo
+            await tx.lote.update({
+              where: { id: lote.id },
+              data: { binId: destBinId },
+            });
+          } else {
+            // Dividir lote
+            await tx.lote.update({
+              where: { id: lote.id },
+              data: { cantidadActual: lote.cantidadActual - cantNum },
+            });
+
+            const uniqueSuffix = `-S${Date.now().toString().slice(-4)}`;
+            const nuevoLote = await tx.lote.create({
+              data: {
+                numeroLote: `${lote.numeroLote}${uniqueSuffix}`,
+                productoId: lote.productoId,
+                fechaProduccion: lote.fechaProduccion,
+                fechaVencimiento: lote.fechaVencimiento,
+                proveedorId: lote.proveedorId,
+                certificadoUrl: lote.certificadoUrl,
+                temperaturaRequeridaMin: lote.temperaturaRequeridaMin,
+                temperaturaRequeridaMax: lote.temperaturaRequeridaMax,
+                cantidadInicial: cantNum,
+                cantidadActual: cantNum,
+                estado: lote.estado,
+                binId: destBinId,
+                ordenProduccionId: lote.ordenProduccionId,
+              },
+            });
+            resolvedLoteId = nuevoLote.id;
+          }
         }
       }
 
       // 4. Obtener datos para el movimiento
-      const prod = await tx.producto.findUnique({ where: { id: productoId } });
-      const lote = loteId ? await tx.lote.findUnique({ where: { id: loteId } }) : null;
+      const lote = resolvedLoteId ? await tx.lote.findUnique({ where: { id: resolvedLoteId } }) : null;
       const binOrigen = sourceBinId ? await tx.bin.findUnique({ where: { id: sourceBinId } }) : null;
       const binDestino = destBinId ? await tx.bin.findUnique({ where: { id: destBinId } }) : null;
 
@@ -656,7 +773,7 @@ export class InventarioController {
         data: {
           tipo: 'SALIDA',
           productoId,
-          loteId: loteId || null,
+          loteId: resolvedLoteId || null,
           sucursalOrigenId: sucursalId,
           bodegaOrigenId: bodegaId,
           cantidad: cantNum,
@@ -669,7 +786,7 @@ export class InventarioController {
         data: {
           tipo: 'ENTRADA',
           productoId,
-          loteId: loteId || null,
+          loteId: resolvedLoteId || null,
           sucursalDestinoId: sucursalId,
           bodegaDestinoId: bodegaId,
           cantidad: cantNum,
