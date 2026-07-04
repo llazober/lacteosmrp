@@ -1652,48 +1652,78 @@ export class ProduccionController implements OnModuleInit {
         },
         include: { bin: true },
       }) : [];
-      const stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
+      let stockDisponible = 0;
+      let binInfo: any = null;
+      let disableTankSelection = false;
 
-      // Sort inventory records so that records with stock come first, then sorted by bin code ascending
-      const sortedInvs = [...invs].sort((a, b) => {
-        if (a.existencia > 0 && b.existencia <= 0) return -1;
-        if (b.existencia > 0 && a.existencia <= 0) return 1;
-        if (a.existencia > 0 && b.existencia > 0) {
-          if (b.existencia !== a.existencia) {
-            return b.existencia - a.existencia;
-          }
-        }
-        const codeA = a.bin?.codigo || 'ZZZ';
-        const codeB = b.bin?.codigo || 'ZZZ';
-        return codeA.localeCompare(codeB);
-      });
-      const mainInv = sortedInvs.find(i => i.binId === null) || sortedInvs[0];
-      let binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
+      const tank1Inv = invs.find(i => i.bin?.codigo === 'TANK-01');
 
-      if (op.pickingCompletado && esBodegaLeche) {
-        const mezcla = await this.prisma.mezclaLeche.findFirst({
-          where: { ordenProduccionId: op.id },
-          include: {
-            componentes: {
-              include: {
-                loteOrigen: {
-                  include: { bin: true }
+      if (esBodegaLeche) {
+        // Resolve target bin
+        if (op.pickingCompletado) {
+          const mezcla = await this.prisma.mezclaLeche.findFirst({
+            where: { ordenProduccionId: op.id },
+            include: {
+              componentes: {
+                include: {
+                  loteOrigen: {
+                    include: { bin: true }
+                  }
                 }
               }
             }
-          }
-        });
-        if (mezcla && mezcla.componentes.length > 0) {
-          const firstCompBin = mezcla.componentes[0].loteOrigen?.bin;
-          if (firstCompBin) {
-            binInfo = {
-              id: firstCompBin.id,
-              codigo: firstCompBin.codigo,
-              nombre: firstCompBin.nombre,
-              capacidad: firstCompBin.capacidad,
-            };
+          });
+          if (mezcla && mezcla.componentes.length > 0) {
+            const firstCompBin = mezcla.componentes[0].loteOrigen?.bin;
+            if (firstCompBin) {
+              binInfo = {
+                id: firstCompBin.id,
+                codigo: firstCompBin.codigo,
+                nombre: firstCompBin.nombre,
+                capacidad: firstCompBin.capacidad,
+              };
+            }
           }
         }
+
+        // If not completed or could not resolve completed bin, default to TANK-01
+        if (!binInfo) {
+          if (tank1Inv?.bin) {
+            binInfo = {
+              id: tank1Inv.bin.id,
+              codigo: tank1Inv.bin.codigo,
+              nombre: tank1Inv.bin.nombre,
+              capacidad: tank1Inv.bin.capacidad,
+            };
+          } else {
+            // Fallback to first bin if TANK-01 not found
+            const firstBinInv = invs.find(i => i.bin !== null);
+            if (firstBinInv?.bin) {
+              binInfo = {
+                id: firstBinInv.bin.id,
+                codigo: firstBinInv.bin.codigo,
+                nombre: firstBinInv.bin.nombre,
+                capacidad: firstBinInv.bin.capacidad,
+              };
+            }
+          }
+        }
+
+        // Determine stock based on resolved binInfo
+        if (binInfo) {
+          const matchedInv = invs.find(i => i.binId === binInfo.id);
+          stockDisponible = matchedInv ? matchedInv.existencia : 0;
+        }
+
+        // Disable selection if TANK-01 has stock
+        if (tank1Inv && tank1Inv.existencia > 0) {
+          disableTankSelection = true;
+        }
+      } else {
+        // Normal products: sum all inventories
+        stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
+        const mainInv = invs.find(i => i.binId === null) || invs[0];
+        binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
       }
 
       let bodegaBins: any[] = [];
@@ -1798,6 +1828,7 @@ export class ProduccionController implements OnModuleInit {
         } : null,
         bin: binInfo,
         bins: bodegaBins,
+        disableTankSelection,
       });
     }
 
@@ -1907,16 +1938,24 @@ export class ProduccionController implements OnModuleInit {
                               bodOrigen.codigo.toLowerCase().includes('leche');
 
         if (esBodegaLeche) {
-          // Resolve default tank/bin for this product in the bodega if not explicitly passed
+          const invs = await tx.inventario.findMany({
+            where: {
+              productoId: actualProductoId,
+              bodegaId: bodOrigen.id,
+            },
+            include: { bin: true },
+          });
+
+          const tank1Inv = invs.find(i => i.bin?.codigo === 'TANK-01');
           let targetBinId = itemPicking.binId;
+
+          // If TANK-01 has stock, we ALWAYS force targetBinId to be TANK-01!
+          if (tank1Inv && tank1Inv.existencia > 0) {
+            targetBinId = tank1Inv.binId;
+          }
+
           if (!targetBinId) {
-            const invs = await tx.inventario.findMany({
-              where: {
-                productoId: actualProductoId,
-                bodegaId: bodOrigen.id,
-              },
-              include: { bin: true },
-            });
+            // If TANK-01 is empty or not found, resolve fallback tank using stock/alphabetic sorting
             const sortedInvs = [...invs].sort((a, b) => {
               if (a.existencia > 0 && b.existencia <= 0) return -1;
               if (b.existencia > 0 && a.existencia <= 0) return 1;

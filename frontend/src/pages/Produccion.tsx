@@ -1815,6 +1815,12 @@ export default function Produccion() {
                     const isRawMilk = !!ing.esBodegaLeche;
 
                     let currentStock = ing.stockDisponible;
+                    if (isRawMilk && ing.binId) {
+                      const selectedBin = (ing.bins || []).find((b: any) => b.id === ing.binId);
+                      if (selectedBin) {
+                        currentStock = selectedBin.existencia;
+                      }
+                    }
                     let currentLotes = ing.lotesDisponibles || [];
                     let currentUnit = ing.unidadMedida;
                     let currentBodega = ing.bodega;
@@ -1906,25 +1912,54 @@ export default function Produccion() {
                         </TableCell>
                         <TableCell>
                           {isRawMilk ? (
-                            <Box>
-                              <Chip
-                                label="Mezcla Proporcional"
-                                size="small"
-                                color="info"
-                                sx={{
-                                  fontWeight: 800,
-                                  background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
-                                  color: 'white',
-                                  mb: 0.5,
-                                }}
-                              />
-                              {ing.bin && (
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#a5b4fc' }}>
-                                  Silo origen: {ing.bin.codigo} — {ing.bin.nombre}
-                                </Typography>
-                              )}
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.72rem' }}>
-                                Lote virtual de mezcla automático del silo.
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 220 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Chip
+                                  label="Mezcla Proporcional"
+                                  size="small"
+                                  color="info"
+                                  sx={{
+                                    fontWeight: 800,
+                                    background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
+                                    color: 'white',
+                                    height: 24,
+                                  }}
+                                />
+                                {ing.disableTankSelection && (
+                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.68rem' }}>
+                                    (Fijo TANK-01)
+                                  </Typography>
+                                )}
+                              </Box>
+                              
+                              <FormControl size="small" fullWidth>
+                                <Select
+                                  value={ing.binId || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const newIng = [...pickingData.ingredientes];
+                                    newIng[idx].binId = val;
+                                    setPickingData({ ...pickingData, ingredientes: newIng });
+                                  }}
+                                  disabled={!!ing.disableTankSelection}
+                                  displayEmpty
+                                  sx={{ fontSize: '0.75rem', height: '32px' }}
+                                >
+                                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>
+                                    <em>-- Seleccione Silo/Tanque --</em>
+                                  </MenuItem>
+                                  {(ing.bins || []).map((b: any) => (
+                                    <MenuItem key={b.id} value={b.id} sx={{ fontSize: '0.75rem' }}>
+                                      {b.codigo} — {b.nombre} {b.existencia > 0 ? `(${b.existencia} ${ing.unidadMedida})` : '(Vacío)'}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem', mt: 0.2 }}>
+                                {ing.disableTankSelection 
+                                  ? 'Silo TANK-01 tiene stock. Selección bloqueada.'
+                                  : 'Silo TANK-01 está vacío. Seleccione otro tanque.'}
                               </Typography>
                             </Box>
                           ) : (
