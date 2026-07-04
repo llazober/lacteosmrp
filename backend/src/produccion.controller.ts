@@ -1656,13 +1656,26 @@ export class ProduccionController implements OnModuleInit {
       let binInfo: any = null;
       let disableTankSelection = false;
 
+      let bodegaBins: any[] = [];
+      if (esBodegaLeche && targetBodega) {
+        bodegaBins = await this.prisma.bin.findMany({
+          where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
+          orderBy: { codigo: 'asc' },
+        });
+      }
+
       const tank1Inv = invs.find(i => i.bin?.codigo === 'TANK-01');
 
       if (esBodegaLeche) {
         // Resolve target bin
         if (op.pickingCompletado) {
           const mezcla = await this.prisma.mezclaLeche.findFirst({
-            where: { ordenProduccionId: op.id },
+            where: {
+              ordenProduccionId: op.id,
+              loteMixto: {
+                productoId: reqDetalle.productoId,
+              },
+            },
             include: {
               componentes: {
                 include: {
@@ -1688,7 +1701,15 @@ export class ProduccionController implements OnModuleInit {
 
         // If not completed or could not resolve completed bin, default to TANK-01
         if (!binInfo) {
-          if (tank1Inv?.bin) {
+          const tank1Bin = bodegaBins.find(b => b.codigo === 'TANK-01');
+          if (tank1Bin) {
+            binInfo = {
+              id: tank1Bin.id,
+              codigo: tank1Bin.codigo,
+              nombre: tank1Bin.nombre,
+              capacidad: tank1Bin.capacidad,
+            };
+          } else if (tank1Inv?.bin) {
             binInfo = {
               id: tank1Inv.bin.id,
               codigo: tank1Inv.bin.codigo,
@@ -1704,6 +1725,13 @@ export class ProduccionController implements OnModuleInit {
                 codigo: firstBinInv.bin.codigo,
                 nombre: firstBinInv.bin.nombre,
                 capacidad: firstBinInv.bin.capacidad,
+              };
+            } else if (bodegaBins.length > 0) {
+              binInfo = {
+                id: bodegaBins[0].id,
+                codigo: bodegaBins[0].codigo,
+                nombre: bodegaBins[0].nombre,
+                capacidad: bodegaBins[0].capacidad,
               };
             }
           }
@@ -1724,14 +1752,6 @@ export class ProduccionController implements OnModuleInit {
         stockDisponible = invs.reduce((sum, i) => sum + i.existencia, 0);
         const mainInv = invs.find(i => i.binId === null) || invs[0];
         binInfo = mainInv?.bin ? { id: mainInv.bin.id, codigo: mainInv.bin.codigo, nombre: mainInv.bin.nombre, capacidad: mainInv.bin.capacidad } : null;
-      }
-
-      let bodegaBins: any[] = [];
-      if (esBodegaLeche && targetBodega) {
-        bodegaBins = await this.prisma.bin.findMany({
-          where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
-          orderBy: { codigo: 'asc' },
-        });
       }
 
       // Obtener stock y lotes para cada sustituto
