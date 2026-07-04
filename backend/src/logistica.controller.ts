@@ -1639,8 +1639,12 @@ export class LogisticaController implements OnModuleInit {
           tipoBodega = 'QUIMICOS';
         } else if (prod.categoria === 'LABORATORIO') {
           tipoBodega = 'LABORATORIO';
-        } else if (prod.sku === 'MP-LECHE-CRUDA') {
+        } else if (prod.sku === 'MP-LECHE-CRUDA' || prod.sku === 'MP-LEC-LEF') {
           tipoBodega = 'LECHE_ENTERA';
+        } else if (prod.sku === 'MP-LEC-LDF') {
+          tipoBodega = 'LECHE_DESCREMADA';
+        } else if (prod.sku === 'MP-LEC-LDEP') {
+          tipoBodega = 'INSUMOS';
         } else if (prod.unidadMedida === 'UNIDAD' && (prod.sku.includes('ENV') || prod.descripcion.toLowerCase().includes('envase') || prod.descripcion.toLowerCase().includes('empaque'))) {
           tipoBodega = 'EMPAQUE';
         }

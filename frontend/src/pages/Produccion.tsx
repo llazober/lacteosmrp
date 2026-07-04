@@ -595,7 +595,7 @@ export default function Produccion() {
             cantidadPicked: parseFloat(i.cantidadPicked),
             picked: i.picked,
             loteNumero: i.loteNumero || '',
-            binId: i.bin?.id || '',
+            binId: i.binId || i.bin?.id || '',
           })),
         }),
       });
@@ -1802,8 +1802,8 @@ export default function Produccion() {
                     <TableCell align="right">Requerido</TableCell>
                     <TableCell align="right">Ya Entregado</TableCell>
                     <TableCell align="right">Stock CD (Disponible)</TableCell>
-                    <TableCell sx={{ minWidth: 200 }}>Lote Escaneado / Seleccionado</TableCell>
-                    <TableCell align="right" sx={{ width: 140 }}>Cant. Entregada (Issue Qty)</TableCell>
+                    <TableCell sx={{ width: 170, minWidth: 170 }}>Lote Escaneado / Seleccionado</TableCell>
+                    <TableCell align="right" sx={{ width: 190, minWidth: 190 }}>Cant. Entregada (Issue Qty)</TableCell>
                     <TableCell align="right" sx={{ width: 140 }}>Faltante (Bal Required)</TableCell>
                     <TableCell align="center">¿Picked? (Recolectado)</TableCell>
                   </TableRow>
@@ -1912,7 +1912,7 @@ export default function Produccion() {
                         </TableCell>
                         <TableCell>
                           {isRawMilk ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 220 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: 150, minWidth: 150 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Chip
                                   label="Mezcla Proporcional"
@@ -1966,6 +1966,7 @@ export default function Produccion() {
                             <>
                               <Autocomplete
                                 freeSolo
+                                sx={{ width: 150, minWidth: 150 }}
                                 options={currentLotes ? currentLotes.map((l: any) => l.numeroLote) : []}
                                 value={ing.loteNumero || ''}
                                 onChange={(_, newValue) => {
@@ -2006,6 +2007,8 @@ export default function Produccion() {
                             }}
                             error={isShortage && ing.picked}
                             helperText={isShortage && ing.picked ? 'Excede stock disponible' : ''}
+                            slotProps={{ htmlInput: { step: "0.00001", style: { textAlign: 'right' } } }}
+                            sx={{ width: 170 }}
                           />
                         </TableCell>
                         <TableCell align="right">
