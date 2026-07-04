@@ -3643,23 +3643,39 @@ export default function Inventario() {
             </Select>
           </FormControl>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Seleccionar Lote a mover</InputLabel>
-            <Select
-              value={moverBinForm.loteId}
-              label="Seleccionar Lote a mover"
-              onChange={(e) => setMoverBinForm({ ...moverBinForm, loteId: e.target.value })}
-            >
-              <MenuItem value="">-- Ninguno (Sin Lote / Mover genérico) --</MenuItem>
-              {lotes
-                .filter((l) => l.productoId === moverBinForm.productoId && (l.binId || '') === (moverBinForm.binOrigenId || ''))
-                .map((l) => (
-                  <MenuItem key={l.id} value={l.id}>
-                    {l.numeroLote} (Disponible: {l.cantidadActual} {productos.find(p => p.id === l.productoId)?.unidadMedida || ''})
-                  </MenuItem>
-                ))}
-            </Select>
-          </FormControl>
+          {(() => {
+            const selectedProdForMover = productos.find(p => p.id === moverBinForm.productoId);
+            const isMoverLeche = selectedProdForMover ? (
+              selectedProdForMover.sku === 'MP-LEC-LEF' ||
+              selectedProdForMover.sku === 'MP-LEC-LDF' ||
+              selectedProdForMover.sku === 'MP-LECHE-CRUDA' ||
+              (selectedProdForMover.categoria === 'LECHE' && selectedProdForMover.unidadMedida === 'LITRO')
+            ) : false;
+
+            return (
+              <>
+                {!isMoverLeche && (
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Seleccionar Lote a mover</InputLabel>
+                    <Select
+                      value={moverBinForm.loteId}
+                      label="Seleccionar Lote a mover"
+                      onChange={(e) => setMoverBinForm({ ...moverBinForm, loteId: e.target.value })}
+                    >
+                      <MenuItem value="">-- Ninguno (Sin Lote / Mover genérico) --</MenuItem>
+                      {lotes
+                        .filter((l) => l.productoId === moverBinForm.productoId && (l.binId || '') === (moverBinForm.binOrigenId || ''))
+                        .map((l) => (
+                          <MenuItem key={l.id} value={l.id}>
+                            {l.numeroLote} (Disponible: {l.cantidadActual} {productos.find(p => p.id === l.productoId)?.unidadMedida || ''})
+                          </MenuItem>
+                        ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </>
+            );
+          })()}
 
           <FormControl fullWidth size="small">
             <InputLabel>Bin / Ubicación de Destino</InputLabel>
