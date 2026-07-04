@@ -1267,7 +1267,15 @@ export default function Inventario() {
 
   const groupedInventario = useMemo(() => {
     const groupedMap = new Map<string, any>();
-    inventario.forEach((inv) => {
+    
+    // Sort inventory items so the oldest (original/default bin) is processed first
+    const sortedInventario = [...inventario].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateA - dateB;
+    });
+
+    sortedInventario.forEach((inv) => {
       const key = `${inv.sucursalId}_${inv.bodegaId || 'null'}_${inv.productoId}`;
       if (!groupedMap.has(key)) {
         groupedMap.set(key, {
