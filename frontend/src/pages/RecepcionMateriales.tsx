@@ -36,6 +36,7 @@ import {
   Assignment,
   ArrowBack,
   PostAdd,
+  Warning,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
@@ -92,6 +93,51 @@ export default function RecepcionMateriales() {
   const [binsLecheEntera, setBinsLecheEntera] = useState<any[]>([]);
   const [binsLecheDescremada, setBinsLecheDescremada] = useState<any[]>([]);
   const [openMilkConfirm, setOpenMilkConfirm] = useState(false);
+
+  const [openCapacityWarning, setOpenCapacityWarning] = useState(false);
+  const [capacityWarningData, setCapacityWarningData] = useState<{
+    itemIndex: number;
+    selectedBinName: string;
+    availableCapacity: number;
+    amountToReceive: number;
+    suggestedDistribution: { binId: string; binName: string; cantidad: number }[];
+  } | null>(null);
+
+  const handleApplyCapacityDistribution = () => {
+    if (!capacityWarningData) return;
+    const { itemIndex, suggestedDistribution } = capacityWarningData;
+    
+    // Split the item in itemsRecibir
+    const originalItem = itemsRecibir[itemIndex];
+    const newItems = [...itemsRecibir];
+    
+    // Remove the original item
+    newItems.splice(itemIndex, 1);
+    
+    // Insert split items
+    suggestedDistribution.forEach((dist) => {
+      newItems.push({
+        ...originalItem,
+        cantidad: dist.cantidad,
+        binId: dist.binId,
+      });
+    });
+    
+    setItemsRecibir(newItems);
+    setOpenCapacityWarning(false);
+    setCapacityWarningData(null);
+    
+    // Submit with bypass
+    setTimeout(() => {
+      handleSubmitRecepcion(true);
+    }, 100);
+  };
+
+  const handleForceCapacitySubmit = () => {
+    setOpenCapacityWarning(false);
+    setCapacityWarningData(null);
+    handleSubmitRecepcion(true); // Bypass check
+  };
 
   const cargarBinsLeche = async (sucId: string) => {
     try {
@@ -324,6 +370,82 @@ export default function RecepcionMateriales() {
       if (lecheSinTanque.length > 0) {
         setOpenMilkConfirm(true);
         return;
+      }
+
+      // Alerta de capacidad de tanque excedida
+      for (let idx = 0; idx < itemsAEnviar.length; idx++) {
+        const item = itemsAEnviar[idx];
+        const isEntera = item.descripcion.toLowerCase().includes('leche entera');
+        const isDescremada = item.descripcion.toLowerCase().includes('leche descremada');
+        if (isEntera || isDescremada) {
+          const binsList = isEntera ? binsLecheEntera : binsLecheDescremada;
+          if (binsList.length > 0) {
+            const selectedBin = binsList.find((b) => b.id === item.binId) || binsList[0];
+            if (selectedBin) {
+              const cap = selectedBin.capacidad || 10000;
+              const ocup = selectedBin.ocupacion || 0;
+              const avail = Math.max(0, cap - ocup);
+              if (item.cantidad > avail) {
+                // Calculate distribution
+                let remaining = item.cantidad;
+                const distribution: { binId: string; binName: string; cantidad: number }[] = [];
+
+                // Fill selected first
+                const takeSelected = Math.min(remaining, avail);
+                if (takeSelected > 0) {
+                  distribution.push({
+                    binId: selectedBin.id,
+                    binName: `${selectedBin.codigo} — ${selectedBin.nombre}`,
+                    cantidad: takeSelected,
+                  });
+                  remaining -= takeSelected;
+                }
+
+                // Fill others next
+                if (remaining > 0) {
+                  const otherBins = binsList.filter((b) => b.id !== selectedBin.id && b.disponible > 0);
+                  for (const bin of otherBins) {
+                    if (remaining <= 0) break;
+                    const take = Math.min(remaining, bin.disponible);
+                    distribution.push({
+                      binId: bin.id,
+                      binName: `${bin.codigo} — ${bin.nombre}`,
+                      cantidad: take,
+                    });
+                    remaining -= take;
+                  }
+                }
+
+                // If still remaining, force it into the selected bin
+                if (remaining > 0) {
+                  const selectedDist = distribution.find((d) => d.binId === selectedBin.id);
+                  if (selectedDist) {
+                    selectedDist.cantidad += remaining;
+                  } else {
+                    distribution.push({
+                      binId: selectedBin.id,
+                      binName: `${selectedBin.codigo} — ${selectedBin.nombre}`,
+                      cantidad: remaining,
+                    });
+                  }
+                }
+
+                // Find the original index of this item in the full itemsRecibir list
+                const originalIndex = itemsRecibir.findIndex((it) => it.productoId === item.productoId && it.numeroLote === item.numeroLote);
+
+                setCapacityWarningData({
+                  itemIndex: originalIndex,
+                  selectedBinName: `${selectedBin.codigo} — ${selectedBin.nombre}`,
+                  availableCapacity: avail,
+                  amountToReceive: item.cantidad,
+                  suggestedDistribution: distribution,
+                });
+                setOpenCapacityWarning(true);
+                return;
+              }
+            }
+          }
+        }
       }
     }
 
@@ -925,11 +1047,15 @@ export default function RecepcionMateriales() {
                                         }
                                       >
                                         <MenuItem value=""><em>-- Tanque por Defecto (Configurado) --</em></MenuItem>
-                                        {(item.descripcion.toLowerCase().includes('leche entera') ? binsLecheEntera : binsLecheDescremada).map((bin: any) => (
-                                          <MenuItem key={bin.id} value={bin.id}>
-                                            {bin.codigo} — {bin.nombre}
-                                          </MenuItem>
-                                        ))}
+                                        {(item.descripcion.toLowerCase().includes('leche entera') ? binsLecheEntera : binsLecheDescremada).map((bin: any) => {
+                                          const cap = bin.capacidad || 10000;
+                                          const disp = bin.disponible !== undefined ? bin.disponible : cap;
+                                          return (
+                                            <MenuItem key={bin.id} value={bin.id}>
+                                              {bin.codigo} — {bin.nombre} (Disp: {disp.toLocaleString()} / {cap.toLocaleString()} Lts)
+                                            </MenuItem>
+                                          );
+                                        })}
                                       </Select>
                                     </FormControl>
                                   </Box>
@@ -995,6 +1121,41 @@ export default function RecepcionMateriales() {
           >
             Continuar con el Tanque por Defecto
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: ALERTA DE CAPACIDAD EXCEDIDA */}
+      <Dialog open={openCapacityWarning} onClose={() => setOpenCapacityWarning(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800, bgcolor: 'warning.dark', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Warning color="inherit" /> Capacidad de Tanque Excedida
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {capacityWarningData && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <Typography variant="body1">
+                La cantidad a recibir de leche (<strong>{capacityWarningData.amountToReceive.toLocaleString()} Lts</strong>) supera la capacidad disponible del tanque seleccionado (<strong>{capacityWarningData.selectedBinName}</strong>), que es de solo <strong>{capacityWarningData.availableCapacity.toLocaleString()} Lts</strong>.
+              </Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1 }}>
+                Distribución Sugerida de Capacidad:
+              </Typography>
+              <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 2, p: 2, bgcolor: 'rgba(255, 255, 255, 0.02)' }}>
+                {capacityWarningData.suggestedDistribution.map((dist, idx) => (
+                  <Box key={dist.binId} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, borderBottom: idx < capacityWarningData.suggestedDistribution.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none' }}>
+                    <Typography variant="body2">{dist.binName}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{dist.cantidad.toLocaleString()} Lts</Typography>
+                  </Box>
+                ))}
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                * Si selecciona <strong>Distribuir Automáticamente</strong>, el sistema dividirá el registro en la recepción para llenar el tanque actual y dirigir el excedente al siguiente tanque con espacio disponible.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenCapacityWarning(false)}>Cancelar</Button>
+          <Button variant="outlined" color="warning" onClick={handleForceCapacitySubmit}>Forzar en este Tanque</Button>
+          <Button variant="contained" color="warning" onClick={handleApplyCapacityDistribution}>Distribuir Automáticamente</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -1381,11 +1381,47 @@ export class InventarioController {
     if (sucursalId) {
       filter.sucursalId = sucursalId;
     }
-    return this.prisma.bodega.findMany({
+    const bodegas = await this.prisma.bodega.findMany({
       where: filter,
-      include: { sucursal: true, bins: true },
+      include: {
+        sucursal: true,
+        bins: {
+          where: { estado: 'ACTIVO' },
+          orderBy: { codigo: 'asc' },
+        },
+      },
       orderBy: { nombre: 'asc' },
     });
+
+    const lotesOccupancy = await this.prisma.lote.groupBy({
+      by: ['binId'],
+      where: {
+        binId: { not: null },
+        cantidadActual: { gt: 0 },
+      },
+      _sum: {
+        cantidadActual: true,
+      },
+    });
+
+    const occupancyMap = new Map<string, number>();
+    for (const item of lotesOccupancy) {
+      if (item.binId) {
+        occupancyMap.set(item.binId, item._sum.cantidadActual || 0);
+      }
+    }
+
+    return bodegas.map((bodega) => ({
+      ...bodega,
+      bins: bodega.bins.map((bin) => {
+        const occupancy = occupancyMap.get(bin.id) || 0;
+        return {
+          ...bin,
+          ocupacion: occupancy,
+          disponible: Math.max(0, (bin.capacidad || 10000) - occupancy),
+        };
+      }),
+    }));
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR')
