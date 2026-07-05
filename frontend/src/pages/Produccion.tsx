@@ -31,6 +31,7 @@ import {
   Divider,
   Checkbox,
   Autocomplete,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -199,6 +200,23 @@ export default function Produccion() {
     orden: '0',
     datosRequeridos: [] as { label: string; name: string; type: string; required: boolean; suffix?: string }[],
     isEditing: false,
+  });
+
+  // State variables for Production Orders search, filter and pagination
+  const [searchOP, setSearchOP] = useState('');
+  const [filtroEstadoOP, setFiltroEstadoOP] = useState('TODOS');
+  const [pageOP, setPageOP] = useState(0);
+  const [rowsPerPageOP, setRowsPerPageOP] = useState(25);
+
+  const filteredOrdenes = ordenes.filter((op) => {
+    const query = searchOP.toLowerCase();
+    const matchesSearch =
+      op.numeroOrden.toLowerCase().includes(query) ||
+      op.receta.nombre.toLowerCase().includes(query) ||
+      op.receta.productoFinal.descripcion.toLowerCase().includes(query);
+    
+    const matchesEstado = filtroEstadoOP === 'TODOS' || op.estado === filtroEstadoOP;
+    return matchesSearch && matchesEstado;
   });
 
   const handleConfigurarBoo = async (producto: any) => {
@@ -1067,169 +1085,237 @@ export default function Produccion() {
 
       {/* --- TAB ÓRDENES DE PRODUCCIÓN --- */}
       {activeTab === 1 && (
-        <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
-                <TableCell>Nro Orden</TableCell>
-                <TableCell>Receta</TableCell>
-                <TableCell>Sucursal</TableCell>
-                <TableCell>Responsable</TableCell>
-                <TableCell>Planificado</TableCell>
-                <TableCell>Producido</TableCell>
-                <TableCell>Rendimiento</TableCell>
-                <TableCell>Estado</TableCell>
-                <TableCell>Picking</TableCell>
-                <TableCell>Fechas</TableCell>
-                <TableCell align="right">Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {ordenes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} align="center">
-                    No hay órdenes de producción planificadas.
-                  </TableCell>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              size="small"
+              label="Buscar por Nro Orden, Receta o Producto"
+              variant="outlined"
+              value={searchOP}
+              onChange={(e) => {
+                setSearchOP(e.target.value);
+                setPageOP(0);
+              }}
+              sx={{ width: 350, backgroundColor: 'rgba(255,255,255,0.03)' }}
+            />
+            <FormControl size="small" sx={{ width: 200 }}>
+              <InputLabel>Estado</InputLabel>
+              <Select
+                value={filtroEstadoOP}
+                label="Estado"
+                onChange={(e) => {
+                  setFiltroEstadoOP(e.target.value);
+                  setPageOP(0);
+                }}
+                sx={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+              >
+                <MenuItem value="TODOS">Todos los Estados</MenuItem>
+                <MenuItem value="BORRADOR">BORRADOR</MenuItem>
+                <MenuItem value="PLANIFICADA">PLANIFICADA</MenuItem>
+                <MenuItem value="EN_PROCESO">EN_PROCESO</MenuItem>
+                <MenuItem value="COMPLETADA">COMPLETADA</MenuItem>
+                <MenuItem value="FALTANTES">FALTANTES</MenuItem>
+                <MenuItem value="CANCELADA">CANCELADA</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Paper sx={{ backgroundColor: '#111827', borderRadius: 2, overflow: 'hidden' }}>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
+                  <TableCell>Nro Orden</TableCell>
+                  <TableCell>Receta</TableCell>
+                  <TableCell>Sucursal</TableCell>
+                  <TableCell>Responsable</TableCell>
+                  <TableCell>Planificado</TableCell>
+                  <TableCell>Producido</TableCell>
+                  <TableCell>Rendimiento</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell>Picking</TableCell>
+                  <TableCell>Fechas</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
                 </TableRow>
-              ) : (
-                ordenes.map((op) => {
-                  const isSelected = selectedRowId === op.id;
-                  return (
-                    <TableRow
-                      key={op.id}
-                      hover
-                      onClick={() => setSelectedRowId(isSelected ? null : op.id)}
-                      sx={{
-                        cursor: 'pointer',
-                        bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
-                        '&:hover': {
-                          bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
-                        },
-                        transition: 'background-color 0.2s ease',
-                      }}
-                    >
-                      <TableCell sx={{ fontWeight: 700 }}>{op.numeroOrden}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{op.receta.nombre}</Typography>
-                        <Typography variant="caption" color="text.secondary">{op.receta.productoFinal.descripcion}</Typography>
-                      </TableCell>
-                      <TableCell>{op.sucursal.nombre}</TableCell>
-                      <TableCell>{op.responsable.nombre}</TableCell>
-                      <TableCell>{op.cantidadPlanificada}</TableCell>
-                      <TableCell>{op.cantidadProducida || '-'}</TableCell>
-                      <TableCell>
-                        {op.estado === 'COMPLETADA' ? (
-                          <Chip
-                            label={`${op.rendimientoReal.toFixed(1)}%`}
-                            color={op.rendimientoReal >= 95 ? 'success' : 'warning'}
-                            size="small"
-                          />
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={op.estado}
-                          size="small"
-                          color={
-                            op.estado === 'COMPLETADA'
-                              ? 'success'
-                              : op.estado === 'EN_PROCESO'
-                              ? 'primary'
-                              : op.estado === 'PLANIFICADA'
-                              ? 'warning'
-                              : op.estado === 'FALTANTES'
-                              ? 'error'
-                              : 'error'
-                          }
-                          sx={
-                            op.estado === 'FALTANTES'
-                              ? { backgroundColor: '#ef4444', color: '#fff', fontWeight: 'bold' }
-                              : undefined
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={op.pickingCompletado ? 'Completado' : 'Pendiente'}
-                          size="small"
-                          color={op.pickingCompletado ? 'success' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" component="div">
-                          Plan: {new Date(op.createdAt).toLocaleDateString()}
-                        </Typography>
-                        {op.fechaInicio && (
-                          <Typography variant="caption" component="div" color="text.secondary">
-                            Inicio: {new Date(op.fechaInicio).toLocaleTimeString()}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                          <Tooltip title="Ver Ruta de Operaciones">
-                            <IconButton
-                              color="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedOrdenRuta(op);
-                                setOpenRutaOrden(true);
-                              }}
+              </TableHead>
+              <TableBody>
+                {filteredOrdenes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={11} align="center">
+                      No se encontraron órdenes de producción.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredOrdenes
+                    .slice(pageOP * rowsPerPageOP, pageOP * rowsPerPageOP + rowsPerPageOP)
+                    .map((op) => {
+                      const isSelected = selectedRowId === op.id;
+                      const activeOp = op.operaciones?.find((step: any) => step.estado === 'EN_PROCESO');
+                      const ctName = activeOp
+                        ? (centrosTrabajo.find((w: any) => w.id === activeOp.workCenter)?.nombre || activeOp.workCenter)
+                        : '';
+
+                      return (
+                        <TableRow
+                          key={op.id}
+                          hover
+                          onClick={() => setSelectedRowId(isSelected ? null : op.id)}
+                          sx={{
+                            cursor: 'pointer',
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                            '&:hover': {
+                              bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                            },
+                            transition: 'background-color 0.2s ease',
+                          }}
+                        >
+                          <TableCell sx={{ fontWeight: 700 }}>{op.numeroOrden}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{op.receta.nombre}</Typography>
+                            <Typography variant="caption" color="text.secondary">{op.receta.productoFinal.descripcion}</Typography>
+                          </TableCell>
+                          <TableCell>{op.sucursal.nombre}</TableCell>
+                          <TableCell>{op.responsable.nombre}</TableCell>
+                          <TableCell>{op.cantidadPlanificada}</TableCell>
+                          <TableCell>{op.cantidadProducida || '-'}</TableCell>
+                          <TableCell>
+                            {op.estado === 'COMPLETADA' ? (
+                              <Chip
+                                label={`${op.rendimientoReal.toFixed(1)}%`}
+                                color={op.rendimientoReal >= 95 ? 'success' : 'warning'}
+                                size="small"
+                              />
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={op.estado}
                               size="small"
-                            >
-                              <Settings fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Imprimir Código de Barras">
-                            <IconButton
-                              color="success"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenBarcodePrint(op);
-                              }}
+                              color={
+                                op.estado === 'COMPLETADA'
+                                  ? 'success'
+                                  : op.estado === 'EN_PROCESO'
+                                  ? 'primary'
+                                  : op.estado === 'PLANIFICADA'
+                                  ? 'warning'
+                                  : op.estado === 'FALTANTES'
+                                  ? 'error'
+                                  : 'error'
+                              }
+                              sx={
+                                op.estado === 'FALTANTES'
+                                  ? { backgroundColor: '#ef4444', color: '#fff', fontWeight: 'bold' }
+                                  : undefined
+                              }
+                            />
+                            {op.estado === 'EN_PROCESO' && ctName && (
+                              <Typography
+                                variant="caption"
+                                sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: 'primary.light' }}
+                              >
+                                📍 {ctName}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={op.pickingCompletado ? 'Completado' : 'Pendiente'}
                               size="small"
-                            >
-                              <QrCode fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Ver Pick List (Lectura)">
-                            <IconButton color="secondary" onClick={(e) => { e.stopPropagation(); handleOpenReadOnlyPicking(op); }} size="small">
-                              <Assignment fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          {op.estado !== 'COMPLETADA' && op.estado !== 'CANCELADA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
-                            <>
-                              <Tooltip title="Editar Orden">
+                              color={op.pickingCompletado ? 'success' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="caption" component="div">
+                              Plan: {new Date(op.createdAt).toLocaleDateString()}
+                            </Typography>
+                            {op.fechaInicio && (
+                              <Typography variant="caption" component="div" color="text.secondary">
+                                Inicio: {new Date(op.fechaInicio).toLocaleTimeString()}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                              <Tooltip title="Ver Ruta de Operaciones">
                                 <IconButton
-                                  color="info"
-                                  onClick={(e) => { e.stopPropagation(); handleOpenEditarOrden(op); }}
+                                  color="primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedOrdenRuta(op);
+                                    setOpenRutaOrden(true);
+                                  }}
+                                  size="small"
                                 >
-                                  <Edit />
+                                  <Settings fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Cancelar Orden">
-                                <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
-                                  <Close />
+                              <Tooltip title="Imprimir Código de Barras">
+                                <IconButton
+                                  color="success"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenBarcodePrint(op);
+                                  }}
+                                  size="small"
+                                >
+                                  <QrCode fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                            </>
-                          )}
-                          {op.estado === 'COMPLETADA' && (
-                            <Tooltip title="Ver detalles de consumos">
-                              <IconButton color="info" onClick={(e) => { e.stopPropagation(); setSelectedOrdenConsumos(op); setOpenConsumos(true); }}>
-                                <Visibility />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
+                              <Tooltip title="Ver Pick List (Lectura)">
+                                <IconButton color="secondary" onClick={(e) => { e.stopPropagation(); handleOpenReadOnlyPicking(op); }} size="small">
+                                  <Assignment fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              {op.estado !== 'COMPLETADA' && op.estado !== 'CANCELADA' && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                                <>
+                                  <Tooltip title="Editar Orden">
+                                    <IconButton
+                                      color="info"
+                                      onClick={(e) => { e.stopPropagation(); handleOpenEditarOrden(op); }}
+                                    >
+                                      <Edit />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Cancelar Orden">
+                                    <IconButton color="error" onClick={(e) => { e.stopPropagation(); handleCancelarOrden(op.id); }}>
+                                      <Close />
+                                    </IconButton>
+                                  </Tooltip>
+                                </>
+                              )}
+                              {op.estado === 'COMPLETADA' && (
+                                <Tooltip title="Ver detalles de consumos">
+                                  <IconButton color="info" onClick={(e) => { e.stopPropagation(); setSelectedOrdenConsumos(op); setOpenConsumos(true); }}>
+                                    <Visibility />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                )}
+              </TableBody>
+            </Table>
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              component="div"
+              count={filteredOrdenes.length}
+              rowsPerPage={rowsPerPageOP}
+              page={pageOP}
+              onPageChange={(_, newPage) => setPageOP(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageOP(parseInt(e.target.value, 10));
+                setPageOP(0);
+              }}
+              labelRowsPerPage="Órdenes por página:"
+              sx={{
+                borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                color: 'text.secondary',
+              }}
+            />
+          </Paper>
+        </Box>
       )}
 
       {/* --- TAB PICK LISTS --- */}

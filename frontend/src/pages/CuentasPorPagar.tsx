@@ -29,6 +29,7 @@ import {
   LinearProgress,
   InputAdornment,
   Checkbox,
+  TablePagination,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
@@ -105,6 +106,37 @@ export default function CuentasPorPagar() {
   const [filtroEstado, setFiltroEstado] = useState<'PENDIENTES' | 'PAGADAS'>('PENDIENTES');
   const [searchRecepcion, setSearchRecepcion] = useState('');
   const [selectedFacturaIds, setSelectedFacturaIds] = useState<string[]>([]);
+
+  // State variables for search and pagination in Accounts Payable
+  const [searchFactura, setSearchFactura] = useState('');
+  const [pageFacturas, setPageFacturas] = useState(0);
+  const [rowsPerPageFacturas, setRowsPerPageFacturas] = useState(25);
+
+  const [searchPago, setSearchPago] = useState('');
+  const [pagePagos, setPagePagos] = useState(0);
+  const [rowsPerPagePagos, setRowsPerPagePagos] = useState(25);
+
+  // Helper variables for filtered data
+  const queryFact = searchFactura.toLowerCase();
+  const facturasFiltradas = facturas.filter((f) => {
+    const matchesEstado = filtroEstado === 'PENDIENTES' ? f.estado !== 'PAGADA' : f.estado === 'PAGADA';
+    const matchesSearch =
+      (f.numeroFactura || '').toLowerCase().includes(queryFact) ||
+      (f.proveedor?.nombre || '').toLowerCase().includes(queryFact);
+    return matchesEstado && matchesSearch;
+  });
+
+  const todosPagos = facturas
+    .flatMap((f) => (f.pagos || []).map((p: any) => ({ ...p, factura: f })))
+    .sort((a, b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime());
+
+  const queryPago = searchPago.toLowerCase();
+  const filteredPagos = todosPagos.filter((p) => {
+    return (
+      (p.factura?.numeroFactura || '').toLowerCase().includes(queryPago) ||
+      (p.factura?.proveedor?.nombre || '').toLowerCase().includes(queryPago)
+    );
+  });
 
   // Dialog states
   const [openCrearFactura, setOpenCrearFactura] = useState(false);
@@ -507,9 +539,30 @@ export default function CuentasPorPagar() {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Paper className="glass-panel" sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.light', mb: 0 }}>
-                Facturas Registradas
-              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.light', mb: 0 }}>
+                  Facturas Registradas
+                </Typography>
+                <TextField
+                  size="small"
+                  placeholder="Buscar por N° Factura o Proveedor..."
+                  value={searchFactura}
+                  onChange={(e) => {
+                    setSearchFactura(e.target.value);
+                    setPageFacturas(0);
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{ width: 280, backgroundColor: 'rgba(255,255,255,0.03)' }}
+                />
+              </Box>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 {filtroEstado === 'PENDIENTES' && selectedFacturaIds.length > 0 && (
                   <Button
@@ -591,171 +644,178 @@ export default function CuentasPorPagar() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(() => {
-                    const facturasFiltradas = facturas.filter((f) => {
-                      if (filtroEstado === 'PENDIENTES') {
-                        return f.estado !== 'PAGADA';
-                      } else {
-                        return f.estado === 'PAGADA';
-                      }
-                    });
+                  {facturasFiltradas.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={filtroEstado === 'PENDIENTES' ? 11 : 10} align="center">
+                        No se encontraron facturas {filtroEstado === 'PENDIENTES' ? 'pendientes de pago' : 'pagadas'}.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    facturasFiltradas
+                      .slice(pageFacturas * rowsPerPageFacturas, pageFacturas * rowsPerPageFacturas + rowsPerPageFacturas)
+                      .map((f) => {
+                        const pagado = f.pagos.reduce((sum: number, p: any) => sum + p.monto, 0);
+                        const saldo = f.total - pagado;
+                        const esVencida = new Date(f.fechaVencimiento) < new Date() && f.estado !== 'PAGADA';
+                        const isSelected = selectedRowId === f.id;
 
-                    if (facturasFiltradas.length === 0) {
-                      return (
-                        <TableRow>
-                          <TableCell colSpan={filtroEstado === 'PENDIENTES' ? 11 : 10} align="center">
-                            No se encontraron facturas {filtroEstado === 'PENDIENTES' ? 'pendientes de pago' : 'pagadas'}.
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-
-                    return facturasFiltradas.map((f) => {
-                    const pagado = f.pagos.reduce((sum: number, p: any) => sum + p.monto, 0);
-                    const saldo = f.total - pagado;
-                    const esVencida = new Date(f.fechaVencimiento) < new Date() && f.estado !== 'PAGADA';
-                    const isSelected = selectedRowId === f.id;
-
-                    return (
-                      <TableRow
-                        key={f.id}
-                        hover
-                        onClick={() => setSelectedRowId(isSelected ? null : f.id)}
-                        sx={{
-                          cursor: 'pointer',
-                          bgcolor: isSelected
-                            ? 'rgba(59, 130, 246, 0.15)'
-                            : esVencida
-                            ? 'rgba(239, 68, 68, 0.03)'
-                            : 'transparent',
-                          '&:hover': {
-                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
-                          },
-                          transition: 'background-color 0.2s ease',
-                        }}
-                      >
-                        {filtroEstado === 'PENDIENTES' && (
-                          <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 0.5 }}>
-                            <Checkbox
-                              checked={selectedFacturaIds.includes(f.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedFacturaIds([...selectedFacturaIds, f.id]);
-                                } else {
-                                  setSelectedFacturaIds(selectedFacturaIds.filter((id) => id !== f.id));
-                                }
-                              }}
-                              disabled={
-                                selectedProveedorId !== undefined && f.proveedorId !== selectedProveedorId
-                              }
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell sx={{ fontWeight: 700 }}>{f.numeroFactura}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {f.proveedor?.nombre}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Rut/Código: {f.proveedor?.codigo}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {f.recepcionMaterial ? (
-                            <Chip
-                              label={f.recepcionMaterial.numeroRecibo}
-                              size="small"
-                              sx={{
-                                fontWeight: 800,
-                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                                color: '#60a5fa',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                              }}
-                            />
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">Directa / Manual</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {f.ordenCompra ? (
-                            <Chip label={f.ordenCompra.numeroOrden} size="small" variant="outlined" color="primary" />
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">Directa</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>{new Date(f.fechaEmision).toLocaleDateString('es-CL')}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color={esVencida ? 'error.main' : 'text.primary'} sx={{ fontWeight: esVencida ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            {new Date(f.fechaVencimiento).toLocaleDateString('es-CL')}
-                            {esVencida && <Warning color="error" sx={{ fontSize: 16 }} />}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{formatCurrency(f.total)}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: saldo > 0 ? 'warning.main' : 'text.secondary' }}>
-                          {formatCurrency(saldo)}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={f.estado}
-                            size="small"
-                            color={
-                              f.estado === 'PAGADA'
-                                ? 'success'
-                                : f.estado === 'PAGADA_PARCIAL'
-                                ? 'warning'
-                                : 'default'
-                            }
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                            <Tooltip title="Ver detalles y auditoría">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedFactura(f);
-                                  setOpenVerDetalles(true);
-                                }}
-                              >
-                                <Visibility />
-                              </IconButton>
-                            </Tooltip>
-                            {f.estado !== 'PAGADA' && (
-                              <Button
-                                variant="contained"
-                                color="success"
-                                size="small"
-                                startIcon={<Paid />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedFacturaIds([f.id]);
-                                  setSelectedFactura(f);
-                                  setPagoForm({
-                                    monto: String(saldo),
-                                    fechaPago: new Date().toISOString().split('T')[0],
-                                    metodoPago: 'TRANSFERENCIA',
-                                    referencia: '',
-                                    chequeNumero: '',
-                                    chequeBanco: '',
-                                    chequeVence: '',
-                                  });
-                                  setOpenRegistrarPago(true);
-                                }}
-                              >
-                                Pagar
-                              </Button>
+                        return (
+                          <TableRow
+                            key={f.id}
+                            hover
+                            onClick={() => setSelectedRowId(isSelected ? null : f.id)}
+                            sx={{
+                              cursor: 'pointer',
+                              bgcolor: isSelected
+                                ? 'rgba(59, 130, 246, 0.15)'
+                                : esVencida
+                                ? 'rgba(239, 68, 68, 0.03)'
+                                : 'transparent',
+                              '&:hover': {
+                                bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                              },
+                              transition: 'background-color 0.2s ease',
+                            }}
+                          >
+                            {filtroEstado === 'PENDIENTES' && (
+                              <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 0.5 }}>
+                                <Checkbox
+                                  checked={selectedFacturaIds.includes(f.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedFacturaIds([...selectedFacturaIds, f.id]);
+                                    } else {
+                                      setSelectedFacturaIds(selectedFacturaIds.filter((id) => id !== f.id));
+                                    }
+                                  }}
+                                  disabled={
+                                    selectedProveedorId !== undefined && f.proveedorId !== selectedProveedorId
+                                  }
+                                />
+                              </TableCell>
                             )}
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  });
-                })()}
-              </TableBody>
-            </Table>
-          </Box>
-        </Paper>
+                            <TableCell sx={{ fontWeight: 700 }}>{f.numeroFactura}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {f.proveedor?.nombre}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Rut/Código: {f.proveedor?.codigo}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              {f.recepcionMaterial ? (
+                                <Chip
+                                  label={f.recepcionMaterial.numeroRecibo}
+                                  size="small"
+                                  sx={{
+                                    fontWeight: 800,
+                                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                    color: '#60a5fa',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                  }}
+                                />
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">Directa / Manual</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {f.ordenCompra ? (
+                                <Chip label={f.ordenCompra.numeroOrden} size="small" variant="outlined" color="primary" />
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">Directa</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>{new Date(f.fechaEmision).toLocaleDateString('es-CL')}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color={esVencida ? 'error.main' : 'text.primary'} sx={{ fontWeight: esVencida ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                {new Date(f.fechaVencimiento).toLocaleDateString('es-CL')}
+                                {esVencida && <Warning color="error" sx={{ fontSize: 16 }} />}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{formatCurrency(f.total)}</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: saldo > 0 ? 'warning.main' : 'text.secondary' }}>
+                              {formatCurrency(saldo)}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={f.estado}
+                                size="small"
+                                color={
+                                  f.estado === 'PAGADA'
+                                    ? 'success'
+                                    : f.estado === 'PAGADA_PARCIAL'
+                                    ? 'warning'
+                                    : 'default'
+                                }
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                <Tooltip title="Ver detalles y auditoría">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedFactura(f);
+                                      setOpenVerDetalles(true);
+                                    }}
+                                  >
+                                    <Visibility />
+                                  </IconButton>
+                                </Tooltip>
+                                {f.estado !== 'PAGADA' && (
+                                  <Button
+                                    variant="contained"
+                                    color="success"
+                                    size="small"
+                                    startIcon={<Paid />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedFacturaIds([f.id]);
+                                      setSelectedFactura(f);
+                                      setPagoForm({
+                                        monto: String(saldo),
+                                        fechaPago: new Date().toISOString().split('T')[0],
+                                        metodoPago: 'TRANSFERENCIA',
+                                        referencia: '',
+                                        chequeNumero: '',
+                                        chequeBanco: '',
+                                        chequeVence: '',
+                                      });
+                                      setOpenRegistrarPago(true);
+                                    }}
+                                  >
+                                    Pagar
+                                  </Button>
+                                )}
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                  )}
+                </TableBody>
+              </Table>
+            </Box>
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              component="div"
+              count={facturasFiltradas.length}
+              rowsPerPage={rowsPerPageFacturas}
+              page={pageFacturas}
+              onPageChange={(_, newPage) => setPageFacturas(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPageFacturas(parseInt(e.target.value, 10));
+                setPageFacturas(0);
+              }}
+              labelRowsPerPage="Facturas por página:"
+              sx={{
+                borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                color: 'text.secondary',
+              }}
+            />
+          </Paper>
 
         <Paper className="glass-panel" sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, color: 'warning.light' }}>
@@ -864,6 +924,30 @@ export default function CuentasPorPagar() {
 
       {activeTab === 1 && (
         <Paper className="glass-panel" sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.light', mb: 0 }}>
+              Historial de Pagos
+            </Typography>
+            <TextField
+              size="small"
+              placeholder="Buscar por N° Factura o Proveedor..."
+              value={searchPago}
+              onChange={(e) => {
+                setSearchPago(e.target.value);
+                setPagePagos(0);
+              }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ width: 280, backgroundColor: 'rgba(255,255,255,0.03)' }}
+            />
+          </Box>
           <Box sx={{ overflowX: 'auto', width: '100%' }}>
             <Table>
               <TableHead>
@@ -877,70 +961,86 @@ export default function CuentasPorPagar() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {facturas.flatMap((f) => f.pagos || []).length === 0 ? (
+                {filteredPagos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">
-                      No se han registrado pagos en el sistema.
+                      No se encontraron pagos registrados.
                     </TableCell>
                   </TableRow>
                 ) : (
-                      facturas
-                        .flatMap((f) => (f.pagos || []).map((p: any) => ({ ...p, factura: f })))
-                        .sort((a, b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime())
-                        .map((p) => {
-                          const isSelected = selectedRowId === p.id;
-                          return (
-                            <TableRow
-                              key={p.id}
-                              hover
-                              onClick={() => setSelectedRowId(isSelected ? null : p.id)}
-                              sx={{
-                                cursor: 'pointer',
-                                bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
-                                '&:hover': {
-                                  bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
-                                },
-                                transition: 'background-color 0.2s ease',
-                              }}
-                            >
-                              <TableCell>{new Date(p.fechaPago).toLocaleDateString('es-CL')}</TableCell>
-                              <TableCell sx={{ fontWeight: 700 }}>{p.factura?.numeroFactura}</TableCell>
-                              <TableCell>{p.factura?.proveedor?.nombre}</TableCell>
-                              <TableCell>
-                                <Chip label={p.metodoPago} size="small" color="primary" variant="outlined" />
-                              </TableCell>
-                              <TableCell>
-                                {p.metodoPago === 'CHEQUE' && (
-                                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                                    Cheque N° {p.chequeNumero} - Banco: {p.chequeBanco}
-                                  </Typography>
-                                )}
-                                {(p.metodoPago === 'TRANSFERENCIA' || p.metodoPago === 'DEPOSITO') && (
-                                  <Typography variant="body2" sx={{ fontSize: '0.85rem', color: 'info.main' }}>
-                                    {p.transfeCuenta || p.referencia || 'Transferencia'}
-                                  </Typography>
-                                )}
-                                {p.metodoPago === 'EFECTIVO' && (
-                                  <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                                    Efectivo en Caja
-                                  </Typography>
-                                )}
-                                {p.referencia && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                    Ref: {p.referencia}
-                                  </Typography>
-                                )}
-                              </TableCell>
-                              <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>
-                                {formatCurrency(p.monto)}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
+                  filteredPagos
+                    .slice(pagePagos * rowsPerPagePagos, pagePagos * rowsPerPagePagos + rowsPerPagePagos)
+                    .map((p) => {
+                      const isSelected = selectedRowId === p.id;
+                      return (
+                        <TableRow
+                          key={p.id}
+                          hover
+                          onClick={() => setSelectedRowId(isSelected ? null : p.id)}
+                          sx={{
+                            cursor: 'pointer',
+                            bgcolor: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'inherit',
+                            '&:hover': {
+                              bgcolor: isSelected ? 'rgba(59, 130, 246, 0.25) !important' : undefined,
+                            },
+                            transition: 'background-color 0.2s ease',
+                          }}
+                        >
+                          <TableCell>{new Date(p.fechaPago).toLocaleDateString('es-CL')}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>{p.factura?.numeroFactura}</TableCell>
+                          <TableCell>{p.factura?.proveedor?.nombre}</TableCell>
+                          <TableCell>
+                            <Chip label={p.metodoPago} size="small" color="primary" variant="outlined" />
+                          </TableCell>
+                          <TableCell>
+                            {p.metodoPago === 'CHEQUE' && (
+                              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                                Cheque N° {p.chequeNumero} - Banco: {p.chequeBanco}
+                              </Typography>
+                            )}
+                            {(p.metodoPago === 'TRANSFERENCIA' || p.metodoPago === 'DEPOSITO') && (
+                              <Typography variant="body2" sx={{ fontSize: '0.85rem', color: 'info.main' }}>
+                                {p.transfeCuenta || p.referencia || 'Transferencia'}
+                              </Typography>
+                            )}
+                            {p.metodoPago === 'EFECTIVO' && (
+                              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                                Efectivo en Caja
+                              </Typography>
+                            )}
+                            {p.referencia && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                Ref: {p.referencia}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>
+                            {formatCurrency(p.monto)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>
           </Box>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={filteredPagos.length}
+            rowsPerPage={rowsPerPagePagos}
+            page={pagePagos}
+            onPageChange={(_, newPage) => setPagePagos(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPagePagos(parseInt(e.target.value, 10));
+              setPagePagos(0);
+            }}
+            labelRowsPerPage="Pagos por página:"
+            sx={{
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'text.secondary',
+            }}
+          />
         </Paper>
       )}
 

@@ -96,8 +96,9 @@ export default function Compras() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
-  // Buscador de órdenes de compra
+  // Buscador de órdenes de compra y filtros
   const [searchQuery, setSearchQuery] = useState('');
+  const [estadoFilter, setEstadoFilter] = useState('TODOS');
   const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
 
   const [openPreviewOC, setOpenPreviewOC] = useState(false);
@@ -869,7 +870,7 @@ export default function Compras() {
         </Alert>
       )}
 
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
         <TextField
           size="small"
           label="Buscar por Número de OC o Proveedor"
@@ -882,6 +883,27 @@ export default function Compras() {
           }}
           sx={{ width: 350, backgroundColor: 'rgba(255,255,255,0.03)' }}
         />
+        <FormControl size="small" sx={{ width: 200 }}>
+          <InputLabel>Estado</InputLabel>
+          <Select
+            value={estadoFilter}
+            label="Estado"
+            onChange={(e) => {
+              setEstadoFilter(e.target.value);
+              setSelectedRowId(null);
+              setPage(0);
+            }}
+            sx={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+          >
+            <MenuItem value="TODOS">Todos los Estados</MenuItem>
+            <MenuItem value="BORRADOR">BORRADOR</MenuItem>
+            <MenuItem value="PENDIENTE">PENDIENTE</MenuItem>
+            <MenuItem value="APROBADA">APROBADA</MenuItem>
+            <MenuItem value="PARCIAL">PARCIAL</MenuItem>
+            <MenuItem value="RECIBIDA">RECIBIDA</MenuItem>
+            <MenuItem value="CANCELADA">CANCELADA</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       <Paper className="glass-panel" sx={{ p: 3 }}>
@@ -903,11 +925,15 @@ export default function Compras() {
             <TableBody>
               {(() => {
                 const query = searchQuery.toLowerCase();
-                const filtered = compras.filter((oc) =>
-                  oc.numeroOrden.toLowerCase().includes(query) ||
-                  oc.proveedor.nombre.toLowerCase().includes(query) ||
-                  oc.detalles.some((det: any) => det.producto.descripcion.toLowerCase().includes(query))
-                );
+                const filtered = compras.filter((oc) => {
+                  const matchesSearch =
+                    oc.numeroOrden.toLowerCase().includes(query) ||
+                    oc.proveedor.nombre.toLowerCase().includes(query) ||
+                    oc.detalles.some((det: any) => det.producto.descripcion.toLowerCase().includes(query));
+                  
+                  const matchesEstado = estadoFilter === 'TODOS' || oc.estado === estadoFilter;
+                  return matchesSearch && matchesEstado;
+                });
 
                 if (filtered.length === 0) {
                   return (
@@ -1224,6 +1250,8 @@ export default function Compras() {
                 fullWidth
                 label="Notas / Comentarios de esta línea"
                 size="small"
+                multiline
+                rows={nuevoItem.notas ? 3 : 1}
                 value={nuevoItem.notas}
                 onChange={(e) => setNuevoItem({ ...nuevoItem, notas: e.target.value })}
                 placeholder="Ej. Embalaje especial, entrega urgente, lote sugerido..."
@@ -1275,6 +1303,8 @@ export default function Compras() {
                           placeholder="Notas de esta línea"
                           size="small"
                           fullWidth
+                          multiline
+                          rows={item.notas ? 3 : 1}
                           value={item.notas || ''}
                           onChange={(e) => {
                             const updated = [...ocForm.productos];
@@ -1632,6 +1662,8 @@ export default function Compras() {
                 fullWidth
                 label="Notas / Comentarios de esta línea"
                 size="small"
+                multiline
+                rows={nuevoItemEdit.notas ? 3 : 1}
                 value={nuevoItemEdit.notas}
                 onChange={(e) => setNuevoItemEdit({ ...nuevoItemEdit, notas: e.target.value })}
                 placeholder="Ej. Embalaje especial, entrega urgente, lote sugerido..."
@@ -1683,6 +1715,8 @@ export default function Compras() {
                           placeholder="Notas de esta línea"
                           size="small"
                           fullWidth
+                          multiline
+                          rows={item.notas ? 3 : 1}
                           value={item.notas || ''}
                           onChange={(e) => {
                             const updated = [...editarOcForm.productos];
