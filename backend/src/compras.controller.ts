@@ -256,7 +256,25 @@ export class ComprasController {
           orderBy: { createdAt: 'asc' },
         });
 
-        const targetBinId = associatedInv ? associatedInv.binId : null;
+        let targetBinId = associatedInv ? associatedInv.binId : null;
+
+        if (!targetBinId) {
+          const esBodegaLeche = targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
+                                targetBodega.tipoBodega === 'LECHE_ENTERA' ||
+                                targetBodega.tipoBodega === 'LECHE_DESCREMADA' ||
+                                targetBodega.nombre.toLowerCase().includes('leche entera') ||
+                                targetBodega.nombre.toLowerCase().includes('leche descremada') ||
+                                targetBodega.codigo.toLowerCase().includes('leche');
+          if (esBodegaLeche) {
+            const firstBin = await tx.bin.findFirst({
+              where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
+              orderBy: { codigo: 'asc' },
+            });
+            if (firstBin) {
+              targetBinId = firstBin.id;
+            }
+          }
+        }
 
         // Crear lote
         const nuevoLote = await tx.lote.create({

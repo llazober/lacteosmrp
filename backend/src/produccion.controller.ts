@@ -1717,17 +1717,21 @@ export class ProduccionController implements OnModuleInit {
           });
           if (mezcla && mezcla.componentes.length > 0) {
             const uniqueBins: any[] = [];
-            const seenBinIds = new Set<string>();
             for (const comp of mezcla.componentes) {
               const b = comp.loteOrigen?.bin;
-              if (b && !seenBinIds.has(b.id)) {
-                seenBinIds.add(b.id);
-                uniqueBins.push({
-                  id: b.id,
-                  codigo: b.codigo,
-                  nombre: b.nombre,
-                  capacidad: b.capacidad,
-                });
+              if (b) {
+                let existing = uniqueBins.find(ub => ub.id === b.id);
+                if (!existing) {
+                  existing = {
+                    id: b.id,
+                    codigo: b.codigo,
+                    nombre: b.nombre,
+                    capacidad: b.capacidad,
+                    cantidadPicked: 0,
+                  };
+                  uniqueBins.push(existing);
+                }
+                existing.cantidadPicked += comp.cantidadUsada;
               }
             }
             binsMezcla = uniqueBins;

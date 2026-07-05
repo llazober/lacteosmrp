@@ -2054,13 +2054,19 @@ export default function Produccion() {
                                   <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
                                     Ninguno seleccionado
                                   </Typography>
-                                ) : (
-                                  (ing.bins || [])
+                                ) : (() => {
+                                  const selectedBins = (ing.bins || [])
                                     .filter((b: any) => ing.binIds.includes(b.id))
-                                    .map((b: any) => (
+                                    .sort((a: any, b: any) => (a.codigo || '').localeCompare(b.codigo || ''));
+
+                                  let remaining = parseFloat(ing.cantidadPicked || 0);
+                                  return selectedBins.map((b: any) => {
+                                    const consumed = Math.min(b.existencia || 0, remaining);
+                                    remaining = Math.max(0, remaining - consumed);
+                                    return (
                                       <Chip
                                         key={b.id}
-                                        label={b.codigo}
+                                        label={`${b.codigo} (${consumed.toLocaleString()} ${ing.unidadMedida || 'L'})`}
                                         size="small"
                                         variant="outlined"
                                         sx={{
@@ -2068,10 +2074,13 @@ export default function Produccion() {
                                           height: 20,
                                           borderColor: 'rgba(56, 189, 248, 0.4)',
                                           color: '#38bdf8',
+                                          mr: 0.5,
+                                          mb: 0.5
                                         }}
                                       />
-                                    ))
-                                )}
+                                    );
+                                  });
+                                })()}
                               </Box>
                             </Box>
                           ) : (
@@ -2809,7 +2818,7 @@ export default function Produccion() {
                                 fontSize: '0.68rem',
                                 color: 'primary.light',
                                 borderColor: 'rgba(144, 202, 249, 0.3)',
-                                backgroundColor: 'rgba(144, 202, 249, 0.05)',
+                                                                backgroundColor: 'rgba(144, 202, 249, 0.05)',
                                 height: 20
                               }}
                             />
@@ -2819,7 +2828,7 @@ export default function Produccion() {
                               {ing.binsMezcla.map((b: any) => (
                                 <Chip
                                   key={b.id}
-                                  label={`🗂 Silo: ${b.codigo}`}
+                                  label={`🗂 Silo: ${b.codigo}${b.cantidadPicked !== undefined ? ` (${b.cantidadPicked.toLocaleString()} ${ing.unidadMedida || 'L'})` : ''}`}
                                   size="small"
                                   variant="outlined"
                                   sx={{

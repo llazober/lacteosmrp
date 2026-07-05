@@ -225,13 +225,25 @@ export class RecepcionController {
           orderBy: { createdAt: 'asc' },
         });
 
-        const targetBinId = item.binId || (associatedInv ? associatedInv.binId : null);
+        let targetBinId = item.binId || (associatedInv ? associatedInv.binId : null);
 
         // Si la bodega es de tipo leche entera fluida (o es la bodega de leche)
         const esBodegaLeche = targetBodega.tipoBodega === 'LECHE_ENTERA_FLUIDA' || 
                               targetBodega.tipoBodega === 'LECHE_ENTERA' ||
+                              targetBodega.tipoBodega === 'LECHE_DESCREMADA' ||
                               targetBodega.nombre.toLowerCase().includes('leche entera') ||
+                              targetBodega.nombre.toLowerCase().includes('leche descremada') ||
                               targetBodega.codigo.toLowerCase().includes('leche');
+
+        if (!targetBinId && esBodegaLeche) {
+          const firstBin = await tx.bin.findFirst({
+            where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
+            orderBy: { codigo: 'asc' },
+          });
+          if (firstBin) {
+            targetBinId = firstBin.id;
+          }
+        }
 
         if (esBodegaLeche) {
           // Obtener bins de la bodega
