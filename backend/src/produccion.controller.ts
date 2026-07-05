@@ -3093,6 +3093,34 @@ export class ProduccionController implements OnModuleInit {
           },
         });
 
+        const bodDestino = await this.obtenerBodegaParaProducto(cdId, op.receta.productoFinalId, tx);
+        if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
+
+        // Determinar el bin destino (por defecto) para WC-CFRI
+        let targetBinId: string | null = null;
+        if (workCenter === 'WC-CFRI') {
+          const associatedInv = await tx.inventario.findFirst({
+            where: {
+              productoId: op.receta.productoFinalId,
+              bodegaId: bodDestino.id,
+              NOT: { binId: null },
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+
+          if (associatedInv) {
+            targetBinId = associatedInv.binId;
+          } else {
+            const firstBin = await tx.bin.findFirst({
+              where: { bodegaId: bodDestino.id, estado: 'ACTIVO' },
+              orderBy: { codigo: 'asc' },
+            });
+            if (firstBin) {
+              targetBinId = firstBin.id;
+            }
+          }
+        }
+
         let nuevoLote;
         if (existingLote) {
           nuevoLote = await tx.lote.update({
@@ -3104,6 +3132,7 @@ export class ProduccionController implements OnModuleInit {
               cantidadInicial: cantProd,
               cantidadActual: cantProd,
               estado: 'APROBADO',
+              binId: targetBinId,
               ordenProduccionId: op.id,
             },
           });
@@ -3120,17 +3149,15 @@ export class ProduccionController implements OnModuleInit {
               cantidadInicial: cantProd,
               cantidadActual: cantProd,
               estado: 'APROBADO',
+              binId: targetBinId,
               ordenProduccionId: op.id,
             },
           });
         }
 
-        const bodDestino = await this.obtenerBodegaParaProducto(cdId, op.receta.productoFinalId, tx);
-        if (!bodDestino) throw new BadRequestException('No se encontró bodega de destino.');
-
-        // Incrementar inventario del producto terminado targeting binId: null
+        // Incrementar inventario del producto terminado targeting binId: targetBinId
         const invFinal = await tx.inventario.findFirst({
-          where: { productoId: op.receta.productoFinalId, bodegaId: bodDestino.id, binId: null },
+          where: { productoId: op.receta.productoFinalId, bodegaId: bodDestino.id, binId: targetBinId },
         });
 
         if (invFinal) {
@@ -3140,7 +3167,7 @@ export class ProduccionController implements OnModuleInit {
           });
         } else {
           await tx.inventario.create({
-            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, bodegaId: bodDestino.id, binId: null, existencia: cantProd },
+            data: { productoId: op.receta.productoFinalId, sucursalId: cdId, bodegaId: bodDestino.id, binId: targetBinId, existencia: cantProd },
           });
         }
 
