@@ -956,16 +956,22 @@ export class ProduccionController implements OnModuleInit {
       const fechaVen = new Date();
       fechaVen.setDate(fechaVen.getDate() + vidaUtil);
 
-      const duplicateLote = await tx.lote.findFirst({
-        where: {
-          numeroLote: loteNumero,
-          NOT: {
-            ordenProduccionId: op.id,
+      let uniqueLoteNumero = loteNumero;
+      let suffix = 1;
+      while (true) {
+        const duplicateLote = await tx.lote.findFirst({
+          where: {
+            numeroLote: uniqueLoteNumero,
+            NOT: {
+              ordenProduccionId: op.id,
+            },
           },
-        },
-      });
-      if (duplicateLote) {
-        throw new BadRequestException(`El número de lote "${loteNumero}" ya existe en el sistema.`);
+        });
+        if (!duplicateLote) {
+          break;
+        }
+        uniqueLoteNumero = `${loteNumero}-${suffix}`;
+        suffix++;
       }
 
       const existingLote = await tx.lote.findFirst({
@@ -979,7 +985,7 @@ export class ProduccionController implements OnModuleInit {
         nuevoLote = await tx.lote.update({
           where: { id: existingLote.id },
           data: {
-            numeroLote: loteNumero,
+            numeroLote: uniqueLoteNumero,
             fechaProduccion: new Date(),
             fechaVencimiento: fechaVen,
             cantidadInicial: cantProd,
@@ -991,7 +997,7 @@ export class ProduccionController implements OnModuleInit {
       } else {
         nuevoLote = await tx.lote.create({
           data: {
-            numeroLote: loteNumero,
+            numeroLote: uniqueLoteNumero,
             productoId: op.receta.productoFinalId,
             fechaProduccion: new Date(),
             fechaVencimiento: fechaVen,
@@ -3093,16 +3099,22 @@ export class ProduccionController implements OnModuleInit {
         const fechaVen = new Date();
         fechaVen.setDate(fechaVen.getDate() + vidaUtil);
 
-        const duplicateLote = await tx.lote.findFirst({
-          where: {
-            numeroLote: loteNumero,
-            NOT: {
-              ordenProduccionId: op.id,
+        let uniqueLoteNumero = loteNumero;
+        let suffix = 1;
+        while (true) {
+          const duplicateLote = await tx.lote.findFirst({
+            where: {
+              numeroLote: uniqueLoteNumero,
+              NOT: {
+                ordenProduccionId: op.id,
+              },
             },
-          },
-        });
-        if (duplicateLote) {
-          throw new BadRequestException(`El número de lote "${loteNumero}" ya existe en el sistema.`);
+          });
+          if (!duplicateLote) {
+            break;
+          }
+          uniqueLoteNumero = `${loteNumero}-${suffix}`;
+          suffix++;
         }
 
         const existingLote = await tx.lote.findFirst({
@@ -3144,7 +3156,7 @@ export class ProduccionController implements OnModuleInit {
           nuevoLote = await tx.lote.update({
             where: { id: existingLote.id },
             data: {
-              numeroLote: loteNumero,
+              numeroLote: uniqueLoteNumero,
               fechaProduccion: new Date(),
               fechaVencimiento: fechaVen,
               cantidadInicial: cantProd,
@@ -3157,7 +3169,7 @@ export class ProduccionController implements OnModuleInit {
         } else {
           nuevoLote = await tx.lote.create({
             data: {
-              numeroLote: loteNumero,
+              numeroLote: uniqueLoteNumero,
               productoId: op.receta.productoFinalId,
               fechaProduccion: new Date(),
               fechaVencimiento: fechaVen,
