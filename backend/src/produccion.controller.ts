@@ -2119,38 +2119,79 @@ export class ProduccionController implements OnModuleInit {
             },
           });
 
-          // 4. Calcular deducciones secuenciales de cada lote origen (FEFO)
+          // 4. Agrupar lotes por binId
+          const lotesByBin: Record<string, typeof activeLotes> = {};
+          for (const lote of activeLotes) {
+            const key = lote.binId || 'null';
+            if (!lotesByBin[key]) {
+              lotesByBin[key] = [];
+            }
+            lotesByBin[key].push(lote);
+          }
+
+          // Crear lista de grupos de bins y calcular cantidad total por bin
+          const binGroups = Object.entries(lotesByBin).map(([binId, lotes]) => {
+            const sampleLote = lotes[0];
+            const codigo = sampleLote.bin?.codigo || 'ZZZZZ'; // lotes sin bin al final
+            const totalQty = lotes.reduce((sum, l) => sum + l.cantidadActual, 0);
+            return {
+              binId: binId === 'null' ? null : binId,
+              codigo,
+              totalQty,
+              lotes,
+            };
+          });
+
+          // Ordenar grupos de bins secuencialmente por código de bin
+          binGroups.sort((a, b) => a.codigo.localeCompare(b.codigo));
+
           let pendientePorDescontar = cantidadAPreparar;
           const descontadoPorBin: Record<string, number> = {};
 
-          for (const lote of activeLotes) {
+          for (const group of binGroups) {
             if (pendientePorDescontar <= 0) {
               break;
             }
-            const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
-            const newCantidadActual = lote.cantidadActual - aDescontar;
 
-            // Actualizar lote origen
-            await tx.lote.update({
-              where: { id: lote.id },
-              data: { cantidadActual: newCantidadActual },
-            });
-
-            if (lote.binId) {
-              descontadoPorBin[lote.binId] = (descontadoPorBin[lote.binId] || 0) + aDescontar;
+            const aDescontarDeBin = Math.min(group.totalQty, pendientePorDescontar);
+            if (aDescontarDeBin <= 0) {
+              continue;
             }
 
-            // Registrar componente de la mezcla para trazabilidad
-            await tx.mezclaLecheComponente.create({
-              data: {
-                mezclaLecheId: mezcla.id,
-                loteOrigenId: lote.id,
-                cantidadUsada: aDescontar,
-                proporcion: aDescontar / cantidadAPreparar,
-              },
-            });
+            if (group.binId) {
+              descontadoPorBin[group.binId] = (descontadoPorBin[group.binId] || 0) + aDescontarDeBin;
+            }
 
-            pendientePorDescontar -= aDescontar;
+            // Deducción proporcional entre todos los lotes de este bin específico
+            for (const lote of group.lotes) {
+              const proporcionLote = group.totalQty > 0 ? (lote.cantidadActual / group.totalQty) : 0;
+              const aDescontarDeLote = aDescontarDeBin * proporcionLote;
+
+              if (aDescontarDeLote > 0) {
+                let newCantidadActual = lote.cantidadActual - aDescontarDeLote;
+                if (newCantidadActual < 0.001) {
+                  newCantidadActual = 0;
+                }
+
+                // Actualizar lote origen
+                await tx.lote.update({
+                  where: { id: lote.id },
+                  data: { cantidadActual: newCantidadActual },
+                });
+
+                // Registrar componente de la mezcla para trazabilidad
+                await tx.mezclaLecheComponente.create({
+                  data: {
+                    mezclaLecheId: mezcla.id,
+                    loteOrigenId: lote.id,
+                    cantidadUsada: aDescontarDeLote,
+                    proporcion: aDescontarDeLote / cantidadAPreparar,
+                  },
+                });
+              }
+            }
+
+            pendientePorDescontar -= aDescontarDeBin;
           }
 
           // 5. Decrementar existencia del inventario general en la bodega para cada bin específico
