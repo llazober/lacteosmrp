@@ -244,7 +244,17 @@ export default function RutaOperaciones() {
       
       const cleanSku = orden.receta.productoFinal.sku.replace('PROD-', '');
       const dateStr = dayjs().format('YYYYMMDD');
-      setLoteNumero(`L-${cleanSku}-${dateStr}`);
+      const baseLote = `L-${cleanSku}-${dateStr}`;
+      setLoteNumero(baseLote);
+      apiFetch(`/lotes/check-unique/${baseLote}?excludeOrderId=${orden.id}`)
+        .then((res: any) => {
+          if (res && res.uniqueLoteNumero) {
+            setLoteNumero(res.uniqueLoteNumero);
+          }
+        })
+        .catch((err: any) => {
+          console.error('Error checking unique lot:', err);
+        });
     }
 
     setOpenFinalizar(true);

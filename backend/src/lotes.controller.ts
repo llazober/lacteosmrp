@@ -8,6 +8,7 @@ import {
   Param,
   Request,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { Roles } from './decorators';
@@ -22,6 +23,29 @@ export class LotesController {
       include: { producto: true, proveedor: true },
       orderBy: { fechaVencimiento: 'asc' },
     });
+  }
+
+  @Get('check-unique/:numeroLote')
+  async checkUniqueLote(
+    @Param('numeroLote') numeroLote: string,
+    @Query('excludeOrderId') excludeOrderId?: string,
+  ) {
+    let uniqueLoteNumero = numeroLote;
+    let suffix = 1;
+    while (true) {
+      const duplicate = await this.prisma.lote.findFirst({
+        where: {
+          numeroLote: uniqueLoteNumero,
+          NOT: excludeOrderId ? { ordenProduccionId: excludeOrderId } : undefined,
+        },
+      });
+      if (!duplicate) {
+        break;
+      }
+      uniqueLoteNumero = `${numeroLote}-${suffix}`;
+      suffix++;
+    }
+    return { uniqueLoteNumero };
   }
 
   @Roles('ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'CONTROL_CALIDAD')
