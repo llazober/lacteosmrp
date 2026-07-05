@@ -215,8 +215,10 @@ export default function Calidad() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-    ctx.strokeStyle = '#0284c7';
+    ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.stroke();
   };
 
@@ -988,12 +990,12 @@ export default function Calidad() {
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Brush fontSize="small" color="primary" /> Firma Digital Autorizada Inspector Calidad:
               </Typography>
-              <Box sx={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2, p: 1, textAlign: 'center', backgroundColor: '#090d16' }}>
+              <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: 2, p: 1, textAlign: 'center', backgroundColor: '#ffffff' }}>
                 <canvas
                   ref={canvasRef}
                   width={400}
                   height={120}
-                  style={{ cursor: 'crosshair', backgroundColor: '#090d16' }}
+                  style={{ cursor: 'crosshair', backgroundColor: '#ffffff', borderRadius: '4px' }}
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
@@ -1106,12 +1108,12 @@ export default function Calidad() {
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Brush fontSize="small" color="primary" /> Firma Digital Autorizada Inspector Calidad:
               </Typography>
-              <Box sx={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2, p: 1, textAlign: 'center', backgroundColor: '#090d16' }}>
+              <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: 2, p: 1, textAlign: 'center', backgroundColor: '#ffffff' }}>
                 <canvas
                   ref={canvasInsumoRef}
                   width={400}
                   height={120}
-                  style={{ cursor: 'crosshair', backgroundColor: '#090d16' }}
+                  style={{ cursor: 'crosshair', backgroundColor: '#ffffff', borderRadius: '4px' }}
                   onMouseDown={startDrawing}
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
