@@ -545,6 +545,10 @@ export class AuthController {
         'VER_LOTES',
         'GESTIONAR_LOTES',
         'VER_TRASLADO_INTERSUCURSALES',
+        'VER_PICKING',
+        'CONFIRMAR_PICKING',
+        'VER_RECEPCIONES',
+        'GESTIONAR_RECEPCIONES',
       ];
     } else if (rolNombre === 'ALMACEN') {
       return [
@@ -568,6 +572,10 @@ export class AuthController {
         'VER_CHAT',
         'VER_UTILIDADES',
         'VER_TRASLADO_INTERSUCURSALES',
+        'VER_PICKING',
+        'CONFIRMAR_PICKING',
+        'VER_RECEPCIONES',
+        'GESTIONAR_RECEPCIONES',
       ];
     } else if (rolNombre === 'GERENTE_TIENDA') {
       return [
@@ -587,6 +595,7 @@ export class AuthController {
         'VER_PRODUCTOS',
         'VER_LOTES',
         'VER_TRASLADO_INTERSUCURSALES',
+        'VER_RECEPCIONES',
       ];
     } else if (rolNombre === 'CAJERO') {
       return ['VER_DASHBOARD', 'VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
@@ -597,6 +606,7 @@ export class AuthController {
         'GESTIONAR_CALIDAD',
         'VER_LOTES',
         'VER_CHAT',
+        'VER_RECEPCIONES',
       ];
     }
     return [];

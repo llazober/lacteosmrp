@@ -62,6 +62,10 @@ export class RolesController {
             'VER_LOTES',
             'GESTIONAR_LOTES',
             'VER_TRASLADO_INTERSUCURSALES',
+            'VER_PICKING',
+            'CONFIRMAR_PICKING',
+            'VER_RECEPCIONES',
+            'GESTIONAR_RECEPCIONES',
           ]),
         },
         {
@@ -103,6 +107,10 @@ export class RolesController {
             'VER_LOTES',
             'GESTIONAR_LOTES',
             'VER_TRASLADO_INTERSUCURSALES',
+            'VER_PICKING',
+            'CONFIRMAR_PICKING',
+            'VER_RECEPCIONES',
+            'GESTIONAR_RECEPCIONES',
           ]),
         },
         {
@@ -125,6 +133,7 @@ export class RolesController {
             'VER_PRODUCTOS',
             'VER_LOTES',
             'VER_TRASLADO_INTERSUCURSALES',
+            'VER_RECEPCIONES',
           ]),
         },
         {
@@ -162,6 +171,10 @@ export class RolesController {
             'VER_CHAT',
             'VER_UTILIDADES',
             'VER_TRASLADO_INTERSUCURSALES',
+            'VER_PICKING',
+            'CONFIRMAR_PICKING',
+            'VER_RECEPCIONES',
+            'GESTIONAR_RECEPCIONES',
           ]),
         },
         {
@@ -174,6 +187,7 @@ export class RolesController {
             'GESTIONAR_CALIDAD',
             'VER_LOTES',
             'VER_CHAT',
+            'VER_RECEPCIONES',
           ]),
         },
       ];
