@@ -2047,9 +2047,24 @@ export class ProduccionController implements OnModuleInit {
             where: {
               productoId: actualProductoId,
               cantidadActual: { gt: 0 },
-              binId: { in: targetBinIds },
+              OR: [
+                { binId: { in: targetBinIds } },
+                { binId: null },
+              ],
             },
-            orderBy: { fechaVencimiento: 'asc' },
+            include: { bin: true },
+          });
+
+          // Ordenar secuencialmente por código de bin (e.g. TANK-01 antes de TANK-02), y al final los lotes sin bin
+          activeLotes.sort((a, b) => {
+            if (a.binId && b.binId) {
+              const codeA = a.bin?.codigo || '';
+              const codeB = b.bin?.codigo || '';
+              return codeA.localeCompare(codeB);
+            }
+            if (a.binId) return -1;
+            if (b.binId) return 1;
+            return 0;
           });
 
           const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
