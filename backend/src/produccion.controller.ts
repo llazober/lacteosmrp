@@ -2100,13 +2100,16 @@ export class ProduccionController implements OnModuleInit {
             },
           });
 
-          // 4. Calcular proporciones y deducir de cada lote origen
-          const fraction = cantidadAPreparar / totalDisponible;
+          // 4. Calcular deducciones secuenciales de cada lote origen (FEFO)
+          let pendientePorDescontar = cantidadAPreparar;
           const descontadoPorBin: Record<string, number> = {};
 
           for (const lote of activeLotes) {
-            const aDescontar = lote.cantidadActual * fraction;
-            const newCantidadActual = Math.max(0, lote.cantidadActual - aDescontar);
+            if (pendientePorDescontar <= 0) {
+              break;
+            }
+            const aDescontar = Math.min(lote.cantidadActual, pendientePorDescontar);
+            const newCantidadActual = lote.cantidadActual - aDescontar;
 
             // Actualizar lote origen
             await tx.lote.update({
@@ -2124,9 +2127,11 @@ export class ProduccionController implements OnModuleInit {
                 mezclaLecheId: mezcla.id,
                 loteOrigenId: lote.id,
                 cantidadUsada: aDescontar,
-                proporcion: lote.cantidadActual / totalDisponible,
+                proporcion: aDescontar / cantidadAPreparar,
               },
             });
+
+            pendientePorDescontar -= aDescontar;
           }
 
           // 5. Decrementar existencia del inventario general en la bodega para cada bin específico
