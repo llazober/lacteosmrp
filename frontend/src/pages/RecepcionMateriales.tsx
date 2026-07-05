@@ -67,7 +67,7 @@ export default function RecepcionMateriales() {
     usuario?.rol !== 'ADMINISTRADOR' &&
     usuario?.rol !== 'SUPERVISOR' &&
     usuario?.rol !== 'ALMACEN' &&
-    !usuario?.permisos?.includes('GESTIONAR_COMPRAS')
+    !usuario?.permisos?.includes('GESTIONAR_RECEPCIONES')
   ) {
     return (
       <Box sx={{ p: 4 }}>

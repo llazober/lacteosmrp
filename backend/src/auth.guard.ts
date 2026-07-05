@@ -58,7 +58,9 @@ export class AuthGuard implements CanActivate {
       else if (className === 'SucursalesController')
         requiredPermission = isRead ? 'VER_SUCURSALES' : 'GESTIONAR_SUCURSALES';
       else if (className === 'ProduccionController') {
-        if (request.url.includes('/planificacion')) {
+        if (request.url.includes('/picking')) {
+          requiredPermission = isRead ? 'VER_PICKING' : 'CONFIRMAR_PICKING';
+        } else if (request.url.includes('/planificacion')) {
           requiredPermission = isRead ? 'VER_PLANIFICACION_PRODUCCION' : 'GESTIONAR_PLANIFICACION_PRODUCCION';
         } else if (request.url.includes('/operaciones')) {
           requiredPermission = isRead ? 'VER_RUTA_OPERACIONES' : 'GESTIONAR_RUTA_OPERACIONES';
@@ -84,7 +86,7 @@ export class AuthGuard implements CanActivate {
         }
       }
       else if (className === 'RecepcionController') {
-        requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
+        requiredPermission = isRead ? 'VER_RECEPCIONES' : 'GESTIONAR_RECEPCIONES';
       }
       else if (className === 'CalidadController')
         requiredPermission = isRead ? 'VER_CALIDAD' : 'GESTIONAR_CALIDAD';
@@ -137,6 +139,10 @@ export class AuthGuard implements CanActivate {
               'GESTIONAR_REQUERIMIENTOS_MP',
               'VER_CHAT',
               'VER_UTILIDADES',
+              'VER_PICKING',
+              'CONFIRMAR_PICKING',
+              'VER_RECEPCIONES',
+              'GESTIONAR_RECEPCIONES',
             ];
             hasPermission = almacenPerms.includes(requiredPermission);
           } else if (payload.rol === 'GERENTE_TIENDA') {
@@ -157,6 +163,7 @@ export class AuthGuard implements CanActivate {
               'VER_PRODUCTOS',
               'VER_LOTES',
               'VER_TRASLADO_INTERSUCURSALES',
+              'VER_RECEPCIONES',
             ];
             hasPermission = gerentePerms.includes(requiredPermission);
           } else if (payload.rol === 'CAJERO') {
@@ -169,6 +176,7 @@ export class AuthGuard implements CanActivate {
               'VER_LOTES',
               'VER_CHAT',
               'VER_COMPRAS',
+              'VER_RECEPCIONES',
             ];
             hasPermission = calidadPerms.includes(requiredPermission);
           }

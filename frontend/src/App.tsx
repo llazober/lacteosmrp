@@ -206,11 +206,12 @@ function MainLayout() {
     { text: 'Bodega Leche Descremada', icon: <FrioIcon />, path: '/bodegas/leche-descremada', roles: [], permission: 'VER_INVENTARIO' },
     { text: 'Producción', icon: <ProduccionIcon />, path: '/produccion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PRODUCCION' },
     { text: 'Planificación de Producción', icon: <PlanificacionIcon />, path: '/produccion/planificacion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PLANIFICACION_PRODUCCION' },
+    { text: 'Listas de Selección', icon: <PlanificacionIcon />, path: '/produccion?tab=picking', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PICKING' },
     { text: 'Requerimientos MP', icon: <PlanificacionIcon />, path: '/compras/requerimientos', roles: [], permission: 'VER_REQUERIMIENTOS_MP' },
     { text: 'Ruta de Operaciones', icon: <RutaIcon />, path: '/produccion/operaciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_RUTA_OPERACIONES' },
-    { text: 'Recepción Materiales', icon: <RecepcionIcon />, path: '/compras/recepcion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'GESTIONAR_COMPRAS' },
+    { text: 'Recepción Materiales', icon: <RecepcionIcon />, path: '/compras/recepcion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'GESTIONAR_RECEPCIONES' },
     { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD', 'CONTROL_CALIDAD'], permission: 'VER_CALIDAD' },
-    { text: 'Historial Recepciones', icon: <TrazabilidadIcon />, path: '/compras/recepciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'CALIDAD', 'CONTROL_CALIDAD'], permission: 'VER_COMPRAS' },
+    { text: 'Historial Recepciones', icon: <TrazabilidadIcon />, path: '/compras/recepciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'CALIDAD', 'CONTROL_CALIDAD'], permission: 'VER_RECEPCIONES' },
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
     { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_AUDITORIA' },
     { text: 'Chat Operativo', icon: <ChatIcon />, path: '/chat', roles: [], permission: 'VER_CHAT' },
@@ -535,7 +536,8 @@ function MainLayout() {
             element={
               usuario?.rol === 'ADMINISTRADOR' ||
               usuario?.rol === 'SUPERVISOR' ||
-              usuario?.permisos?.includes('VER_PRODUCCION') ? (
+              usuario?.permisos?.includes('VER_PRODUCCION') ||
+              usuario?.permisos?.includes('VER_PICKING') ? (
                 <Produccion />
               ) : (
                 <Navigate to="/" />
@@ -594,7 +596,7 @@ function MainLayout() {
               usuario?.rol === 'ADMINISTRADOR' ||
               usuario?.rol === 'SUPERVISOR' ||
               usuario?.rol === 'ALMACEN' ||
-              usuario?.permisos?.includes('GESTIONAR_COMPRAS') ? (
+              usuario?.permisos?.includes('GESTIONAR_RECEPCIONES') ? (
                 <RecepcionMateriales />
               ) : (
                 <Navigate to="/" />
@@ -609,7 +611,7 @@ function MainLayout() {
               usuario?.rol === 'ALMACEN' ||
               usuario?.rol === 'CALIDAD' ||
               usuario?.rol === 'CONTROL_CALIDAD' ||
-              usuario?.permisos?.includes('VER_COMPRAS') ? (
+              usuario?.permisos?.includes('VER_RECEPCIONES') ? (
                 <MaterialesRecibidos />
               ) : (
                 <Navigate to="/" />

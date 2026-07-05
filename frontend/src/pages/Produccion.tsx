@@ -55,6 +55,9 @@ import dayjs from 'dayjs';
 
 export default function Produccion() {
   const usuario = useAuthStore((state) => state.usuario);
+  const canSeeAll = usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.permisos?.includes('VER_PRODUCCION');
+  const canSeePickingOnly = !canSeeAll && usuario?.permisos?.includes('VER_PICKING');
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = new URLSearchParams(window.location.search).get('tab');
@@ -69,6 +72,12 @@ export default function Produccion() {
       if (tabMap[tabParam] !== undefined) {
         return tabMap[tabParam];
       }
+    }
+    // Fallback: if user only has picking permission, default to 2 (picking)
+    const userState = useAuthStore.getState().usuario;
+    const userCanSeeAll = userState?.rol === 'ADMINISTRADOR' || userState?.rol === 'SUPERVISOR' || userState?.permisos?.includes('VER_PRODUCCION');
+    if (!userCanSeeAll && userState?.permisos?.includes('VER_PICKING')) {
+      return 2;
     }
     return 0;
   });
@@ -85,14 +94,25 @@ export default function Produccion() {
         mermas: 3,
         centros: 4,
       };
-      if (tabMap[tabParam] !== undefined && tabMap[tabParam] !== activeTab) {
-        setActiveTab(tabMap[tabParam]);
-        setSelectedRowId(null);
+      if (tabMap[tabParam] !== undefined) {
+        let targetTab = tabMap[tabParam];
+        // Restrict if user only has picking permission
+        if (canSeePickingOnly) {
+          targetTab = 2;
+        }
+        if (targetTab !== activeTab) {
+          setActiveTab(targetTab);
+          setSelectedRowId(null);
+        }
       }
+    } else if (canSeePickingOnly && activeTab !== 2) {
+      setActiveTab(2);
+      setSelectedRowId(null);
     }
-  }, [searchParams]);
+  }, [searchParams, canSeePickingOnly, activeTab]);
 
   const handleTabChange = (val: number) => {
+    if (canSeePickingOnly) return;
     setActiveTab(val);
     setSelectedRowId(null);
     const tabNames = ['recetas', 'ordenes', 'picking', 'mermas', 'centros'];
@@ -906,7 +926,7 @@ export default function Produccion() {
               Limpiar Datos de Pruebas
             </Button>
           )}
-          {activeTab === 0 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+          {activeTab === 0 && !canSeePickingOnly && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
             <Button
               variant="contained"
               color="success"
@@ -928,7 +948,7 @@ export default function Produccion() {
             </Button>
           )}
 
-          {activeTab === 1 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+          {activeTab === 1 && !canSeePickingOnly && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
             <Button
               variant="contained"
               color="primary"
@@ -947,7 +967,7 @@ export default function Produccion() {
             </Button>
           )}
 
-          {activeTab === 3 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+          {activeTab === 3 && !canSeePickingOnly && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
             <Button
               variant="contained"
               color="warning"
@@ -966,7 +986,7 @@ export default function Produccion() {
             </Button>
           )}
 
-          {activeTab === 4 && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+          {activeTab === 4 && canSeeAll && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
             <Button
               variant="contained"
               color="primary"
@@ -1004,20 +1024,32 @@ export default function Produccion() {
 
       <Paper sx={{ mb: 3, backgroundColor: '#111827', borderRadius: 2 }}>
         <Tabs
-          value={activeTab}
-          onChange={(_, val) => handleTabChange(val)}
+          value={canSeePickingOnly ? 'picking' : (() => {
+            const tabNames = ['recetas', 'ordenes', 'picking', 'mermas', 'centros'];
+            return tabNames[activeTab] || 'recetas';
+          })()}
+          onChange={(_, val) => {
+            const tabMap: Record<string, number> = {
+              recetas: 0,
+              ordenes: 1,
+              picking: 2,
+              mermas: 3,
+              centros: 4,
+            };
+            handleTabChange(tabMap[val]);
+          }}
           textColor="primary"
           indicatorColor="primary"
           variant="scrollable"
           scrollButtons="auto"
           sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}
         >
-          <Tab label="Recetario Maestro" />
-          <Tab label="Órdenes de Producción (OP)" />
-          <Tab label="Listas de Selección (Pick Lists)" />
-          <Tab label="Control de Mermas (Desechos)" />
-          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
-            <Tab label="⚙ Centros de Trabajo" />
+          {!canSeePickingOnly && <Tab label="Recetario Maestro" value="recetas" />}
+          {!canSeePickingOnly && <Tab label="Órdenes de Producción (OP)" value="ordenes" />}
+          <Tab label="Listas de Selección (Pick Lists)" value="picking" />
+          {!canSeePickingOnly && <Tab label="Control de Mermas (Desechos)" value="mermas" />}
+          {canSeeAll && (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR') && (
+            <Tab label="⚙ Centros de Trabajo" value="centros" />
           )}
         </Tabs>
       </Paper>

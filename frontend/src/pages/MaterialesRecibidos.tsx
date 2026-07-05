@@ -88,7 +88,7 @@ export default function MaterialesRecibidos() {
     usuario?.rol !== 'ALMACEN' &&
     usuario?.rol !== 'CALIDAD' &&
     usuario?.rol !== 'CONTROL_CALIDAD' &&
-    !usuario?.permisos?.includes('VER_COMPRAS')
+    !usuario?.permisos?.includes('VER_RECEPCIONES')
   ) {
     return (
       <Box sx={{ p: 4 }}>
