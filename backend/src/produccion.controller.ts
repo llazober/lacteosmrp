@@ -956,12 +956,21 @@ export class ProduccionController implements OnModuleInit {
       const fechaVen = new Date();
       fechaVen.setDate(fechaVen.getDate() + vidaUtil);
 
+      const duplicateLote = await tx.lote.findFirst({
+        where: {
+          numeroLote: loteNumero,
+          NOT: {
+            ordenProduccionId: op.id,
+          },
+        },
+      });
+      if (duplicateLote) {
+        throw new BadRequestException(`El número de lote "${loteNumero}" ya existe en el sistema.`);
+      }
+
       const existingLote = await tx.lote.findFirst({
         where: {
-          OR: [
-            { ordenProduccionId: op.id },
-            { numeroLote: loteNumero }
-          ]
+          ordenProduccionId: op.id,
         },
       });
 
@@ -3084,12 +3093,21 @@ export class ProduccionController implements OnModuleInit {
         const fechaVen = new Date();
         fechaVen.setDate(fechaVen.getDate() + vidaUtil);
 
+        const duplicateLote = await tx.lote.findFirst({
+          where: {
+            numeroLote: loteNumero,
+            NOT: {
+              ordenProduccionId: op.id,
+            },
+          },
+        });
+        if (duplicateLote) {
+          throw new BadRequestException(`El número de lote "${loteNumero}" ya existe en el sistema.`);
+        }
+
         const existingLote = await tx.lote.findFirst({
           where: {
-            OR: [
-              { ordenProduccionId: op.id },
-              { numeroLote: loteNumero }
-            ]
+            ordenProduccionId: op.id,
           },
         });
 
