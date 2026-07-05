@@ -77,6 +77,13 @@ El acceso a los distintos módulos del sistema está restringido según el rol d
 | **ALMACEN** | No | Sí | Sí | Sí (Crear/Recibir) | No | Sí (Registro/Mermas) | No |
 | **VENDEDOR** | Sí | No | No | No | No | No | No |
 
+### Permisos Granulares Adicionales
+Adicionalmente, se cuenta con una matriz de control de acceso basada en permisos granulares para aislar accesos específicos:
+*   **VER_RECEPCIONES**: Permite visualizar la pantalla de Historial de Recepciones de mercadería.
+*   **GESTIONAR_RECEPCIONES**: Permite acceder y procesar la Recepción de Materiales y Guías.
+*   **VER_PICKING**: Permite ver e ingresar a la pestaña de Listas de Selección (Pick Lists) en Producción.
+*   **CONFIRMAR_PICKING**: Permite completar y confirmar la preparación de materiales/leche en las Listas de Selección.
+
 ---
 
 ## 2. Módulo de Punto de Venta (POS)
@@ -457,7 +464,7 @@ Registro de proveedores externos. Campos: nombre, RUT/NIT, contacto, correo, tel
 Términos de crédito disponibles: Contado (0 días), Crédito 15 días, 30 días, 60 días. Determinan la fecha de vencimiento de las facturas en Finanzas.
 
 ### Pestaña: Roles y Permisos
-Matriz dinámica de seguridad. Crear roles personalizados y activar/desactivar permisos con checkboxes. Permisos incluyen: VER_DASHBOARD, VER_POS, VER_INVENTARIO, VER_FRIO, VER_COMPRAS, VER_REQUERIMIENTOS_MP, VER_FINANZAS, VER_PRODUCCION, VER_CALIDAD, VER_LOGISTICA, VER_AUDITORIA, VER_UTILIDADES, VER_CHAT, USAR_ASISTENTE. Los roles de fábrica no pueden eliminarse.
+Matriz dinámica de seguridad. Crear roles personalizados y activar/desactivar permisos con checkboxes. Permisos incluyen: VER_DASHBOARD, VER_POS, VER_INVENTARIO, VER_FRIO, VER_COMPRAS, VER_REQUERIMIENTOS_MP, VER_FINANZAS, VER_PRODUCCION, VER_CALIDAD, VER_LOGISTICA, VER_AUDITORIA, VER_UTILIDADES, VER_CHAT, USAR_ASISTENTE, VER_PICKING, CONFIRMAR_PICKING, VER_RECEPCIONES, GESTIONAR_RECEPCIONES. Los roles de fábrica no pueden eliminarse.
 
 ### Pestaña: Manual del Sistema
 Muestra el contenido completo de este manual operativo dentro del ERP para consulta directa.

@@ -435,7 +435,10 @@ TOUR GUIADO DEL SISTEMA:
                   'sucursales',
                   'roles',
                   'manual',
-                  'configuracion'
+                  'configuracion',
+                  'recepcion_materiales',
+                  'historial_recepciones',
+                  'picking'
                 ],
                 description: 'La sección o pantalla de la aplicación a la que se desea navegar, incluyendo cualquier sub-pestaña específica.',
               },
@@ -684,6 +687,9 @@ TOUR GUIADO DEL SISTEMA:
       consolidado: { permission: 'VER_CONSOLIDADO', path: '/consolidado' },
       asistente: { permission: 'USAR_ASISTENTE', path: '/asistente' },
       utilidades: { permission: 'VER_UTILIDADES', path: '/utilidades' },
+      recepcion_materiales: { permission: 'GESTIONAR_RECEPCIONES', path: '/compras/recepcion' },
+      historial_recepciones: { permission: 'VER_RECEPCIONES', path: '/compras/recepciones' },
+      picking: { permission: 'VER_PICKING', path: '/produccion?tab=picking' },
 
       // Calidad sub-tabs
       recepcion_leche: { permission: 'VER_CALIDAD', path: '/calidad?tab=recepcion' },
@@ -834,6 +840,18 @@ TOUR GUIADO DEL SISTEMA:
       'guia_del_sistema': 'manual',
       'guia': 'manual',
       'configuracion del sistema': 'configuracion',
+      'recepcion materiales': 'recepcion_materiales',
+      'recepcion de materiales': 'recepcion_materiales',
+      'recepcion_materiales': 'recepcion_materiales',
+      'historial recepciones': 'historial_recepciones',
+      'historial de recepciones': 'historial_recepciones',
+      'materiales recibidos': 'historial_recepciones',
+      'materiales_recibidos': 'historial_recepciones',
+      'historial_recepciones': 'historial_recepciones',
+      'picking': 'picking',
+      'listas de seleccion': 'picking',
+      'listas_de_seleccion': 'picking',
+      'lista de seleccion': 'picking',
       'categorias_de_productos': 'categorias',
       'unidades_de_medida': 'unidades',
       'tipos_de_producto': 'tipos',
@@ -875,11 +893,11 @@ TOUR GUIADO DEL SISTEMA:
     } else {
       // Fallbacks matching App.tsx / auth.controller.ts
       if (user?.rol === 'ALMACEN') {
-        permisos = ['VER_DASHBOARD', 'VER_INVENTARIO', 'VER_PRODUCCION', 'VER_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES', 'VER_TRASLADO_INTERSUCURSALES', 'VER_PRODUCTOS', 'VER_LOTES'];
+        permisos = ['VER_DASHBOARD', 'VER_INVENTARIO', 'VER_PRODUCCION', 'VER_COMPRAS', 'VER_CHAT', 'VER_UTILIDADES', 'VER_TRASLADO_INTERSUCURSALES', 'VER_PRODUCTOS', 'VER_LOTES', 'VER_PICKING', 'CONFIRMAR_PICKING', 'VER_RECEPCIONES', 'GESTIONAR_RECEPCIONES'];
       } else if (user?.rol === 'CAJERO') {
         permisos = ['VER_DASHBOARD', 'VER_POS', 'VER_CHAT'];
       } else if (user?.rol === 'CONTROL_CALIDAD' || user?.rol === 'CALIDAD') {
-        permisos = ['VER_DASHBOARD', 'VER_CALIDAD', 'VER_CHAT', 'VER_LOTES'];
+        permisos = ['VER_DASHBOARD', 'VER_CALIDAD', 'VER_CHAT', 'VER_LOTES', 'VER_RECEPCIONES'];
       }
     }
 
