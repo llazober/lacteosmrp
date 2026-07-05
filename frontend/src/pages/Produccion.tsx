@@ -215,7 +215,16 @@ export default function Produccion() {
       op.receta.nombre.toLowerCase().includes(query) ||
       op.receta.productoFinal.descripcion.toLowerCase().includes(query);
     
-    const matchesEstado = filtroEstadoOP === 'TODOS' || op.estado === filtroEstadoOP;
+    let matchesEstado = false;
+    if (filtroEstadoOP === 'TODOS') {
+      matchesEstado = true;
+    } else if (filtroEstadoOP === 'EN_PROCESO') {
+      matchesEstado = op.estado === 'EN_PROCESO' || (op.estado === 'PLANIFICADA' && op.pickingCompletado);
+    } else if (filtroEstadoOP === 'PLANIFICADA') {
+      matchesEstado = op.estado === 'PLANIFICADA' && !op.pickingCompletado;
+    } else {
+      matchesEstado = op.estado === filtroEstadoOP;
+    }
     return matchesSearch && matchesEstado;
   });
 
@@ -1149,7 +1158,11 @@ export default function Produccion() {
                     .slice(pageOP * rowsPerPageOP, pageOP * rowsPerPageOP + rowsPerPageOP)
                     .map((op) => {
                       const isSelected = selectedRowId === op.id;
-                      const activeOp = op.operaciones?.find((step: any) => step.estado === 'EN_PROCESO');
+                      const sortedOps = [...(op.operaciones || [])].sort((a: any, b: any) => a.orden - b.orden);
+                      const activeOp = op.operaciones?.find((step: any) => step.estado === 'EN_PROCESO')
+                        || (op.estado === 'EN_PROCESO' || (op.estado === 'PLANIFICADA' && op.pickingCompletado)
+                            ? sortedOps.find((step: any) => step.estado === 'PENDIENTE')
+                            : null);
                       const ctName = activeOp
                         ? (centrosTrabajo.find((w: any) => w.id === activeOp.workCenter)?.nombre || activeOp.workCenter)
                         : '';
@@ -1188,12 +1201,12 @@ export default function Produccion() {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={op.estado}
+                              label={(op.estado === 'PLANIFICADA' && op.pickingCompletado) ? 'EN_PROCESO' : op.estado}
                               size="small"
                               color={
                                 op.estado === 'COMPLETADA'
                                   ? 'success'
-                                  : op.estado === 'EN_PROCESO'
+                                  : (op.estado === 'EN_PROCESO' || (op.estado === 'PLANIFICADA' && op.pickingCompletado))
                                   ? 'primary'
                                   : op.estado === 'PLANIFICADA'
                                   ? 'warning'
@@ -1207,10 +1220,10 @@ export default function Produccion() {
                                   : undefined
                               }
                             />
-                            {op.estado === 'EN_PROCESO' && ctName && (
+                            {((op.estado === 'EN_PROCESO' || (op.estado === 'PLANIFICADA' && op.pickingCompletado)) && ctName) && (
                               <Typography
                                 variant="caption"
-                                sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: 'primary.light' }}
+                                  sx={{ display: 'block', mt: 0.5, fontWeight: 600, color: 'primary.light' }}
                               >
                                 📍 {ctName}
                               </Typography>

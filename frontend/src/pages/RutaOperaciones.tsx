@@ -64,6 +64,10 @@ export default function RutaOperaciones() {
   const [cantidadProducida, setCantidadProducida] = useState('');
   const [loteNumero, setLoteNumero] = useState('');
 
+  // Modal Código de Barras
+  const [openBarcodeModal, setOpenBarcodeModal] = useState(false);
+  const [barcodeLabelQty, setBarcodeLabelQty] = useState(1);
+
   // Notas/Observaciones de Desviación
   const [openNotas, setOpenNotas] = useState(false);
   const [notasTexto, setNotasTexto] = useState('');
@@ -206,6 +210,12 @@ export default function RutaOperaciones() {
         } catch {}
       }
     }
+    
+    // Filtrar ubicacion_camara para Cámara Fría
+    if (wcId === 'WC-CFRI') {
+      fields = fields.filter((f: any) => f.name !== 'ubicacion_camara');
+    }
+    
     setCurrentFields(fields);
 
     // Inicializar inputs vacíos
@@ -246,7 +256,7 @@ export default function RutaOperaciones() {
     });
   };
 
-  const printBarcode = (orden: any, loteNum: string) => {
+  const printBarcode = (orden: any, loteNum: string, qty: number = 1) => {
     if (!orden) return;
     const prod = orden.receta.productoFinal;
     const isPT = prod.tipoProducto === 'PT' || prod.tipoProducto === 'PRODUCTO_TERMINADO';
@@ -257,6 +267,18 @@ export default function RutaOperaciones() {
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    let labelsHtml = '';
+    for (let i = 0; i < qty; i++) {
+      labelsHtml += `
+        <div class="label-container" style="${i > 0 ? 'page-break-before: always;' : ''}">
+          <div class="title">${prod.descripcion || prod.nombre}</div>
+          <div class="subtitle">SKU: ${prod.sku} | Lote: ${loteNum}</div>
+          <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
+          <div class="code-text">${barcodeData}</div>
+        </div>
+      `;
+    }
 
     printWindow.document.write(`
       <html>
@@ -272,10 +294,14 @@ export default function RutaOperaciones() {
               text-align: center;
               margin: 0;
               padding: 20px;
+            }
+            .label-container {
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: center;
+              height: 100%;
+              box-sizing: border-box;
             }
             .title {
               font-size: 16px;
@@ -300,10 +326,7 @@ export default function RutaOperaciones() {
           </style>
         </head>
         <body>
-          <div class="title">${prod.descripcion || prod.nombre}</div>
-          <div class="subtitle">SKU: ${prod.sku} | Lote: ${loteNum}</div>
-          <img class="barcode-img" src="${barcodeUrl}" alt="Barcode" />
-          <div class="code-text">${barcodeData}</div>
+          ${labelsHtml}
           <script>
             window.onload = function() {
               setTimeout(function() {
@@ -383,15 +406,6 @@ export default function RutaOperaciones() {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-
-      // Imprimir etiqueta de código de barras al finalizar el último paso
-      const opsSortedF = selectedOrden?.operaciones
-        ? [...selectedOrden.operaciones].sort((a: any, b: any) => a.orden - b.orden)
-        : [];
-      const lastWcIdF = opsSortedF.length > 0 ? opsSortedF[opsSortedF.length - 1].workCenter : null;
-      if (lastWcIdF && currentWcId === lastWcIdF) {
-        printBarcode(selectedOrden, loteNumero);
-      }
 
       const opsSortedMsg = selectedOrden?.operaciones
         ? [...selectedOrden.operaciones].sort((a: any, b: any) => a.orden - b.orden)
@@ -909,15 +923,16 @@ export default function RutaOperaciones() {
                   required={field.required}
                   value={formData[field.name] || ''}
                   onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  {...(field.suffix ? {
-                    InputProps: {
+                  slotProps={{
+                    inputLabel: field.type === 'date' ? { shrink: true } : undefined,
+                    input: field.suffix ? {
                       endAdornment: (
                         <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                           {field.suffix}
                         </Typography>
                       )
-                    }
-                  } : {})}
+                    } : undefined
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       backgroundColor: 'rgba(255, 255, 255, 0.02)',
@@ -951,7 +966,7 @@ export default function RutaOperaciones() {
                     }}
                   />
                 </Box>
-                <Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <TextField
                     fullWidth
                     label="Número de Lote Final"
@@ -965,6 +980,32 @@ export default function RutaOperaciones() {
                       },
                     }}
                   />
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<QrCode sx={{ fontSize: 16 }} />}
+                    onClick={() => {
+                      if (!loteNumero) {
+                        alert('Por favor, ingrese un número de lote para imprimir el código.');
+                        return;
+                      }
+                      setBarcodeLabelQty(1);
+                      setOpenBarcodeModal(true);
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      mt: 1,
+                      borderColor: 'primary.main',
+                      color: 'primary.light',
+                      '&:hover': {
+                        borderColor: 'primary.dark',
+                        backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                      },
+                    }}
+                  >
+                    Imprimir Código de Barras
+                  </Button>
                 </Box>
               </Box>
             </>
@@ -1271,6 +1312,122 @@ export default function RutaOperaciones() {
           </Button>
           <Button variant="contained" color="primary" onClick={handleConfirmarComenzar} disabled={!operarioSeleccionado.trim()} sx={{ fontWeight: 700 }}>
             Iniciar Paso
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal Código de Barras del Lote */}
+      <Dialog
+        open={openBarcodeModal}
+        onClose={() => setOpenBarcodeModal(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontWeight: 800 }}>
+          <QrCode sx={{ color: 'primary.main' }} /> Código de Barras del Lote
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: 'rgba(255, 255, 255, 0.08)', p: 3 }}>
+          {selectedOrden && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, textAlign: 'center' }}>
+                {selectedOrden.receta.productoFinal.descripcion}
+              </Typography>
+              
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <Chip
+                  label={`SKU: ${selectedOrden.receta.productoFinal.sku}`}
+                  size="small"
+                  color="default"
+                  sx={{ fontWeight: 700 }}
+                />
+                <Chip
+                  label={`Lote: ${loteNumero}`}
+                  size="small"
+                  color="primary"
+                  sx={{ fontWeight: 700 }}
+                />
+              </Box>
+
+              {(() => {
+                const prod = selectedOrden.receta.productoFinal;
+                const isPT = prod.tipoProducto === 'PT' || prod.tipoProducto === 'PRODUCTO_TERMINADO';
+                const barcodeData = isPT ? `${prod.prodId || ''}#${loteNumero}` : loteNumero;
+                const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
+                  barcodeData
+                )}&code=Code128`;
+                const legendText = isPT 
+                  ? "Este código contiene la identificación del producto y número de lote para identificación de Producto Terminado."
+                  : "Este código contiene únicamente el número de lote para identificación de Materia Prima / Insumo.";
+                
+                return (
+                  <>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: '#fff', 
+                        borderRadius: 2, 
+                        display: 'flex', 
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        width: '100%',
+                        maxHeight: 120,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <img 
+                        src={barcodeUrl} 
+                        alt="Código de Barras" 
+                        style={{ maxWidth: '100%', height: 'auto', maxHeight: 80 }} 
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 1 }}>
+                      {legendText}
+                    </Typography>
+                  </>
+                );
+              })()}
+
+              <TextField
+                fullWidth
+                label="Cantidad de etiquetas a imprimir"
+                type="number"
+                value={String(barcodeLabelQty)}
+                onChange={(e) => setBarcodeLabelQty(Math.max(1, parseInt(e.target.value) || 1))}
+                slotProps={{
+                  htmlInput: { min: 1 }
+                }}
+                sx={{
+                  mt: 1,
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button variant="outlined" onClick={() => setOpenBarcodeModal(false)}>
+            Cerrar
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => {
+              printBarcode(selectedOrden, loteNumero, barcodeLabelQty);
+              setOpenBarcodeModal(false);
+            }} 
+            sx={{ fontWeight: 700 }}
+          >
+            Imprimir Código
           </Button>
         </DialogActions>
       </Dialog>

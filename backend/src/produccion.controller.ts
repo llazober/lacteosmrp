@@ -78,7 +78,6 @@ export class ProduccionController implements OnModuleInit {
       ])},
       { id: 'WC-CFRI', nombre: 'Cámara Fría', descripcion: 'Almacenamiento y despacho del producto terminado', duracionEstimada: 60, orden: 11, datosRequeridos: JSON.stringify([
         { label: 'Temperatura Almacenamiento', name: 'temp_almacenamiento', type: 'number', required: true, suffix: '°C' },
-        { label: 'Ubicación/Estante en Cámara', name: 'ubicacion_camara', type: 'text', required: true },
         { label: 'Fecha Estimada Despacho', name: 'fecha_despacho_estimada', type: 'date', required: true },
       ])},
     ];

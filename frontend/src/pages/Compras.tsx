@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import {
   Paper,
   Typography,
@@ -1295,98 +1295,103 @@ export default function Compras() {
                   </TableRow>
                 ) : (
                   ocForm.productos.map((item: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>
-                        {item.productoNombre}
-                        <TextField
-                          placeholder="Notas de esta línea"
-                          size="small"
-                          fullWidth
-                          multiline
-                          rows={item.notas ? 3 : 1}
-                          value={item.notas || ''}
-                          onChange={(e) => {
-                            const updated = [...ocForm.productos];
-                            updated[idx].notas = e.target.value;
-                            setOcForm({
-                              ...ocForm,
-                              productos: updated,
-                            });
-                          }}
-                          sx={{ mt: 1, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.75rem' } }}
-                        />
-                      </TableCell>
-                      <TableCell>{item.productoSku}</TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={item.cantidad}
-                          onChange={(e) => {
-                            const updated = [...ocForm.productos];
-                            updated[idx].cantidad = parseFloat(e.target.value) || 0;
-                            setOcForm({
-                              ...ocForm,
-                              productos: updated,
-                              fechaEntrega: calcularFechaEntregaSugerida(updated),
-                            });
-                          }}
-                          sx={{
-                            width: 80,
-                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={item.costoUnitario}
-                          onChange={(e) => {
-                            const updated = [...ocForm.productos];
-                            updated[idx].costoUnitario = parseFloat(e.target.value) || 0;
-                            setOcForm({
-                              ...ocForm,
-                              productos: updated,
-                              fechaEntrega: calcularFechaEntregaSugerida(updated),
-                            });
-                          }}
-                          sx={{
-                            width: 100,
-                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <TextField
-                          type="date"
-                          size="small"
-                          value={item.fechaEntrega}
-                          onChange={(e) => {
-                            const updated = [...ocForm.productos];
-                            updated[idx].fechaEntrega = e.target.value;
-                            setOcForm({
-                              ...ocForm,
-                              productos: updated,
-                              fechaEntrega: calcularFechaEntregaSugerida(updated),
-                            });
-                          }}
-                          sx={{
-                            width: 145,
-                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' }
-                          }}
-                        />
-                      </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                        {formatCurrency(item.cantidad * item.costoUnitario)}
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" color="error" onClick={() => handleEliminarItem(idx)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
+                    <Fragment key={idx}>
+                      <TableRow sx={{ '& td': { borderBottom: 'none' } }}>
+                        <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
+                        <TableCell>{item.productoSku}</TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            size="small"
+                            value={item.cantidad}
+                            onChange={(e) => {
+                              const updated = [...ocForm.productos];
+                              updated[idx].cantidad = parseFloat(e.target.value) || 0;
+                              setOcForm({
+                                ...ocForm,
+                                productos: updated,
+                                fechaEntrega: calcularFechaEntregaSugerida(updated),
+                              });
+                            }}
+                            sx={{
+                              width: 80,
+                              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            size="small"
+                            value={item.costoUnitario}
+                            onChange={(e) => {
+                              const updated = [...ocForm.productos];
+                              updated[idx].costoUnitario = parseFloat(e.target.value) || 0;
+                              setOcForm({
+                                ...ocForm,
+                                productos: updated,
+                                fechaEntrega: calcularFechaEntregaSugerida(updated),
+                              });
+                            }}
+                            sx={{
+                              width: 100,
+                              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <TextField
+                            type="date"
+                            size="small"
+                            value={item.fechaEntrega}
+                            onChange={(e) => {
+                              const updated = [...ocForm.productos];
+                              updated[idx].fechaEntrega = e.target.value;
+                              setOcForm({
+                                ...ocForm,
+                                productos: updated,
+                                fechaEntrega: calcularFechaEntregaSugerida(updated),
+                              });
+                            }}
+                            sx={{
+                              width: 145,
+                              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                          {formatCurrency(item.cantidad * item.costoUnitario)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton size="small" color="error" onClick={() => handleEliminarItem(idx)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ borderTop: 'none', py: 0.5 }} />
+                        <TableCell colSpan={7} sx={{ py: 0.5, pb: 1.5, borderTop: 'none' }}>
+                          <TextField
+                            placeholder="Notas / Comentarios de esta línea..."
+                            size="small"
+                            fullWidth
+                            multiline
+                            rows={item.notas ? 3 : 1}
+                            value={item.notas || ''}
+                            onChange={(e) => {
+                              const updated = [...ocForm.productos];
+                              updated[idx].notas = e.target.value;
+                              setOcForm({
+                                ...ocForm,
+                                productos: updated,
+                              });
+                            }}
+                            sx={{ '& .MuiInputBase-input': { py: 0.5, fontSize: '0.75rem' } }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    </Fragment>
                   ))
                 )}
                 {ocForm.productos.length > 0 && (
@@ -1707,98 +1712,103 @@ export default function Compras() {
                   </TableRow>
                 ) : (
                   editarOcForm.productos.map((item: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>
-                        {item.productoNombre}
-                        <TextField
-                          placeholder="Notas de esta línea"
-                          size="small"
-                          fullWidth
-                          multiline
-                          rows={item.notas ? 3 : 1}
-                          value={item.notas || ''}
-                          onChange={(e) => {
-                            const updated = [...editarOcForm.productos];
-                            updated[idx].notas = e.target.value;
-                            setEditarOcForm({
-                              ...editarOcForm,
-                              productos: updated,
-                            });
-                          }}
-                          sx={{ mt: 1, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.75rem' } }}
-                        />
-                      </TableCell>
-                      <TableCell>{item.productoSku}</TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={item.cantidad}
-                          onChange={(e) => {
-                            const updated = [...editarOcForm.productos];
-                            updated[idx].cantidad = parseFloat(e.target.value) || 0;
-                            setEditarOcForm({
-                              ...editarOcForm,
-                              productos: updated,
-                              fechaEntrega: calcularFechaEntregaSugerida(updated),
-                            });
-                          }}
-                          sx={{
-                            width: 80,
-                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={item.costoUnitario}
-                          onChange={(e) => {
-                            const updated = [...editarOcForm.productos];
-                            updated[idx].costoUnitario = parseFloat(e.target.value) || 0;
-                            setEditarOcForm({
-                              ...editarOcForm,
-                              productos: updated,
-                              fechaEntrega: calcularFechaEntregaSugerida(updated),
-                            });
-                          }}
-                          sx={{
-                            width: 100,
-                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <TextField
-                          type="date"
-                          size="small"
-                          value={item.fechaEntrega}
-                          onChange={(e) => {
-                            const updated = [...editarOcForm.productos];
-                            updated[idx].fechaEntrega = e.target.value;
-                            setEditarOcForm({
-                              ...editarOcForm,
-                              productos: updated,
-                              fechaEntrega: calcularFechaEntregaSugerida(updated),
-                            });
-                          }}
-                          sx={{
-                            width: 145,
-                            '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>
-                        {formatCurrency(item.cantidad * item.costoUnitario)}
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" color="error" onClick={() => handleEliminarItemEdit(idx)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
+                    <Fragment key={idx}>
+                      <TableRow sx={{ '& td': { borderBottom: 'none' } }}>
+                        <TableCell sx={{ fontWeight: 800, color: 'primary.light', fontSize: '0.85rem' }}>L{item.lineaNum || idx + 1}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{item.productoNombre}</TableCell>
+                        <TableCell>{item.productoSku}</TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            size="small"
+                            value={item.cantidad}
+                            onChange={(e) => {
+                              const updated = [...editarOcForm.productos];
+                              updated[idx].cantidad = parseFloat(e.target.value) || 0;
+                              setEditarOcForm({
+                                ...editarOcForm,
+                                productos: updated,
+                                fechaEntrega: calcularFechaEntregaSugerida(updated),
+                              });
+                            }}
+                            sx={{
+                              width: 80,
+                              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            type="number"
+                            size="small"
+                            value={item.costoUnitario}
+                            onChange={(e) => {
+                              const updated = [...editarOcForm.productos];
+                              updated[idx].costoUnitario = parseFloat(e.target.value) || 0;
+                              setEditarOcForm({
+                                ...editarOcForm,
+                                productos: updated,
+                                fechaEntrega: calcularFechaEntregaSugerida(updated),
+                              });
+                            }}
+                            sx={{
+                              width: 100,
+                              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem', textAlign: 'right' }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <TextField
+                            type="date"
+                            size="small"
+                            value={item.fechaEntrega}
+                            onChange={(e) => {
+                              const updated = [...editarOcForm.productos];
+                              updated[idx].fechaEntrega = e.target.value;
+                              setEditarOcForm({
+                                ...editarOcForm,
+                                productos: updated,
+                                fechaEntrega: calcularFechaEntregaSugerida(updated),
+                              });
+                            }}
+                            sx={{
+                              width: 145,
+                              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.875rem' }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                          {formatCurrency(item.cantidad * item.costoUnitario)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton size="small" color="error" onClick={() => handleEliminarItemEdit(idx)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ borderTop: 'none', py: 0.5 }} />
+                        <TableCell colSpan={7} sx={{ py: 0.5, pb: 1.5, borderTop: 'none' }}>
+                          <TextField
+                            placeholder="Notas / Comentarios de esta línea..."
+                            size="small"
+                            fullWidth
+                            multiline
+                            rows={item.notas ? 3 : 1}
+                            value={item.notas || ''}
+                            onChange={(e) => {
+                              const updated = [...editarOcForm.productos];
+                              updated[idx].notas = e.target.value;
+                              setEditarOcForm({
+                                ...editarOcForm,
+                                productos: updated,
+                              });
+                            }}
+                            sx={{ '& .MuiInputBase-input': { py: 0.5, fontSize: '0.75rem' } }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    </Fragment>
                   ))
                 )}
                 {editarOcForm.productos.length > 0 && (
