@@ -37,6 +37,7 @@ import {
   QrCode,
 } from '@mui/icons-material';
 import { apiFetch, useAuthStore } from '../store/useAuthStore';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
 // Work centers are now loaded dynamically from the backend
@@ -916,29 +917,49 @@ export default function RutaOperaciones() {
           >
             {currentFields.map((field) => (
               <Box key={field.name}>
-                <TextField
-                  fullWidth
-                  label={field.label}
-                  type={field.type as any}
-                  required={field.required}
-                  value={formData[field.name] || ''}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  slotProps={{
-                    inputLabel: field.type === 'date' ? { shrink: true } : undefined,
-                    input: field.suffix ? {
-                      endAdornment: (
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                          {field.suffix}
-                        </Typography>
-                      )
-                    } : undefined
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    },
-                  }}
-                />
+                {field.type === 'date' ? (
+                  <DatePicker
+                    label={field.label}
+                    value={formData[field.name] ? dayjs(formData[field.name]) : null}
+                    onChange={(newValue) => {
+                      handleFieldChange(field.name, newValue ? newValue.format('YYYY-MM-DD') : '');
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: field.required,
+                        sx: {
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                          },
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <TextField
+                    fullWidth
+                    label={field.label}
+                    type={field.type as any}
+                    required={field.required}
+                    value={formData[field.name] || ''}
+                    onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                    slotProps={{
+                      input: field.suffix ? {
+                        endAdornment: (
+                          <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                            {field.suffix}
+                          </Typography>
+                        )
+                      } : undefined
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                      },
+                    }}
+                  />
+                )}
               </Box>
             ))}
           </Box>
