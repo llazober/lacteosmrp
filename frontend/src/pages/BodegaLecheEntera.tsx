@@ -43,6 +43,7 @@ interface ComponenteMezcla {
   loteOrigen: {
     numeroLote: string;
     fechaVencimiento: string;
+    binId?: string | null;
   };
   cantidadUsada: number;
   proporcion: number;
@@ -719,7 +720,16 @@ export default function BodegaLecheEntera({ tipo = 'LECHE_ENTERA' }: { tipo?: 'L
                         </TableCell>
                         <TableCell>{mezcla.ordenProduccion.receta.nombre}</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 850, fontFamily: 'monospace', color: '#38bdf8' }}>
-                          {mezcla.loteMixto.cantidadInicial.toLocaleString()} L
+                          {(() => {
+                            const binId = activeBinId || (bins.length > 0 ? bins[0].id : null);
+                            if (binId) {
+                              const deEsteTanque = mezcla.componentes
+                                .filter((comp) => comp.loteOrigen.binId === binId)
+                                .reduce((sum, comp) => sum + comp.cantidadUsada, 0);
+                              return `${deEsteTanque.toLocaleString()} L`;
+                            }
+                            return `${mezcla.loteMixto.cantidadInicial.toLocaleString()} L`;
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
