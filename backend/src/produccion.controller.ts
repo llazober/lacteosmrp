@@ -1673,9 +1673,23 @@ export class ProduccionController implements OnModuleInit {
 
       let bodegaBins: any[] = [];
       if (esBodegaLeche && targetBodega) {
-        bodegaBins = await this.prisma.bin.findMany({
+        const rawBins = await this.prisma.bin.findMany({
           where: { bodegaId: targetBodega.id, estado: 'ACTIVO' },
           orderBy: { codigo: 'asc' },
+        });
+        const um = reqDetalle.producto.unidadMedida?.toUpperCase();
+        const isIntegerUnit = um === 'UNIDAD' || um === 'U';
+        bodegaBins = rawBins.map(b => {
+          const matchedInv = invs.find(i => i.binId === b.id);
+          const ext = matchedInv ? matchedInv.existencia : 0;
+          return {
+            id: b.id,
+            codigo: b.codigo,
+            nombre: b.nombre,
+            capacidad: b.capacidad,
+            unidad: b.unidad,
+            existencia: isIntegerUnit ? ext : Math.round(ext * 100000) / 100000,
+          };
         });
       }
 
