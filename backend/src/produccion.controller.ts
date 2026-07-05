@@ -1669,6 +1669,7 @@ export class ProduccionController implements OnModuleInit {
       let stockDisponible = 0;
       let binInfo: any = null;
       let disableTankSelection = false;
+      let binsMezcla: any[] = [];
 
       let bodegaBins: any[] = [];
       if (esBodegaLeche && targetBodega) {
@@ -1701,14 +1702,23 @@ export class ProduccionController implements OnModuleInit {
             }
           });
           if (mezcla && mezcla.componentes.length > 0) {
-            const firstCompBin = mezcla.componentes[0].loteOrigen?.bin;
-            if (firstCompBin) {
-              binInfo = {
-                id: firstCompBin.id,
-                codigo: firstCompBin.codigo,
-                nombre: firstCompBin.nombre,
-                capacidad: firstCompBin.capacidad,
-              };
+            const uniqueBins: any[] = [];
+            const seenBinIds = new Set<string>();
+            for (const comp of mezcla.componentes) {
+              const b = comp.loteOrigen?.bin;
+              if (b && !seenBinIds.has(b.id)) {
+                seenBinIds.add(b.id);
+                uniqueBins.push({
+                  id: b.id,
+                  codigo: b.codigo,
+                  nombre: b.nombre,
+                  capacidad: b.capacidad,
+                });
+              }
+            }
+            binsMezcla = uniqueBins;
+            if (uniqueBins.length > 0) {
+              binInfo = uniqueBins[0];
             }
           }
         }
@@ -1862,6 +1872,7 @@ export class ProduccionController implements OnModuleInit {
         } : null,
         bin: binInfo,
         bins: bodegaBins,
+        binsMezcla,
         disableTankSelection,
       });
     }
@@ -1980,48 +1991,57 @@ export class ProduccionController implements OnModuleInit {
             include: { bin: true },
           });
 
-          const tank1Inv = invs.find(i => i.bin?.codigo === 'TANK-01');
-          let targetBinId = itemPicking.binId;
-
-          // If TANK-01 has stock, we ALWAYS force targetBinId to be TANK-01!
-          if (tank1Inv && tank1Inv.existencia > 0) {
-            targetBinId = tank1Inv.binId;
+          // Support multiple targetBinIds
+          let targetBinIds: string[] = [];
+          if (itemPicking.binIds && Array.isArray(itemPicking.binIds) && itemPicking.binIds.length > 0) {
+            targetBinIds = itemPicking.binIds;
+          } else if (itemPicking.binId) {
+            targetBinIds = [itemPicking.binId];
           }
 
-          if (!targetBinId) {
-            // If TANK-01 is empty or not found, resolve fallback tank using stock/alphabetic sorting
-            const sortedInvs = [...invs].sort((a, b) => {
-              if (a.existencia > 0 && b.existencia <= 0) return -1;
-              if (b.existencia > 0 && a.existencia <= 0) return 1;
-              if (a.existencia > 0 && b.existencia > 0) {
-                if (b.existencia !== a.existencia) {
-                  return b.existencia - a.existencia;
+          if (targetBinIds.length === 0) {
+            // Fallback: resolve using the same logic as before (TANK-01 or fallback bin)
+            const tank1Inv = invs.find(i => i.bin?.codigo === 'TANK-01');
+            let resolvedBinId = tank1Inv?.binId;
+            if (!resolvedBinId) {
+              const sortedInvs = [...invs].sort((a, b) => {
+                if (a.existencia > 0 && b.existencia <= 0) return -1;
+                if (b.existencia > 0 && a.existencia <= 0) return 1;
+                if (a.existencia > 0 && b.existencia > 0) {
+                  if (b.existencia !== a.existencia) {
+                    return b.existencia - a.existencia;
+                  }
                 }
-              }
-              const codeA = a.bin?.codigo || 'ZZZ';
-              const codeB = b.bin?.codigo || 'ZZZ';
-              return codeA.localeCompare(codeB);
-            });
-            const mainInv = sortedInvs[0];
-            targetBinId = mainInv ? mainInv.binId : null;
+                const codeA = a.bin?.codigo || 'ZZZ';
+                const codeB = b.bin?.codigo || 'ZZZ';
+                return codeA.localeCompare(codeB);
+              });
+              const mainInv = sortedInvs[0];
+              resolvedBinId = mainInv ? mainInv.binId : null;
+            }
+            if (resolvedBinId) {
+              targetBinIds = [resolvedBinId];
+            }
           }
 
-          // 1. Obtener todos los lotes activos del tanque de leche entera en la planta
+          if (targetBinIds.length === 0) {
+            throw new BadRequestException(`Debe seleccionar al menos un tanque de origen para ${actualProducto.descripcion}.`);
+          }
+
+          // 1. Obtener todos los lotes activos de los tanques de leche seleccionados
           const activeLotes = await tx.lote.findMany({
             where: {
               productoId: actualProductoId,
               cantidadActual: { gt: 0 },
-              binId: targetBinId || undefined,
+              binId: { in: targetBinIds },
             },
             orderBy: { fechaVencimiento: 'asc' },
           });
 
           const totalDisponible = activeLotes.reduce((sum, l) => sum + l.cantidadActual, 0);
           if (totalDisponible < cantidadAPreparar) {
-            const tankObj = targetBinId ? await tx.bin.findUnique({ where: { id: targetBinId } }) : null;
-            const tankName = tankObj ? `${tankObj.codigo} — ${tankObj.nombre}` : 'principal';
             throw new BadRequestException(
-              `Stock insuficiente en el tanque ${tankName} para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
+              `Stock insuficiente en los tanques seleccionados para la orden ${op.numeroOrden}. Disponible: ${totalDisponible}L. Requerido: ${cantidadAPreparar}L.`,
             );
           }
 
@@ -2068,6 +2088,8 @@ export class ProduccionController implements OnModuleInit {
 
           // 4. Calcular proporciones y deducir de cada lote origen
           const fraction = cantidadAPreparar / totalDisponible;
+          const descontadoPorBin: Record<string, number> = {};
+
           for (const lote of activeLotes) {
             const aDescontar = lote.cantidadActual * fraction;
             const newCantidadActual = Math.max(0, lote.cantidadActual - aDescontar);
@@ -2077,6 +2099,10 @@ export class ProduccionController implements OnModuleInit {
               where: { id: lote.id },
               data: { cantidadActual: newCantidadActual },
             });
+
+            if (lote.binId) {
+              descontadoPorBin[lote.binId] = (descontadoPorBin[lote.binId] || 0) + aDescontar;
+            }
 
             // Registrar componente de la mezcla para trazabilidad
             await tx.mezclaLecheComponente.create({
@@ -2089,29 +2115,31 @@ export class ProduccionController implements OnModuleInit {
             });
           }
 
-          // 5. Decrementar existencia del inventario general en la bodega para ese bin específico
-          const inv = await tx.inventario.findFirst({
-            where: {
-              productoId: actualProductoId,
-              bodegaId: bodOrigen.id,
-              binId: targetBinId,
-            },
-          });
-          if (inv) {
-            await tx.inventario.update({
-              where: { id: inv.id },
-              data: { existencia: { decrement: cantidadAPreparar } },
-            });
-          } else {
-            await tx.inventario.create({
-              data: {
+          // 5. Decrementar existencia del inventario general en la bodega para cada bin específico
+          for (const [binId, cantidadADescontar] of Object.entries(descontadoPorBin)) {
+            const inv = await tx.inventario.findFirst({
+              where: {
                 productoId: actualProductoId,
-                sucursalId: cdId,
                 bodegaId: bodOrigen.id,
-                binId: targetBinId,
-                existencia: -cantidadAPreparar,
+                binId,
               },
             });
+            if (inv) {
+              await tx.inventario.update({
+                where: { id: inv.id },
+                data: { existencia: { decrement: cantidadADescontar } },
+              });
+            } else {
+              await tx.inventario.create({
+                data: {
+                  productoId: actualProductoId,
+                  sucursalId: cdId,
+                  bodegaId: bodOrigen.id,
+                  binId,
+                  existencia: -cantidadADescontar,
+                },
+              });
+            }
           }
 
           // 6. Registrar en detalles de orden de producción (apuntando al lote mixto)

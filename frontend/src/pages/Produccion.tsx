@@ -184,6 +184,11 @@ export default function Produccion() {
   const [openBarcodeDialog, setOpenBarcodeDialog] = useState(false);
   const [barcodeDialogData, setBarcodeDialogData] = useState<any>(null);
 
+  // Milk Mixing States
+  const [openMixModal, setOpenMixModal] = useState(false);
+  const [mixIngredientIndex, setMixIngredientIndex] = useState<number | null>(null);
+  const [mixSelectedBinIds, setMixSelectedBinIds] = useState<string[]>([]);
+
   // Bill of Operations states
   const [openBoo, setOpenBoo] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -593,6 +598,7 @@ export default function Produccion() {
         picked: false,
         selectedProductoId: i.productoId,
         binId: i.bin?.id || '',
+        binIds: i.binIds || (i.bin ? [i.bin.id] : []),
       }));
       setPickingData({ ...data, ingredientes });
       setOpenPicking(true);
@@ -612,6 +618,11 @@ export default function Produccion() {
             throw new Error(`Para el ingrediente "${prod.descripcion}" (Unidades), la cantidad de picking debe ser un número entero.`);
           }
         }
+        if (ing.esBodegaLeche && ing.picked) {
+          if (!ing.binIds || ing.binIds.length === 0) {
+            throw new Error(`Debe seleccionar al menos un tanque en la Mezcla Proporcional para ${ing.descripcion}.`);
+          }
+        }
       }
       const res = await apiFetch(`/produccion/ordenes/${selectedPickingOrder.id}/picking`, {
         method: 'POST',
@@ -623,6 +634,7 @@ export default function Produccion() {
             picked: i.picked,
             loteNumero: i.loteNumero || '',
             binId: i.binId || i.bin?.id || '',
+            binIds: i.binIds || (i.binId ? [i.binId] : i.bin ? [i.bin.id] : []),
           })),
         }),
       });
@@ -1914,10 +1926,16 @@ export default function Produccion() {
                     const isRawMilk = !!ing.esBodegaLeche;
 
                     let currentStock = ing.stockDisponible;
-                    if (isRawMilk && ing.binId) {
-                      const selectedBin = (ing.bins || []).find((b: any) => b.id === ing.binId);
-                      if (selectedBin) {
-                        currentStock = selectedBin.existencia;
+                    if (isRawMilk) {
+                      if (ing.binIds && ing.binIds.length > 0) {
+                        currentStock = (ing.bins || [])
+                          .filter((b: any) => ing.binIds.includes(b.id))
+                          .reduce((sum: number, b: any) => sum + (b.existencia || 0), 0);
+                      } else if (ing.binId) {
+                        const selectedBin = (ing.bins || []).find((b: any) => b.id === ing.binId);
+                        if (selectedBin) {
+                          currentStock = selectedBin.existencia;
+                        }
                       }
                     }
                     let currentLotes = ing.lotesDisponibles || [];
@@ -2011,55 +2029,50 @@ export default function Produccion() {
                         </TableCell>
                         <TableCell>
                           {isRawMilk ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: 150, minWidth: 150 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Chip
-                                  label="Mezcla Proporcional"
-                                  size="small"
-                                  color="info"
-                                  sx={{
-                                    fontWeight: 800,
-                                    background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
-                                    color: 'white',
-                                    height: 24,
-                                  }}
-                                />
-                                {ing.disableTankSelection && (
-                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.68rem' }}>
-                                    (Fijo TANK-01)
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: 160, minWidth: 160 }}>
+                              <Button
+                                variant="contained"
+                                color="info"
+                                size="small"
+                                onClick={() => {
+                                  setMixIngredientIndex(idx);
+                                  setMixSelectedBinIds(ing.binIds || []);
+                                  setOpenMixModal(true);
+                                }}
+                                sx={{
+                                  fontWeight: 700,
+                                  background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
+                                  color: 'white',
+                                  textTransform: 'none',
+                                }}
+                              >
+                                Seleccionar Tanques
+                              </Button>
+
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                                {(!ing.binIds || ing.binIds.length === 0) ? (
+                                  <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
+                                    Ninguno seleccionado
                                   </Typography>
+                                ) : (
+                                  (ing.bins || [])
+                                    .filter((b: any) => ing.binIds.includes(b.id))
+                                    .map((b: any) => (
+                                      <Chip
+                                        key={b.id}
+                                        label={b.codigo}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{
+                                          fontSize: '0.7rem',
+                                          height: 20,
+                                          borderColor: 'rgba(56, 189, 248, 0.4)',
+                                          color: '#38bdf8',
+                                        }}
+                                      />
+                                    ))
                                 )}
                               </Box>
-                              
-                              <FormControl size="small" fullWidth>
-                                <Select
-                                  value={ing.binId || ''}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const newIng = [...pickingData.ingredientes];
-                                    newIng[idx].binId = val;
-                                    setPickingData({ ...pickingData, ingredientes: newIng });
-                                  }}
-                                  disabled={!!ing.disableTankSelection}
-                                  displayEmpty
-                                  sx={{ fontSize: '0.75rem', height: '32px' }}
-                                >
-                                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>
-                                    <em>-- Seleccione Silo/Tanque --</em>
-                                  </MenuItem>
-                                  {(ing.bins || []).map((b: any) => (
-                                    <MenuItem key={b.id} value={b.id} sx={{ fontSize: '0.75rem' }}>
-                                      {b.codigo} — {b.nombre} {b.existencia > 0 ? `(${b.existencia} ${ing.unidadMedida})` : '(Vacío)'}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem', mt: 0.2 }}>
-                                {ing.disableTankSelection 
-                                  ? 'Silo TANK-01 tiene stock. Selección bloqueada.'
-                                  : 'Silo TANK-01 está vacío. Seleccione otro tanque.'}
-                              </Typography>
                             </Box>
                           ) : (
                             <>
@@ -2142,6 +2155,165 @@ export default function Produccion() {
           <Button onClick={() => setOpenPicking(false)} variant="outlined">Cancelar</Button>
           <Button onClick={handleConfirmarPicking} variant="contained" color="success">
             Confirmar y Registrar Selección
+          </Button>
+        </DialogActions>
+      </Dialog>
+ 
+      {/* Dialog para seleccionar múltiples tanques para la mezcla proporcional */}
+      <Dialog
+        open={openMixModal}
+        onClose={() => setOpenMixModal(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            bgcolor: '#111827',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          Selección de Tanques (Mezcla)
+        </DialogTitle>
+        <DialogContent>
+          {mixIngredientIndex !== null && pickingData?.ingredientes[mixIngredientIndex] && (() => {
+            const ing = pickingData.ingredientes[mixIngredientIndex];
+            const bins = ing.bins || [];
+            const qtyReq = parseFloat(ing.cantidadRequerida || 0);
+            const qtyYaEntregado = parseFloat(ing.yaEntregado || 0);
+            const remainingToPick = Math.max(0, qtyReq - qtyYaEntregado);
+
+            const totalSelectedStock = bins
+              .filter((b: any) => mixSelectedBinIds.includes(b.id))
+              .reduce((sum: number, b: any) => sum + (b.existencia || 0), 0);
+
+            const hasEnoughStock = totalSelectedStock >= remainingToPick;
+
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Ingrediente:
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'primary.light' }}>
+                    {ing.descripcion} ({ing.sku})
+                  </Typography>
+                </Box>
+
+                <Paper sx={{ p: 2, bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Pendiente por Recibir:</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                      {remainingToPick.toFixed(2)} {ing.unidadMedida}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Stock Seleccionado:</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: hasEnoughStock ? 'success.light' : 'error.light' }}>
+                      {totalSelectedStock.toFixed(2)} {ing.unidadMedida}
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.06)' }} />
+                  <Alert severity={hasEnoughStock ? "success" : "warning"} sx={{ py: 0.5, px: 1.5, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
+                    {hasEnoughStock
+                      ? "Stock seleccionado suficiente para cubrir el picking."
+                      : "El stock seleccionado es menor a la cantidad requerida."}
+                  </Alert>
+                </Paper>
+
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Tanques / Silos Disponibles:
+                </Typography>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {bins.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      No hay tanques disponibles en esta bodega.
+                    </Typography>
+                  ) : (
+                    bins.map((b: any) => {
+                      const isChecked = mixSelectedBinIds.includes(b.id);
+                      return (
+                        <Paper
+                          key={b.id}
+                          onClick={() => {
+                            if (isChecked) {
+                              setMixSelectedBinIds(mixSelectedBinIds.filter(id => id !== b.id));
+                            } else {
+                              setMixSelectedBinIds([...mixSelectedBinIds, b.id]);
+                            }
+                          }}
+                          sx={{
+                            p: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            bgcolor: isChecked ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255, 255, 255, 0.01)',
+                            border: `1px solid ${isChecked ? '#38bdf8' : 'rgba(255, 255, 255, 0.05)'}`,
+                            borderRadius: 2,
+                            '&:hover': {
+                              bgcolor: 'rgba(255, 255, 255, 0.03)',
+                            },
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Checkbox
+                              checked={isChecked}
+                              size="small"
+                              sx={{ p: 0 }}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setMixSelectedBinIds([...mixSelectedBinIds, b.id]);
+                                } else {
+                                  setMixSelectedBinIds(mixSelectedBinIds.filter(id => id !== b.id));
+                                }
+                              }}
+                            />
+                            <Box sx={{ ml: 1 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {b.codigo}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {b.nombre}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: b.existencia > 0 ? 'text.primary' : 'text.secondary' }}>
+                            {b.existencia} {ing.unidadMedida}
+                          </Typography>
+                        </Paper>
+                      );
+                    })
+                  )}
+                </Box>
+              </Box>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button variant="outlined" onClick={() => setOpenMixModal(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              if (mixIngredientIndex !== null) {
+                const newIng = [...pickingData.ingredientes];
+                const ing = newIng[mixIngredientIndex];
+                ing.binIds = mixSelectedBinIds;
+                ing.binId = mixSelectedBinIds.length > 0 ? mixSelectedBinIds[0] : '';
+                setPickingData({ ...pickingData, ingredientes: newIng });
+              }
+              setOpenMixModal(false);
+            }}
+          >
+            Confirmar Selección
           </Button>
         </DialogActions>
       </Dialog>
@@ -2642,7 +2814,26 @@ export default function Produccion() {
                               }}
                             />
                           )}
-                          {ing.bin && (
+                          {ing.binsMezcla && ing.binsMezcla.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5, ml: 0.5 }}>
+                              {ing.binsMezcla.map((b: any) => (
+                                <Chip
+                                  key={b.id}
+                                  label={`🗂 Silo: ${b.codigo}`}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    color: '#a5b4fc',
+                                    borderColor: 'rgba(99,102,241,0.4)',
+                                    backgroundColor: 'rgba(99,102,241,0.08)',
+                                    height: 20
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          ) : ing.bin ? (
                             <Chip
                               label={`🗂 Bin: ${ing.bin.codigo} — ${ing.bin.nombre}`}
                               size="small"
@@ -2658,7 +2849,7 @@ export default function Produccion() {
                                 height: 20
                               }}
                             />
-                          )}
+                          ) : null}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>
                           <Box>
