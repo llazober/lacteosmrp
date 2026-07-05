@@ -208,9 +208,9 @@ function MainLayout() {
     { text: 'Planificación de Producción', icon: <PlanificacionIcon />, path: '/produccion/planificacion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_PLANIFICACION_PRODUCCION' },
     { text: 'Requerimientos MP', icon: <PlanificacionIcon />, path: '/compras/requerimientos', roles: [], permission: 'VER_REQUERIMIENTOS_MP' },
     { text: 'Ruta de Operaciones', icon: <RutaIcon />, path: '/produccion/operaciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'VER_RUTA_OPERACIONES' },
-    { text: 'Recepción Materiales', icon: <RecepcionIcon />, path: '/compras/recepcion', roles: [], permission: 'VER_COMPRAS' },
-    { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD'], permission: 'VER_CALIDAD' },
-    { text: 'Historial Recepciones', icon: <TrazabilidadIcon />, path: '/compras/recepciones', roles: [], permission: 'VER_COMPRAS' },
+    { text: 'Recepción Materiales', icon: <RecepcionIcon />, path: '/compras/recepcion', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN'], permission: 'GESTIONAR_COMPRAS' },
+    { text: 'Control de Calidad', icon: <CalidadIcon />, path: '/calidad', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'CALIDAD', 'CONTROL_CALIDAD'], permission: 'VER_CALIDAD' },
+    { text: 'Historial Recepciones', icon: <TrazabilidadIcon />, path: '/compras/recepciones', roles: ['ADMINISTRADOR', 'SUPERVISOR', 'ALMACEN', 'CALIDAD', 'CONTROL_CALIDAD'], permission: 'VER_COMPRAS' },
     { text: 'Cuentas por Pagar', icon: <FinanzasIcon />, path: '/finanzas', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_FINANZAS' },
     { text: 'Auditoría y Personal', icon: <AuditoriaIcon />, path: '/auditoria', roles: ['ADMINISTRADOR', 'SUPERVISOR'], permission: 'VER_AUDITORIA' },
     { text: 'Chat Operativo', icon: <ChatIcon />, path: '/chat', roles: [], permission: 'VER_CHAT' },
@@ -566,14 +566,56 @@ function MainLayout() {
               )
             }
           />
-          {usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'CALIDAD' ? (
+          {usuario?.rol === 'ADMINISTRADOR' ||
+          usuario?.rol === 'SUPERVISOR' ||
+          usuario?.rol === 'CALIDAD' ||
+          usuario?.rol === 'CONTROL_CALIDAD' ||
+          usuario?.permisos?.includes('VER_CALIDAD') ? (
             <Route path="/calidad" element={<Calidad />} />
           ) : (
             <Route path="/calidad" element={<Navigate to="/" />} />
           )}
-          <Route path="/compras" element={<Compras />} />
-          <Route path="/compras/recepcion" element={<RecepcionMateriales />} />
-          <Route path="/compras/recepciones" element={<MaterialesRecibidos />} />
+          <Route
+            path="/compras"
+            element={
+              usuario?.rol === 'ADMINISTRADOR' ||
+              usuario?.rol === 'SUPERVISOR' ||
+              usuario?.rol === 'ALMACEN' ||
+              usuario?.permisos?.includes('VER_COMPRAS') ? (
+                <Compras />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route
+            path="/compras/recepcion"
+            element={
+              usuario?.rol === 'ADMINISTRADOR' ||
+              usuario?.rol === 'SUPERVISOR' ||
+              usuario?.rol === 'ALMACEN' ||
+              usuario?.permisos?.includes('GESTIONAR_COMPRAS') ? (
+                <RecepcionMateriales />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route
+            path="/compras/recepciones"
+            element={
+              usuario?.rol === 'ADMINISTRADOR' ||
+              usuario?.rol === 'SUPERVISOR' ||
+              usuario?.rol === 'ALMACEN' ||
+              usuario?.rol === 'CALIDAD' ||
+              usuario?.rol === 'CONTROL_CALIDAD' ||
+              usuario?.permisos?.includes('VER_COMPRAS') ? (
+                <MaterialesRecibidos />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
           {usuario?.permisos?.includes('VER_REQUERIMIENTOS_MP') || usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' ? (
             <Route path="/compras/requerimientos" element={<RequerimientosMateriaPrima />} />
           ) : (

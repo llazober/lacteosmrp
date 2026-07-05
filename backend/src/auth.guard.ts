@@ -83,6 +83,9 @@ export class AuthGuard implements CanActivate {
           requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
         }
       }
+      else if (className === 'RecepcionController') {
+        requiredPermission = isRead ? 'VER_COMPRAS' : 'GESTIONAR_COMPRAS';
+      }
       else if (className === 'CalidadController')
         requiredPermission = isRead ? 'VER_CALIDAD' : 'GESTIONAR_CALIDAD';
       else if (className === 'AuditoriaController')
@@ -159,12 +162,13 @@ export class AuthGuard implements CanActivate {
           } else if (payload.rol === 'CAJERO') {
             const cajeroPerms = ['VER_POS', 'REALIZAR_VENTAS', 'VER_CHAT'];
             hasPermission = cajeroPerms.includes(requiredPermission);
-          } else if (payload.rol === 'CONTROL_CALIDAD') {
+          } else if (payload.rol === 'CONTROL_CALIDAD' || payload.rol === 'CALIDAD') {
             const calidadPerms = [
               'VER_CALIDAD',
               'GESTIONAR_CALIDAD',
               'VER_LOTES',
               'VER_CHAT',
+              'VER_COMPRAS',
             ];
             hasPermission = calidadPerms.includes(requiredPermission);
           }

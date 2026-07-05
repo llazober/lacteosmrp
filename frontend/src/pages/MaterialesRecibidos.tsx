@@ -18,6 +18,7 @@ import {
   DialogActions,
   Divider,
   Checkbox,
+  Alert,
 } from '@mui/material';
 import {
   Search,
@@ -29,7 +30,7 @@ import {
   Print,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
-import { apiFetch } from '../store/useAuthStore';
+import { apiFetch, useAuthStore } from '../store/useAuthStore';
 
 interface RecepcionDetalle {
   id: string;
@@ -79,6 +80,23 @@ interface Recepcion {
 }
 
 export default function MaterialesRecibidos() {
+  const usuario = useAuthStore((state) => state.usuario);
+
+  if (
+    usuario?.rol !== 'ADMINISTRADOR' &&
+    usuario?.rol !== 'SUPERVISOR' &&
+    usuario?.rol !== 'ALMACEN' &&
+    usuario?.rol !== 'CALIDAD' &&
+    usuario?.rol !== 'CONTROL_CALIDAD' &&
+    !usuario?.permisos?.includes('VER_COMPRAS')
+  ) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert severity="error">No tiene permisos para acceder a esta página.</Alert>
+      </Box>
+    );
+  }
+
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

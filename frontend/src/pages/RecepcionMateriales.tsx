@@ -63,6 +63,19 @@ interface ItemRecepcion {
 export default function RecepcionMateriales() {
   const usuario = useAuthStore((state) => state.usuario);
 
+  if (
+    usuario?.rol !== 'ADMINISTRADOR' &&
+    usuario?.rol !== 'SUPERVISOR' &&
+    usuario?.rol !== 'ALMACEN' &&
+    !usuario?.permisos?.includes('GESTIONAR_COMPRAS')
+  ) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert severity="error">No tiene permisos para acceder a esta página.</Alert>
+      </Box>
+    );
+  }
+
   // Catálogos
   const [proveedores, setProveedores] = useState<any[]>([]);
   const [sucursales, setSucursales] = useState<any[]>([]);
