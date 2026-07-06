@@ -56,7 +56,9 @@ import dayjs from 'dayjs';
 export default function Produccion() {
   const usuario = useAuthStore((state) => state.usuario);
   const canSeeAll = usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.permisos?.includes('VER_PRODUCCION');
-  const canSeePickingOnly = !canSeeAll && usuario?.permisos?.includes('VER_PICKING');
+  const canSeePickingOnly = !canSeeAll && (usuario?.permisos?.includes('VER_PICKING') || usuario?.permisos?.includes('CONFIRMAR_PICKING'));
+  const canConfirmPicking = usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' || usuario?.permisos?.includes('CONFIRMAR_PICKING');
+  const canViewPicking = usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN' || usuario?.permisos?.includes('VER_PICKING') || usuario?.permisos?.includes('CONFIRMAR_PICKING');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
@@ -76,7 +78,7 @@ export default function Produccion() {
     // Fallback: if user only has picking permission, default to 2 (picking)
     const userState = useAuthStore.getState().usuario;
     const userCanSeeAll = userState?.rol === 'ADMINISTRADOR' || userState?.rol === 'SUPERVISOR' || userState?.permisos?.includes('VER_PRODUCCION');
-    if (!userCanSeeAll && userState?.permisos?.includes('VER_PICKING')) {
+    if (!userCanSeeAll && (userState?.permisos?.includes('VER_PICKING') || userState?.permisos?.includes('CONFIRMAR_PICKING'))) {
       return 2;
     }
     return 0;
@@ -1445,7 +1447,7 @@ export default function Produccion() {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          {(usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'SUPERVISOR' || usuario?.rol === 'ALMACEN') && (
+                          {canViewPicking && (
                             <Button
                               size="small"
                               variant="contained"
@@ -2121,6 +2123,7 @@ export default function Produccion() {
                             <>
                               <Autocomplete
                                 freeSolo
+                                disabled={!canConfirmPicking}
                                 sx={{ width: 150, minWidth: 150 }}
                                 options={currentLotes ? currentLotes.map((l: any) => l.numeroLote) : []}
                                 value={ing.loteNumero || ''}
@@ -2155,6 +2158,7 @@ export default function Produccion() {
                             type="number"
                             size="small"
                             value={ing.cantidadPicked}
+                            disabled={!canConfirmPicking}
                             onChange={(e) => {
                               const newIng = [...pickingData.ingredientes];
                               newIng[idx].cantidadPicked = e.target.value;
@@ -2178,6 +2182,7 @@ export default function Produccion() {
                         <TableCell align="center">
                           <Checkbox
                             checked={ing.picked}
+                            disabled={!canConfirmPicking}
                             onChange={(e) => {
                               const newIng = [...pickingData.ingredientes];
                               newIng[idx].picked = e.target.checked;
@@ -2196,7 +2201,12 @@ export default function Produccion() {
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
           <Button onClick={() => setOpenPicking(false)} variant="outlined">Cancelar</Button>
-          <Button onClick={handleConfirmarPicking} variant="contained" color="success">
+          <Button
+            onClick={handleConfirmarPicking}
+            variant="contained"
+            color="success"
+            disabled={!canConfirmPicking}
+          >
             Confirmar y Registrar Selección
           </Button>
         </DialogActions>
@@ -2282,6 +2292,7 @@ export default function Produccion() {
                         <Paper
                           key={b.id}
                           onClick={() => {
+                            if (!canConfirmPicking) return;
                             if (isChecked) {
                               setMixSelectedBinIds(mixSelectedBinIds.filter(id => id !== b.id));
                             } else {
@@ -2307,6 +2318,7 @@ export default function Produccion() {
                             <Checkbox
                               checked={isChecked}
                               size="small"
+                              disabled={!canConfirmPicking}
                               sx={{ p: 0 }}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => {
@@ -2345,6 +2357,7 @@ export default function Produccion() {
           <Button
             variant="contained"
             color="primary"
+            disabled={!canConfirmPicking}
             onClick={() => {
               if (mixIngredientIndex !== null) {
                 const newIng = [...pickingData.ingredientes];
