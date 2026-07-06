@@ -385,6 +385,18 @@ export default function RutaOperaciones() {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
+      // Validar campos obligatorios configurados dinámicamente
+      if (currentFields && Array.isArray(currentFields)) {
+        for (const field of currentFields) {
+          if (field.required) {
+            const val = formData[field.name];
+            if (val === undefined || val === null || String(val).trim() === '') {
+              throw new Error(`El campo "${field.label || field.name}" es obligatorio.`);
+            }
+          }
+        }
+      }
+
       const payload: any = {
         datosJson: formData,
         notas: notasTexto,

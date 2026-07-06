@@ -2901,6 +2901,47 @@ export class ProduccionController implements OnModuleInit {
       throw new BadRequestException('Solo se pueden finalizar operaciones que estén EN_PROCESO.');
     }
 
+    // Validar campos obligatorios (datosRequeridos) en el backend
+    let requiredFields: any[] = [];
+    if (operacion.datosRequeridos) {
+      try {
+        requiredFields = typeof operacion.datosRequeridos === 'string'
+          ? JSON.parse(operacion.datosRequeridos)
+          : operacion.datosRequeridos;
+      } catch (e) {
+        console.error('Error parsing custom fields in backend:', e);
+      }
+    }
+    if (!requiredFields || requiredFields.length === 0) {
+      // Fallback a la plantilla del Centro de Trabajo
+      const ct = await this.prisma.centroTrabajo.findUnique({
+        where: { id: workCenter },
+      });
+      if (ct && ct.datosRequeridos) {
+        try {
+          requiredFields = typeof ct.datosRequeridos === 'string'
+            ? JSON.parse(ct.datosRequeridos)
+            : ct.datosRequeridos;
+        } catch {}
+      }
+    }
+
+    // Excluir 'ubicacion_camara' en el último paso (Cámara Fría) si es necesario
+    if (workCenter === 'WC-CFRI' && requiredFields && Array.isArray(requiredFields)) {
+      requiredFields = requiredFields.filter((f: any) => f.name !== 'ubicacion_camara');
+    }
+
+    if (requiredFields && Array.isArray(requiredFields)) {
+      for (const field of requiredFields) {
+        if (field.required) {
+          const val = datosJson ? datosJson[field.name] : undefined;
+          if (val === undefined || val === null || String(val).trim() === '') {
+            throw new BadRequestException(`El campo "${field.label || field.name}" es obligatorio.`);
+          }
+        }
+      }
+    }
+
     const fechaFin = new Date();
     const fechaInicio = operacion.fechaInicio || new Date();
     const duracionSegundos = Math.round((fechaFin.getTime() - fechaInicio.getTime()) / 1000);

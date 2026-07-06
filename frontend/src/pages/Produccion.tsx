@@ -1305,18 +1305,20 @@ export default function Produccion() {
                                   <Settings fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Imprimir Código de Barras">
-                                <IconButton
-                                  color="success"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenBarcodePrint(op);
-                                  }}
-                                  size="small"
-                                >
-                                  <QrCode fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
+                              {op.estado === 'COMPLETADA' && (
+                                <Tooltip title="Imprimir Código de Barras">
+                                  <IconButton
+                                    color="success"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenBarcodePrint(op);
+                                    }}
+                                    size="small"
+                                  >
+                                    <QrCode fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                               <Tooltip title="Ver Pick List (Lectura)">
                                 <IconButton color="secondary" onClick={(e) => { e.stopPropagation(); handleOpenReadOnlyPicking(op); }} size="small">
                                   <Assignment fontSize="small" />
