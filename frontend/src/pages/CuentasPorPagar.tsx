@@ -87,7 +87,6 @@ export default function CuentasPorPagar() {
   // Data states
   const [facturas, setFacturas] = useState<any[]>([]);
   const [proveedores, setProveedores] = useState<any[]>([]);
-  const [ordenesCompra, setOrdenesCompra] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [recepciones, setRecepciones] = useState<any[]>([]);
   const [pagos, setPagos] = useState<any[]>([]);
@@ -133,7 +132,6 @@ export default function CuentasPorPagar() {
 
   // Selected Entities
   const [selectedFactura, setSelectedFactura] = useState<any>(null);
-  const [selectedProveedor, setSelectedProveedor] = useState<any>(null);
 
   // Form states
   const [facturaForm, setFacturaForm] = useState({
@@ -203,7 +201,7 @@ export default function CuentasPorPagar() {
     try {
       if (activeTab === 0) {
         // Facturas
-        const [facts, provs, ocs, recs, prods] = await Promise.all([
+        const [facts, provs, , recs, prods] = await Promise.all([
           apiFetchContabilidad('/facturas-compra'),
           apiFetchContabilidad('/proveedores/detalles'),
           apiFetch('/compras'),
@@ -212,7 +210,6 @@ export default function CuentasPorPagar() {
         ]);
         setFacturas(facts);
         setProveedores(provs);
-        setOrdenesCompra(ocs);
         setRecepciones(recs || []);
         setProductos(prods);
       } else if (activeTab === 1) {
