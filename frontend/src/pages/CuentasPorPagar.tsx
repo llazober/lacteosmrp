@@ -41,7 +41,6 @@ import {
   Warning,
   AccountBalance,
   Visibility,
-  Info,
   Search,
   CheckCircle,
   AccountTree,
@@ -58,7 +57,7 @@ import {
 import { apiFetch, apiFetchContabilidad } from '../store/useAuthStore';
 
 export default function CuentasPorPagar() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = new URLSearchParams(window.location.search).get('tab');
     if (tabParam) {
