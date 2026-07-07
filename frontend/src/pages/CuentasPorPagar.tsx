@@ -979,7 +979,7 @@ export default function CuentasPorPagar() {
       {/* ==================== TAB 3: CONCILIACIÓN BANCARIA ==================== */}
       {activeTab === 3 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ borderRadius: 3, minHeight: 400 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, alignItems: 'center' }}>
@@ -1026,7 +1026,7 @@ export default function CuentasPorPagar() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ borderRadius: 3, minHeight: 400 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
@@ -1068,7 +1068,7 @@ export default function CuentasPorPagar() {
             </Card>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
               <Button
                 variant="contained"
@@ -1300,7 +1300,7 @@ export default function CuentasPorPagar() {
       {/* ==================== TAB 7: REPORTES ==================== */}
       {activeTab === 7 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ borderRadius: 3 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
@@ -1336,7 +1336,7 @@ export default function CuentasPorPagar() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ borderRadius: 3 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
@@ -1372,7 +1372,7 @@ export default function CuentasPorPagar() {
             </Card>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Card sx={{ borderRadius: 3 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
@@ -1403,7 +1403,7 @@ export default function CuentasPorPagar() {
                 </Box>
 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={3}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
                       <Typography variant="caption" color="text.secondary">COMPRAS NETAS (SUBTOTAL)</Typography>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5 }}>
@@ -1411,7 +1411,7 @@ export default function CuentasPorPagar() {
                       </Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={12} sm={3}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
                       <Typography variant="caption" color="text.secondary">13% IVA CRÉDITO FISCAL</Typography>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5, color: 'info.main' }}>
@@ -1419,7 +1419,7 @@ export default function CuentasPorPagar() {
                       </Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={12} sm={3}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
                       <Typography variant="caption" color="text.secondary">1% RETENCIÓN IVA</Typography>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5, color: 'error.main' }}>
@@ -1427,7 +1427,7 @@ export default function CuentasPorPagar() {
                       </Typography>
                     </Paper>
                   </Grid>
-                  <Grid item xs={12} sm={3}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
                       <Typography variant="caption" color="text.secondary">10% RETENCIÓN RENTA (ISR)</Typography>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5, color: 'warning.main' }}>
@@ -1450,7 +1450,7 @@ export default function CuentasPorPagar() {
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Número de Factura / CCF"
@@ -1458,7 +1458,7 @@ export default function CuentasPorPagar() {
                   onChange={(e) => setFacturaForm({ ...facturaForm, numeroFactura: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Proveedor</InputLabel>
                   <Select
@@ -1474,7 +1474,7 @@ export default function CuentasPorPagar() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Recepción Material (GRN)</InputLabel>
                   <Select
@@ -1491,7 +1491,7 @@ export default function CuentasPorPagar() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="date"
@@ -1501,7 +1501,7 @@ export default function CuentasPorPagar() {
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Checkbox
                   checked={facturaForm.retenerRenta}
                   onChange={(e) => setFacturaForm({ ...facturaForm, retenerRenta: e.target.checked })}
@@ -1510,7 +1510,7 @@ export default function CuentasPorPagar() {
                   Aplicar 10% Retención sobre Renta (Honorarios / Servicios profesionales)
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
                   multiline
@@ -1535,7 +1535,7 @@ export default function CuentasPorPagar() {
 
             {detallesForm.map((d, index) => (
               <Grid container spacing={2} key={index} sx={{ mb: 1, alignItems: 'center' }}>
-                <Grid item xs={5}>
+                <Grid size={5}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Producto</InputLabel>
                     <Select
@@ -1557,7 +1557,7 @@ export default function CuentasPorPagar() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={3}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1571,7 +1571,7 @@ export default function CuentasPorPagar() {
                     }}
                   />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={3}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1585,7 +1585,7 @@ export default function CuentasPorPagar() {
                     }}
                   />
                 </Grid>
-                <Grid item xs={1}>
+                <Grid size={1}>
                   <IconButton color="error" onClick={() => setDetallesForm(detallesForm.filter((_, i) => i !== index))}>
                     <Delete />
                   </IconButton>
@@ -1886,29 +1886,29 @@ export default function CuentasPorPagar() {
           {selectedFactura && (
             <Box sx={{ mt: 2 }}>
               <Grid container spacing={2}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Número de Factura</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{selectedFactura.numeroFactura}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Proveedor</Typography>
                   <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{selectedFactura.proveedor.nombre}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Fecha de Emisión</Typography>
                   <Typography variant="body1">{new Date(selectedFactura.fechaEmision).toLocaleDateString()}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Fecha de Vencimiento</Typography>
                   <Typography variant="body1" color="error">{new Date(selectedFactura.fechaVencimiento).toLocaleDateString()}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Estado de Match</Typography>
                   <Typography variant="body1">
                     <Chip label={selectedFactura.matchStatus} size="small" />
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Asiento Contable Relacionado</Typography>
                   <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
                     {selectedFactura.asientoId || 'No Contabilizada'}
