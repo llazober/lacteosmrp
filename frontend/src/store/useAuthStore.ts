@@ -137,3 +137,53 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
   return data;
 }
+
+const getContabilidadApiBaseUrl = () => {
+  if ((window as any)._env_?.VITE_CONTABILIDAD_API_URL) {
+    return (window as any)._env_.VITE_CONTABILIDAD_API_URL;
+  }
+  if (import.meta.env.VITE_CONTABILIDAD_API_URL) {
+    return import.meta.env.VITE_CONTABILIDAD_API_URL;
+  }
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname || 'localhost';
+  return `${protocol}//${hostname}:3001/api`;
+};
+
+const CONTABILIDAD_API_BASE_URL = getContabilidadApiBaseUrl();
+
+export async function apiFetchContabilidad(path: string, options: RequestInit = {}) {
+  const token = useAuthStore.getState().token;
+
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${CONTABILIDAD_API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if ((response.status === 401 || response.status === 419)) {
+    // If unauthorized, do not auto logout here immediately if it's other modules, but we'll logout to be consistent
+    useAuthStore.getState().logout();
+    throw new Error('Sesión vencida. Ingrese nuevamente.');
+  }
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Error en la petición.');
+  }
+
+  return data;
+}
+
