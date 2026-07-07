@@ -693,12 +693,14 @@ export default function CuentasPorPagar() {
                 placeholder="Filtrar facturas..."
                 value={searchFactura}
                 onChange={(e) => setSearchFactura(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
                 sx={{ width: 300 }}
               />
@@ -841,12 +843,14 @@ export default function CuentasPorPagar() {
                 placeholder="Buscar pagos..."
                 value={searchPago}
                 onChange={(e) => setSearchPago(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
                 sx={{ width: 300 }}
               />
@@ -1386,7 +1390,7 @@ export default function CuentasPorPagar() {
                       value={filtroFechaImpuestos.inicio}
                       onChange={(e) => setFiltroFechaImpuestos({ ...filtroFechaImpuestos, inicio: e.target.value })}
                       size="small"
-                      InputLabelProps={{ shrink: true }}
+                      slotProps={{ inputLabel: { shrink: true } }}
                     />
                     <TextField
                       type="date"
@@ -1394,7 +1398,7 @@ export default function CuentasPorPagar() {
                       value={filtroFechaImpuestos.fin}
                       onChange={(e) => setFiltroFechaImpuestos({ ...filtroFechaImpuestos, fin: e.target.value })}
                       size="small"
-                      InputLabelProps={{ shrink: true }}
+                      slotProps={{ inputLabel: { shrink: true } }}
                     />
                     <Button variant="contained" onClick={cargarDatos}>
                       Aplicar
@@ -1498,7 +1502,7 @@ export default function CuentasPorPagar() {
                   label="Fecha de Emisión"
                   value={facturaForm.fechaEmision}
                   onChange={(e) => setFacturaForm({ ...facturaForm, fechaEmision: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
